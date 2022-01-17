@@ -8,7 +8,8 @@ download.data(
   first.year = 1967,
   last.year = 2020,
   surveys = "all",
-  quarters = "all"
+  quarters = "all",
+  datasets = c("HH", "HL")
 )
 }
 \arguments{
@@ -19,6 +20,8 @@ download.data(
 \item{surveys}{(default: "all")}
 
 \item{quarters}{(default: "all")}
+
+\item{datasets}{(default: "HH","HL")}
 }
 \value{
 List containing hh and hl data sets.

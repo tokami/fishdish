@@ -108,10 +108,8 @@ prep.species <- function(data, aphiaID,
                 print(paste0("First year (",min(tmp$Year),
                              ") is followed by one more years without observations (fragmented time series). Removing these years and checking again!"))
                 keepYears <- tmp$Year[min(which(tmp$obs == 1)[-1])]
-                survey.spp <- survey.spp %>%
-                    filter(Year >= keepYears)
-                survey0 <- survey0 %>%
-                    filter(Year >= keepYears)
+                survey.spp <- subset(survey.spp, Year >= keepYears)
+                survey0 <- subset(survey0, Year >= keepYears)
             }else{
                 conti <- FALSE
             }

@@ -88,7 +88,6 @@ prep.data <- function(data, aphiaID = NULL){
     hl <- subset(hl, hl$HaulID %in% hh$HaulID)
 
 
-
     ## Merge hh and hl
     ## subset hl (also to avoid double info in hh and hl after merging)
     hl <- hl[,c("HaulID","SpecCodeType","SpecCode","SpecVal",
@@ -124,10 +123,7 @@ prep.data <- function(data, aphiaID = NULL){
     }else{
         survey$StatRec2 <- survey$StatRec
     }
-    ind <- which(!is.na(survey$StatRec2))
-    length(ind)
-    length(which(is.na(survey$StatRec)))
-    length(which(!is.na(survey$StatRec2)))
+    ind <- which(!is.na(survey$StatRec2) & is.na(survey$StatRec))
 
     survey$StatRec[ind] <- survey$StatRec2[ind]
     survey$StatRec2 <- NULL
@@ -642,8 +638,9 @@ prep.data <- function(data, aphiaID = NULL){
     survey$N <- round(survey$N)
     colnames(survey)[which(colnames(survey) == "HaulID")] <- "haul.id"
 
+
     ## check that all entries in survey have N > 0!
-    if(!all(survey$N > 0)) stop("All surveys should have more than 0 observations. Check data and code!")
+    ## if(!all(survey$N > 0)) stop("All surveys should have more than 0 observations. Check data and code!")
 
     ## Worms list
     ## -----------

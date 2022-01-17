@@ -16,28 +16,71 @@ list.surveys <- function(){
 #' @name get.info.surveys
 #' @title Get some info about surveys
 #' @param survey optional vector or single survey
+#' @param statrec logical indicating whether to include statistical rectangles for each survey (Default: FALSE). If FALSE, returned object is a list.
+#' @param plot logical shoul plot with survey distributions be drawn?
+#' @importFrom maps map
 #' @return Data frame with info
 #' @export
-get.info.surveys <- function(survey=NULL){
+get.info.surveys <- function(survey=NULL, statrec = FALSE, plot = TRUE){
 
-    cur.year <- format(Sys.time(),"%Y")
+    data("survey.info")
 
-    survey.info <- data.frame(survey = list.surveys(),
-    first.year = c(1967,1991,1997,1998,2003,2005,2002,1999,2011,1996,1990,2001,2002,1985,2011,1985,2011,2002),
-    last.year = c(rep(cur.year,7),2009,rep(cur.year,10)),
-    quarters = c(paste0(c(1,3),collapse=","),paste0(c(1,4),collapse=","),4,4,4,paste0(c(1:4),collapse=","),
-                 paste0(c(3,4),collapse=","),3,3,paste0(c(1:4),collapse=","),paste0(c(3,4),collapse=","),
-                 paste0(c(3,4),collapse=","),paste0(c(3,4),collapse=","),paste0(c(1:4),collapse=","),
-                 paste0(c(1:4),collapse=","),paste0(c(1:4),collapse=","),4,paste0(c(3,4),collapse=","))
-    )
-    ## TODO: add all statistical rectangles? or as included data? (pot. long vectors)
-
+    all.surveys <- sapply(survey.info,function(x) x$survey)
     if(!is.null(survey[1])){
-        res <- survey.info[which(survey.info$survey %in% survey),]
-        if(!any(survey.info$survey %in% survey))
+        survey.sel <- survey.info[which(all.surveys %in% survey)]
+        if(!any(all.surveys %in% survey))
             stop("Provided survey could not be matched (remove the arguments or run list.surveys() to see all surveys).")
     }else{
-        res <- survey.info
+        survey.sel <- survey.info
+    }
+    ns <- length(survey.sel)
+    survs <- sapply(survey.sel,function(x) x$survey)
+
+    if(statrec == FALSE){
+        res <- as.data.frame(t(sapply(survey.sel, function(x) x[c("survey","first.year","last.year","quarters")])))
+    }else{
+        res <- survey.sel
+    }
+
+
+    if(plot){
+        data("ices.rectangles")
+        lat.range <- c(35,63)
+        lon.range <- c(-20,25)
+
+        if(ns >= 9){
+            mfrow = c(3,ceiling(ns/3))
+        }else if(ns < 9 & ns >= 4){
+            mfrow = c(2,ceiling(ns/2))
+        }else if(ns < 4){
+            mfrow = c(1,ns)
+        }
+        par(mfrow = mfrow, mar = c(3,3,2,1), oma = c(2.5,2.5,1,1))
+        for(i in 1:ns){
+            plot(lon.range, lat.range,
+                 xlim = lon.range, ylim = lat.range,
+                 ty='n',
+                 xlab = "", ylab = "")
+            ind <- which(ices.rectangles$ICESNAME %in% survey.sel[[i]]$StatRec)
+            tmp <- ices.rectangles[ind,]
+            for(j in 1:nrow(tmp)){
+                tmpj <- tmp[j,]
+                polygon(c(tmpj$WEST, tmpj$EAST, tmpj$EAST, tmpj$WEST),
+                        c(tmpj$SOUTH, tmpj$SOUTH, tmpj$NORTH, tmpj$NORTH),
+                        border = "goldenrod2", col = "goldenrod3")
+                ## text((tmpj$WEST + tmpj$EAST)/2, (tmpj$SOUTH + tmpj$NORTH)/2,
+                ##      labels = tmpj$ICESNAME)
+            }
+            maps::map("world", xlim = lon.range, ylim = lat.range,
+                      fill = TRUE, plot = TRUE, add = TRUE,
+                      col = grey(0.8),
+                      border = grey(0.7)
+                      )
+            mtext(survs[i], 3, 0.5)
+            box(lwd=1.5)
+        }
+        mtext("Latitude", 2, 1, outer = TRUE)
+        mtext("Longitude", 1, 1, outer = TRUE)
     }
 
     return(res)

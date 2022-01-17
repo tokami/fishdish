@@ -21,9 +21,10 @@ Suggests:
     knitr,
     glmmTMB,
     mgcv,
-    sp
+    sp,
+    maps
 Remotes:
-    tokami/surveyIndex
+    tokami/surveyIndex@fishdist
 LazyData: false
 Encoding: UTF-8
 VignetteBuilder: knitr
