@@ -22,7 +22,7 @@ download.data <- function(first.year = 1967, last.year = 2020,
 
     ## Check quarters
     all.quarters <- 1:4
-    survs <- get.info.surveys()
+    survs <- get.info.surveys(plot = FALSE)
     quarters.sel <- vector("list", ns)
     if(quarters[1] == "all" || quarters[1] == "All" || quarters[1] == "ALL"){
         for(i in 1:ns){

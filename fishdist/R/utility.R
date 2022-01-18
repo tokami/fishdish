@@ -37,7 +37,8 @@ get.info.surveys <- function(survey=NULL, statrec = FALSE, plot = TRUE){
     survs <- sapply(survey.sel,function(x) x$survey)
 
     if(statrec == FALSE){
-        res <- as.data.frame(t(sapply(survey.sel, function(x) x[c("survey","first.year","last.year","quarters")])))
+        res <- as.data.frame(t(sapply(survey.sel,
+                                      function(x) unlist(x[c("survey","first.year","last.year","quarters")]))))
     }else{
         res <- survey.sel
     }
