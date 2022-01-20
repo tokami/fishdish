@@ -1,3 +1,24 @@
+#' @name minus9toNA
+#' @title Minus 9 to NA
+#' @return Vector with NA
+#' @export
+minus9toNA <- function(x){
+    if(inherits(x,"matrix")){
+        for(i in 1:ncol(x)){
+            if(is.numeric(x[,i])){
+                is9 <- which(abs(x[,i]+9)<1e-14)
+                if(length(is9)>0) x[,i][is9] <- NA
+            }
+        }
+    }else{
+        if(is.numeric(x)){
+            is9 <- which(abs(x+9)<1e-14)
+            if(length(is9)>0) x[is9] <- NA
+        }
+    }
+    return(x)
+}
+
 #' @name list.surveys
 #' @title List all survey names
 #' @return Vector with all survey names

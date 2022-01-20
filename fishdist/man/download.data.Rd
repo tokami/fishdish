@@ -9,7 +9,9 @@ download.data(
   last.year = 2020,
   surveys = "all",
   quarters = "all",
-  datasets = c("HH", "HL")
+  aphiaID = "all",
+  datasets = c("HH", "HL"),
+  swept.area = TRUE
 )
 }
 \arguments{
@@ -21,7 +23,12 @@ download.data(
 
 \item{quarters}{(default: "all")}
 
+\item{aphiaID}{Downloads all species anyways, but early subsetting for
+species optional and can help with memory issues.}
+
 \item{datasets}{(default: "HH","HL")}
+
+\item{swept.area}{Calculate swept area?}
 }
 \value{
 List containing hh and hl data sets.

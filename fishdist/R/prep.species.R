@@ -207,7 +207,7 @@ prep.species <- function(data, aphiaID,
                               "BySpecRecCode","TimeShotHour",
                               "Ecoregion","Area_27",
                               "abstime","timeOfYear","ctime"),
-                         all.x = TRUE)
+                         all = TRUE)
     ##
     survey.spp2$AphiaID <- paste0(aphiaID, collapse = ",")
     ##

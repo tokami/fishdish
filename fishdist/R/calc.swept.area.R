@@ -39,6 +39,7 @@ calc.swept.area <- function(data, plot = TRUE){
     hh$meanLong[is.na(hh$meanLong)] <- hh$ShootLong[is.na(hh$meanLong)]
     hh$meanLat[is.na(hh$meanLat)] <- hh$ShootLat[is.na(hh$meanLat)]
 
+
     # for improvement => could make use of EMODNet or NOAA bathymetric data to get depth data
     # REMARK: be careful with tidal effects (not included in EMODNet / NOAA)
     mod.depth <- mgcv::gam(log(Depth) ~ s(meanLong,meanLat, k = 50), data = hh)
@@ -75,8 +76,8 @@ calc.swept.area <- function(data, plot = TRUE){
     ospar_data <- ospar
 
     # format different types
-    ospar_data$DepthStratum <- as.numeric(as.character(ospar_data$DepthStratum))
-    flex_data$DepthStratum  <- as.numeric(as.character(flex_data$DepthStratum))
+    ospar_data$DepthStratum <- minus9toNA(as.numeric(as.character(ospar_data$DepthStratum)))
+    flex_data$DepthStratum  <- minus9toNA(as.numeric(as.character(flex_data$DepthStratum)))
 
     # create a similar ID variable
     flex_data$ID  <- paste0(flex_data$Survey,"_",flex_data$Country,"_",flex_data$Quarter,"_",flex_data$Gear,"_",flex_data$Ship,"_",
@@ -493,7 +494,6 @@ calc.swept.area <- function(data, plot = TRUE){
         table(is.na(hh$WingSpread))
     }
 
-
     # ------------------------------------------------------------------------------
     # for the beam trawl surveys, add the beam width
     # ------------------------------------------------------------------------------
@@ -523,7 +523,7 @@ calc.swept.area <- function(data, plot = TRUE){
     idx <- which((hh$ShootLat == hh$HaulLat) &
                  (hh$ShootLong == hh$HaulLong) &
                  (hh$HaulDur == 0))
-    hh <- hh[-idx,]
+    if(length(idx) > 0) hh <- hh[-idx,]
 
     hh$Distance[hh$Distance==0]       <- NA
     hh$GroundSpeed[hh$GroundSpeed==0] <- NA
@@ -667,6 +667,7 @@ calc.swept.area <- function(data, plot = TRUE){
     ## ------------------------------------------------------------------------------
     ## calculate swept area (= gearwidth x distance)
     ## ------------------------------------------------------------------------------
+
 
     hh$SweptAreaDSKM2 <- NA ## based on doorspread
     hh$SweptAreaWSKM2 <- NA ## based on wingspread

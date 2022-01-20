@@ -24,7 +24,6 @@ plotdist <- function(data, plot.survey.dist = TRUE){
             statrec.obs[[i]] <- unique(sub$StatRec[which(sub$N > 0)])
             statrec.nonobs[[i]] <- statrec.all[[i]][!statrec.all[[i]] %in% statrec.obs[[i]]]
         }
-
     }else{
         specs <- unique(data$AphiaID)
         ns <- length(specs)
@@ -58,7 +57,7 @@ plotdist <- function(data, plot.survey.dist = TRUE){
              xlim = lon.range, ylim = lat.range,
              ty='n',
              xlab = "", ylab = "")
-        if(plot.survey.dist & length(statrec.nonobs) > 0){
+        if(plot.survey.dist & length(statrec.nonobs[[i]]) > 0){
             ind <- which(ices.rectangles$ICESNAME %in% statrec.nonobs[[i]])
             tmp <- ices.rectangles[ind,]
             for(j in 1:nrow(tmp)){
@@ -122,5 +121,11 @@ plotfit <- function(data){
     for(i in 1:ns){
         lines(rownames(data[[i]]$idx), data[[i]]$idx, ty='b', col = i)
     }
-
+    box(lwd=1.5)
+    mtext("Abundance index", 2, 3)
+    mtext("Year", 1, 3)
+    if(ns > 1) legend("topright",
+                      legend = paste0("model ",1:ns),
+                      col = 1:ns, lwd = 1, lty = 1,
+                      bg = "white")
 }

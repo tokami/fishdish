@@ -2,9 +2,10 @@
 #' @title Estimated distribution
 #' @param specdata Data set of one species
 #' @param mods NULL default
+#' @param nBoot number of bootrstrapping samples
 #' @return List containing hh and hl data sets.
 #' @export
-est.dist.one <- function(specdata, mods = NULL, n.lon = 20, mc.cores = 1){
+est.dist.one <- function(specdata, mods = NULL, n.lon = 20, mc.cores = 1, nBoot = 0){
 
     setMKLthreads(1)
 
@@ -28,6 +29,7 @@ est.dist.one <- function(specdata, mods = NULL, n.lon = 20, mc.cores = 1){
     ## Fit GAMs
     ## --------------------------------------
     ## Get grid (doesn't matter too much for this approach)
+    ## TODO: make option to use bathymetry function or provide grid directly
     grid <- surveyIndex::getGrid(specdata, nLon = n.lon) ## TODO: keep the optimise option?
 
     ## set max basis dim for spatial smooths, P=positive and Z=zero/absence. (as high as possible, but computation speed)
@@ -72,7 +74,7 @@ est.dist.one <- function(specdata, mods = NULL, n.lon = 20, mc.cores = 1){
                 kvecP = kvP,
                 modelP = mods[[j]],
                 fam = "negbin",
-                nBoot = 1000,
+                nBoot = nBoot,
                 CIlevel = 0.95,
                 mc.cores = mc.cores,
                 predfix = list(timeOfYear = toyPred,
