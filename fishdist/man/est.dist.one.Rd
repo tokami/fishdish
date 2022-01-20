@@ -4,12 +4,14 @@
 \alias{est.dist.one}
 \title{Estimated distribution}
 \usage{
-est.dist.one(specdata, mods = NULL, n.lon = 20, mc.cores = 1)
+est.dist.one(specdata, mods = NULL, n.lon = 20, mc.cores = 1, nBoot = 0)
 }
 \arguments{
 \item{specdata}{Data set of one species}
 
 \item{mods}{NULL default}
+
+\item{nBoot}{number of bootrstrapping samples}
 }
 \value{
 List containing hh and hl data sets.
