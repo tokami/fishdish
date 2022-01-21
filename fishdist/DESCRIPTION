@@ -24,7 +24,7 @@ Suggests:
     sp,
     maps
 Remotes:
-    tokami/surveyIndex@fishdist
+    tokami/surveyIndex/surveyIndex@fishdist
 LazyData: false
 Encoding: UTF-8
 VignetteBuilder: knitr
