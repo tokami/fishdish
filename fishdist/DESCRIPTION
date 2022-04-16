@@ -24,6 +24,7 @@ Suggests:
     sp,
     maps
 Remotes:
+    tokami/icesDatras@fishdist,
     tokami/surveyIndex/surveyIndex@fishdist
 LazyData: false
 Encoding: UTF-8
