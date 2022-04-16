@@ -11,7 +11,10 @@ download.data(
   quarters = "all",
   aphiaID = "all",
   datasets = c("HH", "HL"),
-  swept.area = TRUE
+  calc.swept.area = TRUE,
+  datras.variables = list.datras.variables.req(),
+  reduce.file.size = TRUE,
+  verbose = TRUE
 )
 }
 \arguments{
@@ -28,7 +31,13 @@ species optional and can help with memory issues.}
 
 \item{datasets}{(default: "HH","HL")}
 
-\item{swept.area}{Calculate swept area?}
+\item{calc.swept.area}{Calculate swept area?}
+
+\item{datras.variables}{DATRAS variables to use (Only used if reduce.file.size = TRUE).}
+
+\item{reduce.file.size}{Reduce file size}
+
+\item{verbose}{Print information? Default: TRUE}
 }
 \value{
 List containing hh and hl data sets.

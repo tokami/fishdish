@@ -10,10 +10,12 @@
 #' @export
 calc.swept.area <- function(data, plot = TRUE){
 
+    hh <- data$HH
 
-    ## TODO: include some checks if all needed variables are NA
+    ## Check if all required variables included
+    flag <- all(list.datras.variables.req()$HH %in% colnames(hh))
+    if(!flag) stop("Not all variables required for the calculation of the swept area are included in the HH data set. Run list.datras.variables.req() to see the required variables.")
 
-    hh <- data$hh
 
     # ------------------------------------------------------------------------------
     # Prepare HH data

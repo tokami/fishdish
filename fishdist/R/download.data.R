@@ -1,5 +1,7 @@
 #' @name download.data
+#'
 #' @title Download all surveys
+#'
 #' @param first.year First year (default: 1967)
 #' @param last.year Last year (default: 2020)
 #' @param surveys (default: "all")
@@ -7,9 +9,15 @@
 #' @param aphiaID Downloads all species anyways, but early subsetting for
 #'     species optional and can help with memory issues.
 #' @param datasets (default: "HH","HL")
-#' @param swept.area Calculate swept area?
+#' @param calc.swept.area Calculate swept area?
+#' @param datras.variables DATRAS variables to use (Only used if reduce.file.size = TRUE).
+#' @param reduce.file.size Reduce file size
+#' @param verbose Print information? Default: TRUE
+#'
 #' @return List containing hh and hl data sets.
+#'
 #' @importFrom icesDatras getDATRAS
+#'
 #' @export
 download.data <- function(first.year = 1967,
                           last.year = 2020,
@@ -17,14 +25,17 @@ download.data <- function(first.year = 1967,
                           quarters = "all",
                           aphiaID = "all",
                           datasets = c("HH","HL"),
-                          swept.area = TRUE){
+                          calc.swept.area = TRUE,
+                          datras.variables = list.datras.variables.req(),
+                          reduce.file.size = TRUE,
+                          verbose = TRUE){
 
     ## Check surveys
     all.surveys <- list.surveys()
     if(surveys == "all" || surveys == "All" || surveys == "ALL") surveys <- all.surveys
     surveys.sel <- surveys[which(surveys %in% all.surveys)]
     if(any(!surveys %in% all.surveys))
-        writeLines(paste0("Following surveys could not be matched (use list.surveys): ",
+        if(verbose) writeLines(paste0("Following surveys could not be matched (use list.surveys): ",
                           surveys[which(!surveys %in% all.surveys)]))
     ns <- length(surveys.sel)
 
@@ -49,7 +60,7 @@ download.data <- function(first.year = 1967,
     }else{
         quarters.pre <- quarters[which(as.numeric(quarters) %in% all.quarters)]
         if(any(!quarters.pre %in% all.quarters))
-            writeLines(paste0("Following quarters could not be matched (1:4): ",
+            if(verbose) writeLines(paste0("Following quarters could not be matched (1:4): ",
                               quarters.pre[which(!quarters.pre %in% all.quarters)]))
         for(i in 1:ns){
             tmp <- as.numeric(strsplit(survs$quarters[survs$survey %in% surveys.sel[i]],",")[[1]])
@@ -58,8 +69,7 @@ download.data <- function(first.year = 1967,
         }
     }
 
-    writeLines("Downloading data sets. This might take some time.")
-
+    if(verbose) writeLines("Downloading data sets. This might take some time.")
 
     ## Haul info from Datras
     hl <- hh <- NULL
@@ -68,30 +78,45 @@ download.data <- function(first.year = 1967,
         dat <- vector("list",ns)
         for(i in 1:ns){
             surv <- surveys.sel[i]
-            writeLines(paste0("Downloading data set '",dat.type,"' of: ", surv))
+            if(verbose) writeLines(paste0("Downloading data set '",dat.type,"' of: ", surv))
             dat[[i]] <- suppressMessages(icesDatras::getDATRAS(record = dat.type,
                                                                survey = surv,
                                                                years = first.year:last.year,
                                                                quarters = quarters.sel[[i]]))
-            if(dat.type == "HL" && !(aphiaID[1] %in% c("all","All","ALL")) && !is.null(aphiaID[1]) && !is.na(aphiaID[1])){
-                writeLines(paste0("Subsetting downloaded data for following Aphia ID(s): ",
+
+            ## Subset Species if provided
+            if(dat.type == "HL" && !(aphiaID[1] %in% c("all","All","ALL")) &&
+               !is.null(aphiaID[1]) && !is.na(aphiaID[1])){
+                if(verbose) writeLines(paste0("Subsetting downloaded data for following Aphia ID(s): ",
                                   paste0(aphiaID, collapse = ", ")))
                 dat[[i]] <- subset(dat[[i]], Valid_Aphia %in% aphiaID)
+            }
+
+            ## Subset required variables
+            if(reduce.file.size){
+                ind <- datras.variables[[dat.type]]
+                if(verbose) writeLines(paste0("Subsetting downloaded data for following variables: ",
+                                  paste0(ind, collapse = ", ")))
+                dat[[i]] <- dat[[i]][ind]
             }
         }
         ## Combine data from surveys
         if(dat.type == "HH"){
-            hh <- do.call(rbind, dat)
-            if(swept.area){
-                writeLines("Calculating the swept area for downloaded Data.")
+            hh <- try(do.call(rbind, dat), silent = TRUE)
+            if(inherits(hh, "try-error")){
+                stop(paste0("Cannot merge data sets. Please contact the package maintainer. This might be due to a misfit in DATRAS variables: ",lapply(dat, colnames)))
+            }
+            if(calc.swept.area){
+                if(verbose) writeLines("Calculating the swept area for downloaded Data.")
                 hh <- calc.swept.area(list(hh=hh))$hh
             }
         }else if(dat.type == "HL"){
-            ## print(lapply(dat, colnames))
-            ## CHECK: sometimes getting an error here because column names do not match
-            hl <- do.call(rbind, dat)
+            hl <- try(do.call(rbind, dat), silent = TRUE)
+            if(inherits(hl, "try-error")){
+                stop(paste0("Cannot merge data sets. Please contact the package maintainer. This might be due to a misfit in DATRAS variables: ",lapply(dat, colnames)))
+            }
         }
     }
 
-    return(list(hh=hh, hl=hl))
+    return(list(HH=hh, HL=hl))
 }

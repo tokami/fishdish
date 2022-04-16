@@ -8,10 +8,10 @@
 prep.data <- function(data, aphiaID = NULL){
 
     ## two data frames
-    if(class(data) != "list" || length(data) != 2 || names(data) != c("hh","hl"))
+    if(class(data) != "list" || length(data) != 2 || names(data) != c("HH","HL"))
         stop("Function requires data list with two DATRAS data sets 'hh' and 'hl' as elements.")
-    hh <- data$hh
-    hl <- data$hl
+    hh <- data$HL
+    hl <- data$HH
 
     ## flags
     saflag <- ifelse(any("SweptAreaDSKM2" == colnames(hh)),1,0)
@@ -640,10 +640,10 @@ prep.data <- function(data, aphiaID = NULL){
     worms.rec <- try(worrms::wm_record(id = aphia_list[!is.na(aphia_list)]),
                      silent = TRUE)
     if(!inherits(worms.rec,"try-error")){
-        str(worms.dat)
-        worms.dat <- as.data.frame(worms.rec)[,c("AphiaID","scientificname","genus","family","order","class")]
-        any(duplicated(worms.dat$AphiaID))
-        survey <- merge(survey, worms.dat, by='AphiaID', all.x=TRUE)
+        str(worms.rec)
+        worms.rec <- as.data.frame(worms.rec)[,c("AphiaID","scientificname","genus","family","order","class")]
+        any(duplicated(worms.rec$AphiaID))
+        survey <- merge(survey, worms.rec, by='AphiaID', all.x=TRUE)
     }
 
     ## Order
@@ -671,8 +671,8 @@ prep.data.light <- function(data, aphiaID = NULL){
     ## two data frames
     if(class(data) != "list" || length(data) != 2 || names(data) != c("hh","hl"))
         stop("Function requires data list with two DATRAS data sets 'hh' and 'hl' as elements.")
-    hh <- data$hh
-    hl <- data$hl
+    hh <- data$HH
+    hl <- data$HL
 
     ## flags
     saflag <- ifelse(any("SweptAreaDSKM2" == colnames(hh)),1,0)

@@ -229,3 +229,58 @@ list.recom.models <- function(specdata, use.toy = TRUE, use.swept.area = TRUE){
     return(mps)
 
 }
+
+
+
+#' @name list.datras.variables.req
+#' @title List all DATRAS variables
+#' @return List with all DATRAS variables for the HH and HL DATRAS data sets
+#' @export
+list.datras.variables.all <- function(){
+    all.variables <- list()
+    all.variables[["HH"]] <- c("RecordType","Survey","Quarter","Country","Ship",
+                               "Gear","SweepLngt","GearEx","DoorType","StNo",
+                               "HaulNo","Year","Month","Day","TimeShot",
+                               "DepthStratum","HaulDur","DayNight","ShootLat",
+                               "ShootLong","HaulLat","HaulLong","StatRec",
+                               "Depth","HaulVal","HydroStNo","StdSpecRecCode",
+                               "BySpecRecCode","DataType","Netopening",
+                               "Rigging","Tickler","Distance","Warplngt",
+                               "Warpdia","WarpDen","DoorSurface","DoorWgt",
+                               "DoorSpread","WingSpread","Buoyancy","KiteDim",
+                               "WgtGroundRope","TowDir","GroundSpeed",
+                               "SpeedWater","SurCurDir","SurCurSpeed",
+                               "BotCurDir","BotCurSpeed","WindDir","WindSpeed",
+                               "SwellDir","SwellHeight","SurTemp","BotTemp",
+                               "SurSal","BotSal","ThermoCline","ThClineDepth",
+                               "CodendMesh","SecchiDepth","Turbidity",
+                               "TidePhase","TideSpeed","PelSampType",
+                               "MinTrawlDepth","MaxTrawlDepth",
+                               "DateofCalculation")
+    all.variables[["HL"]] <- c("RecordType","Survey","Quarter","Country","Ship",
+                               "Gear","SweepLngt","GearEx","DoorType","StNo",
+                               "HaulNo","Year","SpecCodeType","SpecCode",
+                               "SpecVal","Sex","TotalNo","CatIdentifier",
+                               "NoMeas","SubFactor","SubWgt","CatCatchWgt",
+                               "LngtCode","LngtClass","HLNoAtLngt","DevStage",
+                               "LenMeasType","DateofCalculation","Valid_Aphia")
+    return(all.variables)
+}
+
+#' @name list.datras.variables.req
+#' @title List required DATRAS variables
+#' @return List with the required DATRAS variables for the HH and HL DATRAS data sets
+#' @export
+list.datras.variables.req <- function(){
+    all.variables <- list()
+    all.variables[["HH"]] <- c("Survey","Year","Quarter","Country","Ship","GearEx","StNo",
+                               "HaulNo","SweepLngt","DoorType","Month","Day","DepthStratum",
+                               "HaulDur","ShootLat","ShootLong","HaulLat","HaulLong","StatRec",
+                               "Depth","HaulVal","StdSpecRecCode","BySpecRecCode","DataType",
+                               "Distance","Warplngt","DoorSpread","WingSpread","GroundSpeed",
+                               "SurTemp","BotTemp","BotSal")
+    all.variables[["HL"]] <- c("Survey","Year","Quarter","Country","Ship","GearEx","StNo",
+                               "HaulNo","SpecCodeType","SpecCode","SpecVal","TotalNo","CatIdentifier",
+                               "SubFactor","HLNoAtLngt","Valid_Aphia")
+    return(all.variables)
+}
