@@ -1,20 +1,32 @@
 #' @name calc.swept.area
+#'
 #' @title Calculate swept area
+#'
 #' @author Klaas Sys
+#'
 #' @param data DATRAS data set (see download.data)
-#' @param plot Plot some summary graphs. Default: TRUE
+#' @param plot Plot some summary graphs. Default: FALSE
+#' @param verbose Print stuff? Default: TRUE
+#'
 #' @importFrom glmmTMB glmmTMB
 #' @importFrom mgcv gam
 #' @importFrom sp spDistsN1
+#'
 #' @return Data with updated hh data set with calculated swept area
+#'
 #' @export
-calc.swept.area <- function(data, plot = TRUE){
+calc.swept.area <- function(data, plot = FALSE, verbose = TRUE){
 
     hh <- data$HH
 
+    ## Note that swept area will be overwritten
+    flagSA <- any(colnames(hh) %in% c("SweptAreaWSKM2", "SweptAreaDSKM2", "SweptAreaBWKM2"))
+    if(flagSA && verbose) writeLines("Swept area was already calculated for this data set. Note that the columns SweptAreaWSKM2, SweptAreaDSKM2, and SweptAreaBWKM2 will be overwritten.")
+
     ## Check if all required variables included
     flag <- all(list.datras.variables.req()$HH %in% colnames(hh))
-    if(!flag) stop("Not all variables required for the calculation of the swept area are included in the HH data set. Run list.datras.variables.req() to see the required variables.")
+    if(!flag && flagSA){ stop("Some variables required for the calculation of the swept area are missing in the HH data set. Run list.datras.variables.req() to see the required variables. However, note that swept area index is already included in the data set!")
+    }else if(!flag) stop("Some variables required for the calculation of the swept area are missing in the HH data set. Run list.datras.variables.req() to see the required variables.")
 
 
     # ------------------------------------------------------------------------------
@@ -54,12 +66,13 @@ calc.swept.area <- function(data, plot = TRUE){
     # Portugese HH data, seems also included in hh data
     data("ibts.pt")
     PT_data <- ibts.pt
-    head(PT_data)
     PT_data$ID <- paste0(PT_data$Survey,"_",PT_data$Country,"_",PT_data$Quarter,"_",PT_data$Gear,"_",PT_data$Ship,"_",
                          PT_data$HaulNo,"_",PT_data$Year,"_",PT_data$Month,"_",PT_data$Day)
 
-    table(is.na(PT_data$SweptAreaDSKM2))
-    table(is.na(PT_data$SweptAreaWSKM2))
+    if(verbose){
+        table(is.na(PT_data$SweptAreaDSKM2))
+        table(is.na(PT_data$SweptAreaWSKM2))
+    }
 
     # ------------------------------------------------------------------------------
     # Load FlexFiles and OSPAR data
@@ -69,8 +82,7 @@ calc.swept.area <- function(data, plot = TRUE){
     data("flex")
     flex_data <- flex
 
-
-    table(flex_data$HaulVal)
+    if(verbose) table(flex_data$HaulVal)
     flex_data <- subset(flex_data, HaulVal == "V")
 
     # load OSPARData
@@ -492,8 +504,10 @@ calc.swept.area <- function(data, plot = TRUE){
 
         }
 
-        table(is.na(hh$DoorSpread))
-        table(is.na(hh$WingSpread))
+        if(verbose){
+            table(is.na(hh$DoorSpread))
+            table(is.na(hh$WingSpread))
+        }
     }
 
     # ------------------------------------------------------------------------------
@@ -515,7 +529,7 @@ calc.swept.area <- function(data, plot = TRUE){
     hh$BeamWidth[hh$Gear == "BT6"]    <- 6
     hh$BeamWidth[hh$Gear == "BT3"]    <- 3
 
-    table(hh$Gear,is.na(hh$DoorSpread))[names(table(hh$Gear[is.na(hh$DoorSpread)])),]
+    if(verbose) table(hh$Gear,is.na(hh$DoorSpread))[names(table(hh$Gear[is.na(hh$DoorSpread)])),]
 
     # ------------------------------------------------------------------------------
     # estimate trawled distance (where missing)
@@ -534,11 +548,11 @@ calc.swept.area <- function(data, plot = TRUE){
     ## 1) based on haul duration and groundspeed
     if(any(is.na(hh$Distance))){
         knots_to_m_h <- 1852
-        prop.table(table(is.na(hh$Distance)))
+        if(verbose) prop.table(table(is.na(hh$Distance)))
 
         hh$Distance[is.na(hh$Distance)] <- knots_to_m_h * hh$GroundSpeed[is.na(hh$Distance)] * hh$HaulDur[is.na(hh$Distance)]/60
         hh$Distance[hh$Distance==0]    <- NA
-        prop.table(table(is.na(hh$Distance)))
+        if(verbose) prop.table(table(is.na(hh$Distance)))
     }
 
 
@@ -552,16 +566,18 @@ calc.swept.area <- function(data, plot = TRUE){
                                          function(x)sp::spDistsN1(matrix(x[1:2], ncol = 2),matrix(x[3:4], ncol = 2), longlat = T))
         hist(hh$Distance[hh$Distance>10000], xlim = c(10000, max(hh$Distance, na.rm = T)))
         hh$Distance[hh$Distance>10000] <- NA
-        prop.table(table(is.na(hh$Distance)))
+        if(verbose) prop.table(table(is.na(hh$Distance)))
 
         hh$Distance[hh$Distance==0]    <- NA
     }
 
     ## 3) based on haul duration and mean vessel speed
     if(any(is.na(hh$Distance))){
-        table(is.na(hh$Distance))
-        table(is.na(hh$Distance) & is.na(hh$HaulDur))
-        table(is.na(hh$Distance) & is.na(hh$GroundSpeed))
+        if(verbose){
+            table(is.na(hh$Distance))
+            table(is.na(hh$Distance) & is.na(hh$HaulDur))
+            table(is.na(hh$Distance) & is.na(hh$GroundSpeed))
+        }
 
         mean_speed         <- aggregate(GroundSpeed ~ Ship, data = hh, FUN = "mean", na.rm =T)
         hh$mean_ship_speed <- mean_speed$GroundSpeed[match(hh$Ship,mean_speed$Ship)]
@@ -571,7 +587,7 @@ calc.swept.area <- function(data, plot = TRUE){
         hh$mean_ship_speed <- NULL
         hh$Distance[hh$Distance==0]    <- NA
 
-        prop.table(table(is.na(hh$Distance)))
+        if(verbose) prop.table(table(is.na(hh$Distance)))
     }
 
     ## 4) based on haul duration and mean "survey x country" speed
@@ -586,7 +602,7 @@ calc.swept.area <- function(data, plot = TRUE){
         hh$mean_survey_speed <- NULL
         hh$Distance[hh$Distance==0]    <- NA
 
-        prop.table(table(is.na(hh$Distance)))
+        if(verbose) prop.table(table(is.na(hh$Distance)))
     }
 
     ## 5) based on the mean survey speed
@@ -598,7 +614,7 @@ calc.swept.area <- function(data, plot = TRUE){
         hh$mean_survey_speed <- NULL
         hh$Distance[hh$Distance==0]    <- NA
 
-        prop.table(table(is.na(hh$Distance)))
+        if(verbose) prop.table(table(is.na(hh$Distance)))
     }
 
     ## 6) based on mean speed
@@ -606,7 +622,7 @@ calc.swept.area <- function(data, plot = TRUE){
         mean_speed <- mean(hh$GroundSpeed, na.rm =T)
         hh$Distance[is.na(hh$Distance)] <- knots_to_m_h * mean_speed * hh$HaulDur[is.na(hh$Distance)]/60
         hh$Distance[hh$Distance==0]    <- NA
-        prop.table(table(is.na(hh$Distance)))
+        if(verbose) prop.table(table(is.na(hh$Distance)))
     }
 
     ## 7) based on mean distance by Ship and Year
@@ -619,8 +635,10 @@ calc.swept.area <- function(data, plot = TRUE){
         hh$Distance[is.na(hh$Distance)] <- hh$mean_distance[is.na(hh$Distance)]
         hh$mean_distance <- NULL
         hh$Distance[hh$Distance==0]    <- NA
-        table(is.na(hh$Distance))
-        table(hh$Distance == 0)
+        if(verbose){
+            table(is.na(hh$Distance))
+            table(hh$Distance == 0)
+        }
     }
 
     ## 8) based on mean distance by Ship
@@ -634,8 +652,10 @@ calc.swept.area <- function(data, plot = TRUE){
         hh$Distance[is.na(hh$Distance)] <- hh$mean_distance[is.na(hh$Distance)]
         hh$mean_distance <- NULL
         hh$Distance[hh$Distance==0]    <- NA
-        table(is.na(hh$Distance))
-        table(hh$Distance == 0)
+        if(verbose){
+            table(is.na(hh$Distance))
+            table(hh$Distance == 0)
+        }
     }
 
     ## 9) based on mean distance by Survey and Year
@@ -648,8 +668,10 @@ calc.swept.area <- function(data, plot = TRUE){
         hh$Distance[is.na(hh$Distance)] <- hh$mean_distance[is.na(hh$Distance)]
         hh$mean_distance <- NULL
         hh$Distance[hh$Distance==0]    <- NA
-        table(is.na(hh$Distance))
-        table(hh$Distance == 0)
+        if(verbose){
+            table(is.na(hh$Distance))
+            table(hh$Distance == 0)
+        }
     }
 
     ## 10) based on mean distance by Survey
@@ -662,8 +684,10 @@ calc.swept.area <- function(data, plot = TRUE){
         hh$Distance[is.na(hh$Distance)] <- hh$mean_distance[is.na(hh$Distance)]
         hh$mean_distance <- NULL
         hh$Distance[hh$Distance==0]    <- NA
-        table(is.na(hh$Distance))
-        table(hh$Distance == 0)
+        if(verbose){
+            table(is.na(hh$Distance))
+            table(hh$Distance == 0)
+        }
     }
 
     ## ------------------------------------------------------------------------------
@@ -679,8 +703,10 @@ calc.swept.area <- function(data, plot = TRUE){
     hh$SweptAreaWSKM2 <- swept_area_WS$SweptAreaWSKM2[match(hh$ID,swept_area_WS$ID)]
     hh$SweptAreaDSKM2 <- swept_area_DS$SweptAreaDSKM2[match(hh$ID,swept_area_DS$ID)]
 
-    table(hh$Year, is.na(hh$SweptAreaDSKM2))
-    table(hh$Year, is.na(hh$SweptAreaDSKM2))
+    if(verbose){
+        table(hh$Year, is.na(hh$SweptAreaDSKM2))
+        table(hh$Year, is.na(hh$SweptAreaDSKM2))
+    }
 
     hh$SweptAreaWSKM2[is.na(hh$SweptAreaWSKM2)] <- hh$WingSpread[is.na(hh$SweptAreaWSKM2)] * hh$Distance[is.na(hh$SweptAreaWSKM2)]/1000000 ## in km²
     hh$SweptAreaDSKM2[is.na(hh$SweptAreaDSKM2)] <- hh$DoorSpread[is.na(hh$SweptAreaDSKM2)] * hh$Distance[is.na(hh$SweptAreaDSKM2)]/1000000
@@ -1024,8 +1050,10 @@ calc.swept.area <- function(data, plot = TRUE){
 
             }
 
+            if(verbose){
             table(is.na(hh$DoorSpread))
             table(is.na(hh$WingSpread))
+            }
         }
 
         ## calculate the swept areas
@@ -1033,8 +1061,10 @@ calc.swept.area <- function(data, plot = TRUE){
         hh$SweptAreaDSKM2[is.na(hh$SweptAreaDSKM2)] <- hh$DoorSpread[is.na(hh$SweptAreaDSKM2)] * hh$Distance[is.na(hh$SweptAreaDSKM2)]/1000000
 
         ## check for missing observations
+        if(verbose){
         table(hh$Year,(is.na(hh$SweptAreaWSKM2) | is.na(hh$SweptAreaDSKM2)) & is.na(hh$SweptAreaBWKM2))
         table(hh$Survey,(is.na(hh$SweptAreaWSKM2) | is.na(hh$SweptAreaDSKM2)) & is.na(hh$SweptAreaBWKM2))
+        }
 
         ## add the Portugese data
         hh$ID <- paste0(hh$Survey,"_",hh$Country,"_",hh$Quarter,"_",hh$Gear,"_",hh$Ship,"_",
@@ -1055,8 +1085,10 @@ calc.swept.area <- function(data, plot = TRUE){
         PT_data$WingSpread[is.na(PT_data$WingSpread)] <- PT_data$SweptAreaWSKM2[is.na(PT_data$WingSpread)] / PT_data$Distance[is.na(PT_data$WingSpread)] * 1000000
 
         ## check for missing observations
+        if(verbose){
         table(hh$Year,(is.na(hh$SweptAreaWSKM2) | is.na(hh$SweptAreaDSKM2)) & is.na(hh$SweptAreaBWKM2))
         table(hh$Survey,(is.na(hh$SweptAreaWSKM2) | is.na(hh$SweptAreaDSKM2)) & is.na(hh$SweptAreaBWKM2))
+        }
 
     }
 
@@ -1380,8 +1412,10 @@ calc.swept.area <- function(data, plot = TRUE){
 
             }
 
-            table(is.na(hh$DoorSpread[hh$Survey == SURVEY]))
-            table(is.na(hh$WingSpread[hh$Survey == SURVEY]))
+            if(verbose){
+                table(is.na(hh$DoorSpread[hh$Survey == SURVEY]))
+                table(is.na(hh$WingSpread[hh$Survey == SURVEY]))
+            }
         }
 
     }
@@ -1391,19 +1425,18 @@ calc.swept.area <- function(data, plot = TRUE){
     hh$SweptAreaWSKM2[is.na(hh$SweptAreaWSKM2)] <- hh$WingSpread[is.na(hh$SweptAreaWSKM2)] * hh$Distance[is.na(hh$SweptAreaWSKM2)]/1000000
     hh$SweptAreaDSKM2[is.na(hh$SweptAreaDSKM2)] <- hh$DoorSpread[is.na(hh$SweptAreaDSKM2)] * hh$Distance[is.na(hh$SweptAreaDSKM2)]/1000000
 
-    table((is.na(hh$SweptAreaWSKM2) | is.na(hh$SweptAreaDSKM2)) & is.na(hh$SweptAreaBWKM2))
-
+    if(verbose) table((is.na(hh$SweptAreaWSKM2) | is.na(hh$SweptAreaDSKM2)) & is.na(hh$SweptAreaBWKM2))
 
 
     ## check for missing observations
-    table(hh$Year,(is.na(hh$SweptAreaWSKM2) | is.na(hh$SweptAreaDSKM2)) & is.na(hh$SweptAreaBWKM2))
-    table(hh$Survey,(is.na(hh$SweptAreaWSKM2) | is.na(hh$SweptAreaDSKM2)) & is.na(hh$SweptAreaBWKM2))
+    if(verbose){
+        table(hh$Year,(is.na(hh$SweptAreaWSKM2) | is.na(hh$SweptAreaDSKM2)) & is.na(hh$SweptAreaBWKM2))
+        table(hh$Survey,(is.na(hh$SweptAreaWSKM2) | is.na(hh$SweptAreaDSKM2)) & is.na(hh$SweptAreaBWKM2))
+    }
 
     ## remove some columns
     hh$ID <- NULL
-    hh$Depth_gam <- hh$Depth
-    hh$Depth       <- NULL
-    hh$id          <- NULL
+    hh$id <- NULL
 
     if(plot){
         ## some simple plots
@@ -1413,7 +1446,7 @@ calc.swept.area <- function(data, plot = TRUE){
 
     }
 
-    data$hh <- hh
+    data$HH <- hh
 
     return(data)
 }
