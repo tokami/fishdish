@@ -273,13 +273,13 @@ list.datras.variables.all <- function(){
 #' @export
 list.datras.variables.req <- function(){
     all.variables <- list()
-    all.variables[["HH"]] <- c("Survey","Year","Quarter","Country","Ship","GearEx","StNo",
+    all.variables[["HH"]] <- c("Survey","Year","Quarter","Country","Ship","Gear","StNo",
                                "HaulNo","SweepLngt","DoorType","Month","Day","DepthStratum",
                                "HaulDur","ShootLat","ShootLong","HaulLat","HaulLong","StatRec",
                                "Depth","HaulVal","StdSpecRecCode","BySpecRecCode","DataType",
                                "Distance","Warplngt","DoorSpread","WingSpread","GroundSpeed",
                                "SurTemp","BotTemp","BotSal")
-    all.variables[["HL"]] <- c("Survey","Year","Quarter","Country","Ship","GearEx","StNo",
+    all.variables[["HL"]] <- c("Survey","Year","Quarter","Country","Ship","Gear","StNo",
                                "HaulNo","SpecCodeType","SpecCode","SpecVal","TotalNo","CatIdentifier",
                                "SubFactor","HLNoAtLngt","Valid_Aphia")
     return(all.variables)

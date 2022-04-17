@@ -108,7 +108,7 @@ download.data <- function(first.year = 1967,
             }
             if(calc.swept.area){
                 if(verbose) writeLines("Calculating the swept area for downloaded Data.")
-                hh <- calc.swept.area(list(hh=hh))$hh
+                hh <- calc.swept.area(list(HH=hh))$HH
             }
         }else if(dat.type == "HL"){
             hl <- try(do.call(rbind, dat), silent = TRUE)
