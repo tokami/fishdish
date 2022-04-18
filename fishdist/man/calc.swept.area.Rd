@@ -4,12 +4,14 @@
 \alias{calc.swept.area}
 \title{Calculate swept area}
 \usage{
-calc.swept.area(data, plot = TRUE)
+calc.swept.area(data, plot = FALSE, verbose = TRUE)
 }
 \arguments{
 \item{data}{DATRAS data set (see download.data)}
 
-\item{plot}{Plot some summary graphs. Default: TRUE}
+\item{plot}{Plot some summary graphs. Default: FALSE}
+
+\item{verbose}{Print stuff? Default: TRUE}
 }
 \value{
 Data with updated hh data set with calculated swept area

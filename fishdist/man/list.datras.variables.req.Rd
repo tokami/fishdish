@@ -7,7 +7,12 @@
 \usage{
 list.datras.variables.all()
 
-list.datras.variables.req()
+list.datras.variables.req(swept.area.calculated = TRUE)
+}
+\arguments{
+\item{swept.area.calculated}{Was swept area already calculated? Otherwise
+include Include DATRAS variables that are required for the swept area
+calculation. Default: TRUE}
 }
 \value{
 List with all DATRAS variables for the HH and HL DATRAS data sets

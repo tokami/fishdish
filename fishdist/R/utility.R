@@ -3,7 +3,7 @@
 #' @return Vector with NA
 #' @export
 minus9toNA <- function(x){
-    if(inherits(x,"matrix")){
+    if(inherits(x,"matrix") || inherits(x, "data.frame")){
         for(i in 1:ncol(x)){
             if(is.numeric(x[,i])){
                 is9 <- which(abs(x[,i]+9)<1e-14)
@@ -267,20 +267,312 @@ list.datras.variables.all <- function(){
     return(all.variables)
 }
 
+
 #' @name list.datras.variables.req
+#'
 #' @title List required DATRAS variables
+#'
+#' @param swept.area.calculated Was swept area already calculated? Otherwise
+#'     include Include DATRAS variables that are required for the swept area
+#'     calculation. Default: TRUE
+#'
 #' @return List with the required DATRAS variables for the HH and HL DATRAS data sets
+#'
 #' @export
-list.datras.variables.req <- function(){
+list.datras.variables.req <- function(swept.area.calculated = TRUE){
     all.variables <- list()
-    all.variables[["HH"]] <- c("Survey","Year","Quarter","Country","Ship","Gear","StNo",
-                               "HaulNo","SweepLngt","DoorType","Month","Day","DepthStratum",
-                               "HaulDur","ShootLat","ShootLong","HaulLat","HaulLong","StatRec",
-                               "Depth","HaulVal","StdSpecRecCode","BySpecRecCode","DataType",
-                               "Distance","Warplngt","DoorSpread","WingSpread","GroundSpeed",
-                               "SurTemp","BotTemp","BotSal")
-    all.variables[["HL"]] <- c("Survey","Year","Quarter","Country","Ship","Gear","StNo",
-                               "HaulNo","SpecCodeType","SpecCode","SpecVal","TotalNo","CatIdentifier",
+    all.variables[["HH"]] <- c("Survey","Year","Quarter","Country","Ship",
+                               "Gear","StNo", "HaulNo","Month","Day","TimeShot",
+                               "HaulDur","ShootLat","ShootLong","StatRec",
+                               "Depth","HaulVal", "StdSpecRecCode",
+                               "BySpecRecCode","DataType", "SurTemp","BotTemp")
+    if(swept.area.calculated){
+        all.variables[["HH"]] <- c(all.variables[["HH"]],
+                                   "SweptAreaDSKM2", "SweptAreaWSKM2", "SweptAreaBWKM2")
+    }else{
+        all.variables[["HH"]] <- c(all.variables[["HH"]], "HaulLat", "HaulLong",
+                                   "DepthStratum", "SweepLngt","DoorType",
+                                   "Distance","Warplngt", "DoorSpread",
+                                   "WingSpread", "GroundSpeed")
+    }
+    all.variables[["HL"]] <- c("Survey","Year","Quarter","Country","Ship",
+                               "Gear","StNo", "HaulNo","SpecCodeType",
+                               "SpecCode","SpecVal","TotalNo","CatIdentifier",
                                "SubFactor","HLNoAtLngt","Valid_Aphia")
     return(all.variables)
 }
+
+
+
+#' @name predict.statrec
+#'
+#' @title Predict Statistical rectangle based on latitude and longitude
+#'
+#' @param data Data set that includes variables: StatRec, ShootLat, and ShootLong
+#'
+#' @return Data set with predicted StatRec if NA.
+#'
+#' @export
+predict.statrec <- function(data){
+
+    flag <- ifelse(all(c("StatRec","ShootLat","ShootLong") %in% colnames(data)), 0, 1)
+
+    if(flag) stop("Function requires variables StatRec, ShootLat, and ShootLong. Please check your data.")
+
+    data("ices.rectangles")
+
+    StatRecNew <- rep(NA, length(data$StatRec))
+    ind <- which(is.na(data$StatRec))
+    if(length(ind) > 0){
+        for(i in 1:length(ind)){
+            tmp2 <- ices.rectangles$ICESNAME[
+                                        which(data$ShootLat[ind[i]] >= ices.rectangles$SOUTH &
+                                              data$ShootLat[ind[i]] < ices.rectangles$NORTH &
+                                              data$ShootLong[ind[i]] >= ices.rectangles$WEST &
+                                              data$ShootLong[ind[i]] < ices.rectangles$EAST)]
+            if(length(tmp2) == 1) StatRecNew[ind[i]] <- tmp2
+        }
+        ind <- which(!is.na(StatRecNew) & is.na(data$StatRec))
+        data$StatRec[ind] <- StatRecNew[ind]
+    }
+
+    return(data)
+}
+
+
+#' @name add.gear.categories
+#'
+#' @title Assign gears to categories based on gear and survey
+#'
+#' @param data Data set that includes variables: Gear and Survey
+#'
+#' @details See data(gear.categories) for the assignment.
+#'
+#' @importFrom plyr join
+#'
+#' @return Data set with added GearCat column.
+#'
+#' @export
+add.gear.categories <- function(data){
+
+    flag <- ifelse(all(c("Survey","Gear") %in% colnames(data)), 0, 1)
+    if(flag) stop("Function requires variables Survey and Gear. Please check your data.")
+
+    data("gear.categories")
+
+    ## data <- merge(data, gear.categories, by=c('Survey','Gear'), all.x = TRUE) ## 104s
+    data <- plyr::join(data, gear.categories, by=c('Survey','Gear')) ## 30s
+
+    return(data)
+}
+
+
+#' @name correct.species
+#'
+#' @title Correct species
+#'
+#' @param data Data set that includes variables: Species and BySpecRecCode
+#'
+#' @return Data set with corrected Species column
+#'
+#' @export
+correct.species <- function(data){
+
+    flag <- ifelse(any(c("Species","BySpecRecCode") %in% colnames(data)), 0, 1)
+    if(flag) stop("Function requires variables Species and/or BySpecRecCode. Please check your data.")
+
+    ## Code to integrate from Anna on species bycatch corrections
+    if("Species" %in% colnames(data)){
+    data$Species[which(data$Species == "Synaphobranchus kaupii")] <- "Synaphobranchus kaupi"
+    data$Species[which(data$Species == "Dipturus batis")] <- "Dipturus spp"
+    data$Species[which(data$Species == "Dipturus flossada")] <- "Dipturus spp"
+    data$Species[which(data$Species == "Dipturus batis-complex")] <- "Dipturus spp"
+    data$Species[which(data$Species == "Dipturus intermedia")] <- "Dipturus spp"
+    data$Species[which(data$Species == "Dipturus")] <- "Dipturus spp"
+    data$Species[which(data$Species == "Liparis montagui")] <- "Liparis spp"
+    data$Species[which(data$Species == "Liparis liparis")] <- "Liparis spp"
+    data$Species[which(data$Species == "Liparis liparis liparis")] <- "Liparis spp"
+    data$Species[which(data$Species == "Chelon aurata")] <- "Chelon spp"
+    data$Species[which(data$Species == "Chelon ramada")] <- "Chelon spp"
+    data$Species[which(data$Species == "Mustelus mustelus/asterias")] <- "Mustelus spp"
+    data$Species[which(data$Species == "Mustelus")] <- "Mustelus spp"
+    data$Species[which(data$Species == "Mustelus mustelus")] <- "Mustelus spp"
+    data$Species[which(data$Species == "Mustelus asterias")] <- "Mustelus spp"
+    data$Species[which(data$Species == "Alosa")] <- "Alosa spp"
+    data$Species[which(data$Species == "Alosa alosa")] <- "Alosa spp"
+    data$Species[which(data$Species == "Alosa fallax")] <- "Alosa spp"
+    data$Species[which(data$Species == "Argentina")] <- "Argentina spp"
+    data$Species[which(data$Species == "Argentinidae")] <- "Argentina spp"
+    data$Species[which(data$Species == "Argentina silus")] <- "Argentina spp"
+    data$Species[which(data$Species == "Argentina sphyraena")] <- "Argentina spp"
+    data$Species[which(data$Species == "Callionymus reticulatus")] <- "Callionymus spp"
+    data$Species[which(data$Species == "Callionymus maculatus")] <- "Callionymus spp"
+    data$Species[which(data$Species == "Ciliata mustela")] <- "Ciliata spp"
+    data$Species[which(data$Species == "Ciliata septentrionalis")] <- "Ciliata spp"
+    data$Species[which(data$Species == "Gaidropsarus")] <- "Gaidropsarus spp"
+    data$Species[which(data$Species == "Gaidropsaurus macrophthalmus")] <- "Gaidropsarus spp"
+    data$Species[which(data$Species == "Gaidropsaurus mediterraneus")] <- "Gaidropsarus spp"
+    data$Species[which(data$Species == "Gaidropsaurus vulgaris")] <- "Gaidropsarus spp"
+    data$Species[which(data$Species == "Sebastes")] <- "Sebastes spp"
+    data$Species[which(data$Species == "Sebastes norvegicus")] <- "Sebastes spp"
+    data$Species[which(data$Species == "Sebastes mentella")] <- "Sebastes spp"
+    data$Species[which(data$Species == "Sebastes marinus")] <- "Sebastes spp"
+    data$Species[which(data$Species == "Syngnathus")] <- "Syngnatus spp"
+    data$Species[which(data$Species == "Syngnathus rostellatus")] <- "Syngnatus spp"
+    data$Species[which(data$Species == "Syngnathus acus")] <- "Syngnatus spp"
+    data$Species[which(data$Species == "Syngnathus typhle")] <- "Syngnatus spp"
+    data$Species[which(data$Species == "Nerophis ophidion")] <- "Syngnatus spp"
+    data$Species[which(data$Species == "Pomatoschistus")] <- "Pomatoschistus spp"
+    data$Species[which(data$Species == "Pomatoschistus microps")] <- "Pomatoschistus spp"
+    data$Species[which(data$Species == "Pomatoschistus minutus")] <- "Pomatoschistus spp"
+    data$Species[which(data$Species == "Pomatoschistus pictus")] <- "Pomatoschistus spp"
+    data$Species[which(data$Species == "Lesueurigobius")] <- "Gobius spp"
+    data$Species[which(data$Species == "Gobius cobitis")] <- "Gobius spp"
+    data$Species[which(data$Species == "Gobius niger")] <- "Gobius spp"
+    data$Species[which(data$Species == "Leusueurigobius friesii")] <- "Gobius spp"
+    data$Species[which(data$Species == "Neogobius melanostomus")] <- "Gobius spp"
+    data$Species[which(data$Species == "Neogobius")] <- "Gobius spp"
+
+    data <- subset(data, !(BySpecRecCode==0 & Data == "BTS" &
+                               !Species %in% c("Chelidonichthys cuculus","Chelidonichthys lucerna","Eutrigla gurnardus",
+                                               "Gadus morhua","Limanda limanda","Lophius piscatorius",
+                                               "Merlangius merlangus","Microstomus kitt","Mullus surmuletus",
+                                               "Mustelus asterias","Pegusa lascaris","Platichthys flesus",
+                                               "Pleuronectes platessa","Raja brachyura","Raja clavata",
+                                               "Raja montagui","Scophthalmus maximus","Scophthalmus rhombus",
+                                               "Scyliorhinus canicula","Solea solea","Trispoterus luscus")))
+
+
+
+    data <- subset(data, !(BySpecRecCode==0 & Data == "SP-NORTH" &
+                               !Species %in% c("Chelidonichthys lucerna","Conger conger","Eutrigla gurnardus",
+                                               "Galeus melastomus","Helicolenus dactylopterus","Lepidorhombus boscii",
+                                               "Lepidorhombus whiffiagoni","Leucoraja circularis",
+                                               "Leucoraja naevus","Lophius budegassa","Lophius piscatorius","Merluccius merluccius",
+                                               "Micromesistius poutassou","Phycis blennoides", "Raja clavata","Raja montagui",
+                                               "Scomber scombrus","Scyliorhinus canicula","Trachurus trachurus",
+                                               "Trisopterus luscus","Zeus faber")))
+    data <- subset(data, !(BySpecRecCode==0 & Data == "SP-PORC" &
+                               !Species %in% c("Argentina silus","Chelidonichthys lucerna","Conger conger",
+                                               "Eutrigla gurnardus","Gadus morhua","Galeus melastomus",
+                                               "Glyptocephalus cynoglossu","Helicolenus dactylopterus","Hexanchus griseus",
+                                               "Hippoglossoides platessoi","Lepidorhombus boscii","Lepidorhombus whiffiagoni",
+                                               "Leucoraja circularis","Leucoraja naevus", "Lophius budegassa","Lophius piscatorius",
+                                               "Melanogrammus aeglefinus","Merluccius merluccius","Micromesistius poutassou",
+                                               "Molva dypterygia","Molva molva","Phycis blennoides","Raja clavata",
+                                               "Raja montagui","Scomber scombrus","Scyliorhinus canicula",
+                                               "Trachurus trachurus","Zeus faber")))
+    data <- subset(data, !(BySpecRecCode==0 & Data %in% c("NS-IBTS1","NS-IBTS3") &
+                               !Species %in% c("Clupea harengus","Sprattus sprattus","Scomber scombrus","Gadus morhua",
+                                               "Melanogrammus aeglefinus","Merlangius merlangus","Trisopterus esmarkii")))
+    data <- subset(data, !(BySpecRecCode==2 &
+                               !Species %in% c("Ammodytidae","Anarhichas lupus","Argentina silus","Argentina sphyraena",
+                                               "Chelidonichthys cuculus","Callionymus lyra","Eutrigla gurnardus",
+                                               "Lumpenus lampretaeformis", "Mullus surmuletus","Squalus acanthias",
+                                               "Trachurus trachurus", "Platichthys flesus","Pleuronectes platessa","Limanda limanda",
+                                               "Lepidorhombus whiffiagoni","Hippoglossus hippoglossus","Hippoglossoides platessoi",
+                                               "Glyptocephalus cynoglossu","Microstomus kitt","Scophthalmus maximus",
+                                               "Scophthalmus rhombus","Solea solea", "Pollachius virens","Pollachius pollachius",
+                                               "Trisopterus luscus","Trisopterus minutus","Micromesistius poutassou","Molva molva",
+                                               "Merluccius merluccius","Brosme brosme", "Clupea harengus","Sprattus sprattus",
+                                               "Scomber scombrus","Gadus morhua","Melanogrammus aeglefinus" ,"Merlangius merlangus",
+                                               "Trisopterus esmarkii")))
+    data <- subset(data, !(BySpecRecCode==3 &
+                               !Species %in% c("Pollachius virens","Pollachius pollachius","Trisopterus luscus","Trisopterus minutus",
+                                               "Micromesistius poutassou","Molva molva", "Merluccius merluccius","Brosme brosme",
+                                               "Clupea harengus","Sprattus sprattus","Scomber scombrus","Gadus morhua",
+                                               "Melanogrammus aeglefinus","Merlangius merlangus","Trisopterus esmarkii")))
+    data <- subset(data, !(BySpecRecCode==4 &
+                               !Species %in% c("Platichthys flesus","Pleuronectes platessa","Limanda limanda",
+                                               "Lepidorhombus whiffiagoni","Hippoglossus hippoglossus","Hippoglossoides platessoi",
+                                               "Glyptocephalus cynoglossu","Microstomus kitt","Scophthalmus maximus","Scophthalmus rhombus",
+                                               "Solea solea", "Clupea harengus","Sprattus sprattus","Scomber scombrus","Gadus morhua",
+                                               "Melanogrammus aeglefinus","Merlangius merlangus","Trisopterus esmarkii")))
+    data <- subset(data, !(BySpecRecCode==5 &
+                               !Species %in% c("Ammodytidae","Anarhichas lupus","Argentina silus","Argentina sphyraena",
+                                               "Chelidonichthys cuculus","Callionymus lyra","Eutrigla gurnardus",
+                                               "Lumpenus lampretaeformis", "Mullus surmuletus","Squalus acanthias","Trachurus trachurus",
+                                               "Clupea harengus","Sprattus sprattus","Scomber scombrus","Gadus morhua",
+                                               "Melanogrammus aeglefinus","Merlangius merlangus","Trisopterus esmarkii")))
+    }
+
+    return(data)
+}
+
+
+
+#' @name summary.data
+#'
+#' @title Summary of data
+#'
+#' @param data Data set
+#'
+#' @return NULL
+#'
+#' @export
+summary.data <- function(data){
+
+    ## TODO: ADD: check for variables incl. in data
+
+    if(FALSE){
+            dat_sum <- survey0[,c("Survey","Quarter","Year","N")]
+    dat_sum <- dat_sum[!duplicated(dat_sum),]
+    dat_sum <- aggregate(list(Years=dat_sum$Year),
+                         by = list(Survey = dat_sum$Survey, Quarter = dat_sum$Quarter),
+                         range)
+    dat_sum <- dat_sum[order(dat_sum$Survey),]
+    dat_sum[,3] <- apply(dat_sum[,3],1,paste,collapse="-")
+
+    dat_sum2 <- aggregate(list(StatRec=survey0$StatRec),
+                          by = list(Survey = survey0$Survey, Quarter = survey0$Quarter),
+                          function(x) length(unique(x)))
+
+    tmp <- cbind(dat_sum,StatRec=dat_sum2[,3])
+    rownames(tmp) <- 1:nrow(tmp)
+    if(verbose) print(tmp)
+
+
+    }
+
+
+    ## TODO: add more stats and summary, e.g. data ranges
+
+
+    ## Day and Night
+    ## ---------
+    ## unique(data$DayNight)
+    ## meaningful
+
+
+    ## HaulDur
+    ## ---------
+    unique(data$HaulDur)
+    range(data$HaulDur)
+    ## meaningful
+
+
+    ## Swept Area
+    ## ---------
+    range(data$SweptArea)
+    ## meaningful
+
+
+    ## Subfactor
+    range(data$SubFactor)  ## high values ... realistic? keeping them for now
+    ##     unique(data$Species[data$SubFactor > 20])
+
+
+    return(NULL)
+}
+
+
+#' @name checkmark
+#'
+#' @title Checkmark
+#'
+#' @param x TRUE or FALSE
+#'
+#' @return Checkmark or X
+#'
+#' @export
+checkmark <- function(x) ifelse(x, '\u2714', '\u2613')

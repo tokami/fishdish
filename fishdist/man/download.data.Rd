@@ -12,7 +12,7 @@ download.data(
   aphiaID = "all",
   datasets = c("HH", "HL"),
   calc.swept.area = TRUE,
-  datras.variables = list.datras.variables.req(),
+  datras.variables = list.datras.variables.req(swept.area.calculated = FALSE),
   reduce.file.size = TRUE,
   verbose = TRUE
 )

@@ -26,7 +26,7 @@ download.data <- function(first.year = 1967,
                           aphiaID = "all",
                           datasets = c("HH","HL"),
                           calc.swept.area = TRUE,
-                          datras.variables = list.datras.variables.req(),
+                          datras.variables = list.datras.variables.req(swept.area.calculated = FALSE),
                           reduce.file.size = TRUE,
                           verbose = TRUE){
 
@@ -69,8 +69,6 @@ download.data <- function(first.year = 1967,
         }
     }
 
-    if(verbose) writeLines("Downloading data sets. This might take some time.")
-
     ## Haul info from Datras
     hl <- hh <- NULL
     for(dt in 1:length(datasets)){
@@ -87,16 +85,16 @@ download.data <- function(first.year = 1967,
             ## Subset Species if provided
             if(dat.type == "HL" && !(aphiaID[1] %in% c("all","All","ALL")) &&
                !is.null(aphiaID[1]) && !is.na(aphiaID[1])){
-                if(verbose) writeLines(paste0("Subsetting downloaded data for following Aphia ID(s): ",
-                                  paste0(aphiaID, collapse = ", ")))
+                ## if(verbose) writeLines(paste0("Subsetting downloaded data for following Aphia ID(s): ",
+                ##                   paste0(aphiaID, collapse = ", ")))
                 dat[[i]] <- subset(dat[[i]], Valid_Aphia %in% aphiaID)
             }
 
             ## Subset required variables
             if(reduce.file.size){
                 ind <- datras.variables[[dat.type]]
-                if(verbose) writeLines(paste0("Subsetting downloaded data for following variables: ",
-                                  paste0(ind, collapse = ", ")))
+                ## if(verbose) writeLines(paste0("Subsetting downloaded data for following variables: ",
+                ##                   paste0(ind, collapse = ", ")))
                 dat[[i]] <- dat[[i]][ind]
             }
         }

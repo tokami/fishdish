@@ -2,18 +2,29 @@
 % Please edit documentation in R/prep.data.R
 \name{prep.data}
 \alias{prep.data}
-\title{Prepare data}
+\title{Prepare data for distribution modelling}
 \usage{
-prep.data(data, aphiaID = NULL)
+prep.data(
+  data,
+  AphiaID = NULL,
+  datras.variables = list.datras.variables.req(),
+  verbose = TRUE
+)
 }
 \arguments{
 \item{data}{Data set}
 
-\item{aphiaID}{AphiaIDs with species to select. If provided as column of data frame, all additional columns are added. If NULL (default), data is not subsetted for species.}
+\item{AphiaID}{Aphia IDs with species to select. If provided as column of data
+frame, all additional columns are added. If NULL (default), data is not
+subsetted for species.}
+
+\item{datras.variables}{Variables of DATRAS data set to be used}
+
+\item{verbose}{Print stuff? Default: TRUE}
 }
 \value{
 List containing hh and hl data sets.
 }
 \description{
-Prepare data
+Prepare data for distribution modelling
 }
