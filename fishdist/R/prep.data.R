@@ -16,8 +16,10 @@
 #'
 #' @export
 prep.data <- function(data, AphiaID = NULL,
-                            datras.variables = list.datras.variables.req(),
-                            verbose = TRUE){## Check validity of data
+                      datras.variables = list.datras.variables.req(),
+                      verbose = TRUE){
+
+    ## Check validity of data
     ## ------------------
     if(class(data) != "list" || length(data) != 2 || names(data) != c("HH","HL"))
         stop("Function requires data list with two DATRAS data sets 'HH' and 'HL' as elements.")
@@ -369,9 +371,6 @@ prep.data <- function(data, AphiaID = NULL,
     ## HLNoAtLngt
     ## -------------
     ind <- which(is.na(survey$HLNoAtLngt))
-    if(verbose) writeLines(paste("Number of entries with missing HLNoAtLngt: ",
-                                 paste0(length(ind), " (",round(length(ind)/nrow(survey)*100),
-                                 "%)"), sep = "\t\t\t"))
 
     ## HERE: REMOVE:?
     if(FALSE){
@@ -383,11 +382,19 @@ prep.data <- function(data, AphiaID = NULL,
     survey[which(paste0(survey$HaulID, "-", survey$AphiaID) %in% tmp[which(duplicated(tmp[,1]))][2]),]
     }
 
-
     ## DECISION: Using TotalNo when HLNoAtLngt == NA and setting subFactor to 1.
-    if(verbose) writeLines("Using information provided in TotalNo (with SubFactor = 1) for these hauls.")
-    survey$HLNoAtLngt[ind] <- survey$TotalNo[ind]
-    survey$SubFactor[ind] <- 1
+    if(verbose && length(ind) > 0){
+        survey$HLNoAtLngt[ind] <- survey$TotalNo[ind]
+        survey$SubFactor[ind] <- 1
+        ind2 <- which(!is.na(survey$TotalNo[ind]))
+        if(verbose) writeLines(paste0(paste("Number of entries with missing HLNoAtLngt: ",
+                                            paste0(length(ind), " (",round(length(ind)/nrow(survey)*100,1),
+                                                   "%)"), sep = "\t\t\t"),
+                                      " Using TotalNo (with SubFactor = 1) for these hauls."))
+        writeLines(paste("Number of meaningful TotalNo replacements: ",
+                                 paste0(length(ind2), " (",round(length(ind2)/length(ind)*100,1),
+                                 "%)"), sep = "\t\t\t"))
+    }
 
 
     ## Using HLNoAgeLngt for now
@@ -402,14 +409,17 @@ prep.data <- function(data, AphiaID = NULL,
     survey[is.na(survey)] <- "NA"  ## needed because aggregate deletes all NA
     survey$N <- as.numeric(survey$N)
 
-    dontUse <- c("N","multiplier","CatIdentifier","Subfactor","LngtClass","HLNoAtLngt")
+    dontUse <- c("N","multiplier","CatIdentifier","SubFactor","LngtClass","HLNoAtLngt",
+                 "TotalNo","DataType","SpecVal","Sex")
     survey <- aggregate(as.formula(
         paste0("N ~ ",
-               paste0(colnames(survey)[-which(colnames(survey)%in%dontUse)],
+               paste0(colnames(survey)[-which(colnames(survey) %in% dontUse)],
                       collapse=" + "))),
                         function(x) sum(x, na.rm = TRUE), data = survey, na.action = na.pass)
     survey$N <- round(survey$N)
     colnames(survey)[which(colnames(survey) == "HaulID")] <- "haul.id" ## required by surveyIdx package
+
+    dim(survey)
 
     flag <- all(!is.na(survey$N))
     if(verbose) writeLines(paste("Meaningful N estimated for all hauls: ",
