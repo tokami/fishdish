@@ -1,5 +1,7 @@
 #' @name prep.species
+#'
 #' @title Prepare species
+#'
 #' @param data Data set
 #' @param aphiaID required (single species or vector of species)
 #' @param use.gear.cat = TRUE
@@ -8,19 +10,29 @@
 #' @param min.surveys = 1
 #' @param min.hauls = 1
 #' @param min.ship.gear = 1
+#' @param verbose Print stuff Default: TRUE
+#'
 #' @return List containing hh and hl data sets.
+#'
 #' @export
 prep.species <- function(data, aphiaID,
                          use.gear.cat = TRUE,
                          remove.fragmented.years = TRUE,
-                         min.gears = 1, min.surveys = 1, min.hauls = 1, min.ship.gear = 1){
+                         min.gears = 1, min.surveys = 1, min.hauls = 1, min.ship.gear = 1,
+                         verbose = TRUE){
 
+
+    ## Check validity of data
+    ## ------------------
+    if(class(data) != "list" || length(data) != 2 || names(data) != c("survey0","survey"))
+        stop("Function requires data list with the data sets 'survey0' and 'survey' created by the function 'prep.data'.")
     survey0 <- data$survey0
     survey <- data$survey
 
 
     ## Subset all species for given species category
     ## --------------------------------------
+    if(!any(aphiaID %in% unique(survey$AphiaID))) stop("Provided Aphia IDs are not included in the data set! Please check if the Aphia IDs were included in the data preparation step (prep.data).")
     survey.spp <- subset(survey, AphiaID %in% aphiaID)
 
 
@@ -36,19 +48,25 @@ prep.species <- function(data, aphiaID,
 
     ## Gears
     ## --------------
-    writeLines(paste0("Gears in zero: ",length(unique(survey0$Gear)),"\n",
-                      "Gears in spp:  ",length(unique(survey.spp$Gear)),"\n"
-                      ))
-    ## Only keep gears with more or equal 5 individual hauls
+    if(verbose){
+        writeLines(paste("Number of gears (categories) in survey0: ",
+                         length(unique(survey0$Gear)), sep = "\t\t"))
+        writeLines(paste("Number of gears (categories) in survey:  ",
+                         length(unique(survey.spp$Gear)), sep = "\t\t"))
+    }
+    ## Only keep gears with more or equal x individual hauls
     tmp <- aggregate(list(haul.id = survey.spp$haul.id[survey.spp$N > 0]),
                      by = list(Gear = survey.spp$Gear[survey.spp$N > 0]),
                      function(x) length(unique(x)))
     gears.keep <- as.character(tmp$Gear[tmp$haul.id >= min.gears])
     ## Surveys
     ## --------------
-    writeLines(paste0("Surveys in zero: ",length(unique(survey0$Survey)),"\n",
-                      "Surveys in spp:  ",length(unique(survey.spp$Survey)),"\n"
-                      ))
+    if(verbose){
+        writeLines(paste("Number of surveys in survey0: ",
+                          length(unique(survey0$Survey)), sep = "\t\t\t\t\t\t\t"))
+        writeLines(paste("Number of surveys in survey:  ",
+                          length(unique(survey.spp$Survey)), sep = "\t\t\t\t\t\t\t"))
+    }
     ## Only keep surveys with more or equal 5 individual hauls
     tmp <- aggregate(list(haul.id = survey.spp$haul.id[survey.spp$N > 0]),
                      by = list(Survey = survey.spp$Survey[survey.spp$N > 0]),
@@ -85,18 +103,17 @@ prep.species <- function(data, aphiaID,
     survey0 <- subset(survey0, Year >= first_occurence)
 
 
+
     ## Missing / fragmented years
     ## --------------------------------------
     if(remove.fragmented.years){
         conti <- TRUE
+        rmYears <- NULL
         while(conti){
             obs <- unique(survey.spp$Year)
             all <- seq(min(survey.spp$Year),
                        max(survey.spp$Year), 1)
             mis <- all[!all %in% obs]
-            print(paste0("First year: ",min(survey.spp$Year)))
-            print("Missing years:")
-            print(mis)
             tmp <- merge(data.frame(Year=all,
                                     all = 0),
                          data.frame(Year=obs,
@@ -104,9 +121,8 @@ prep.species <- function(data, aphiaID,
                          by = "Year", all.x = TRUE)
             tmp$obs[is.na(tmp$obs)] <- tmp$all[is.na(tmp$obs)]
             tmp2 <- rle(tmp$obs)
-            if(tmp2$lengths[1] == 1 && tmp2$lengths[2] >= 1){
-                print(paste0("First year (",min(tmp$Year),
-                             ") is followed by one more years without observations (fragmented time series). Removing these years and checking again!"))
+            if(nrow(tmp) > 1 && tmp2$lengths[1] == 1 && tmp2$lengths[2] >= 1){
+                rmYears <- c(rmYears, min(tmp$Year))
                 keepYears <- tmp$Year[min(which(tmp$obs == 1)[-1])]
                 survey.spp <- subset(survey.spp, Year >= keepYears)
                 survey0 <- subset(survey0, Year >= keepYears)
@@ -114,12 +130,29 @@ prep.species <- function(data, aphiaID,
                 conti <- FALSE
             }
         }
+        if(verbose && !is.null(rmYears)){
+            writeLines(paste0("The years: ", paste(rmYears,collapse=","),
+                              " are followed by one more years without observations and are thus removed (remove.fragmented.years = TRUE)."))
+        }
+    }
+
+
+    ## Number of years
+    ## --------------------------------------
+    ny <- length(unique(survey.spp$Year))
+    if(verbose){
+        if(ny == 1){
+            writeLines(paste0("Note that the data only spans ", ny, " year."))
+        }else if(ny <= 5){
+            writeLines(paste0("Note that the data only spans ", ny, " years."))
+        }
     }
 
 
     ## Years with minimal number of hauls
     ## --------------------------------------
     conti <- TRUE
+    rmYears <- NULL
     while(conti){
         tmp <- cbind(
             with(survey.spp,
@@ -135,20 +168,24 @@ prep.species <- function(data, aphiaID,
             N = aggregate(list(N = survey.spp$N),
                           by = list(year = survey.spp$Year), sum)[,2]
         )
-        print(tmp)
-        if(tmp[1,2] <= min.hauls){
-            print(
-                paste0(
-                    "First year (",
-                    min(tmp$year),
-                    ") has less than 5 hauls with observations. Removing this year and checking again!"))
+        if(ny > 1 && tmp[1,2] <= min.hauls){
+            rmYears <- c(rmYears,min(tmp$year))
             keepYears <- min(tmp$year[-1])
+
+            browser()
+
             survey.spp <- survey.spp %>%
                 filter(Year >= keepYears)
             survey0 <- survey0 %>%
                 filter(Year >= keepYears)
+
         }else{
             conti <- FALSE
+        }
+        if(verbose && !is.null(rmYears)){
+            writeLines(paste0("The years: ", paste(rmYears,collapse=","),
+                              " have less than ", min.hauls,
+                              " hauls with observations and are thus removed (min.hauls = ",min.hauls,")."))
         }
     }
 
@@ -199,35 +236,17 @@ prep.species <- function(data, aphiaID,
 
     ## Combine surveys with observations and zeros
     ## --------------------------------------
-    survey.spp2 <- merge(survey0, survey.spp,
-                         by=c('haul.id',"Survey","StatRec","Year","Month",
-                              "Day","Quarter","Lat","Lon",
-                              "HaulDur","Ship","Gear", "ShipG", "GearCat",
-                              "Depth", "SweptArea","DepthStratum","DayNight",
-                              "BySpecRecCode","TimeShotHour",
-                              "Ecoregion","Area_27",
-                              "abstime","timeOfYear","ctime"),
-                         all = TRUE)
-    ##
+    ind <- colnames(survey0)[colnames(survey0) %in% colnames(survey.spp)]
+    ind <- !(colnames(survey.spp) %in% ind[!(ind %in% c("haul.id","N"))])
+    survey.spp2 <- plyr::join(survey0, survey.spp[,ind], by="haul.id")
     survey.spp2$AphiaID <- paste0(aphiaID, collapse = ",")
-    ##
-    survey.spp3 <- survey.spp2
-    survey.spp3$N.x <- NULL
-    survey.spp3$N.y <- NULL
-    ##
-    vec <- c("N")
-    df <- vector("list",length(vec))
-    for(nu in 1:length(vec)){
-        ind <- c(grep(paste0(vec[nu],".x"),colnames(survey.spp2)),
-                 grep(paste0(vec[nu],".y"),colnames(survey.spp2)))
-        df[[nu]] <- rowSums(survey.spp2[,ind], na.rm=TRUE)
-    }
-    df <- do.call(cbind, df)
-    colnames(df) <- vec
-    ##
-    survey.spp <- cbind(survey.spp3, df)
-    ##
-    rm(survey0, survey.spp3, survey.spp2)
+    ## Combine Ns from survey0 and survey
+    ind <- which(colnames(survey.spp2) == "N")
+    N <- rowSums(survey.spp2[,ind], na.rm = TRUE)
+    survey.spp2[,ind] <- NULL
+    survey.spp2$N <- N
+    survey.spp <- survey.spp2
+    rm(survey0, survey.spp2)
 
 
     ## Some checks
@@ -235,36 +254,36 @@ prep.species <- function(data, aphiaID,
     ## - No NA in Lat/Lon?
     ind <- which(is.na(survey.spp$Lat))
     if(length(ind) > 0){
-        writeLines(paste0(length(ind)," hauls have Lat == NA. Omitting them."))
+        if(verbose) writeLines(paste0(length(ind)," hauls have Lat == NA. Omitting them."))
         survey.spp <- survey.spp[-ind,]
     }
     ind <- which(is.na(survey.spp$Lon))
     if(length(ind) > 0){
-        writeLines(paste0(length(ind)," hauls have Lon == NA. Omitting them."))
+        if(verbose) writeLines(paste0(length(ind)," hauls have Lon == NA. Omitting them."))
         survey.spp <- survey.spp[-ind,]
     }
     ## - Duplicates in data?
     ind <- which(duplicated(survey.spp$haul.id))
     if(length(ind) > 0){
-        writeLines(paste0("Duplicated haul ID in data set. Omitting all duplicates."))
+        if(verbose) writeLines(paste0("Duplicated haul ID in data set. Omitting all duplicates."))
         survey.spp <- survey.spp[-ind,]
     }
     ## - N all integers?
     tmp <- unique(survey.spp$N)
     ind <- which(tmp %% 1 != 0)
     if(length(ind) > 0){
-        writeLines(paste0("Following non-integers found in total numbers per haul: ",
-                          paste(tmp[ind],collapse=", "),
-                          ". Rounding to integers!"))
+        if(verbose) writeLines(paste0("Following non-integers found in total numbers per haul: ",
+                                      paste(tmp[ind],collapse=", "),
+                                      ". Rounding to integers!"))
         survey.spp$N <- round(survey.spp$N)
     }
     ## - Print remaining hauls
     nHaulsPos <- length(unique(survey.spp$haul.id[which(survey.spp$N > 0)]))
-    writeLines(paste0("Number of hauls with N>0: ", nHaulsPos))
+    if(verbose) writeLines(paste("Number of hauls with N>0: ", nHaulsPos, sep = "\t\t\t\t\t\t\t\t\t"))
     nHauls0 <- length(unique(survey.spp$haul.id[which(survey.spp$N == 0)]))
-    writeLines(paste0("Number of hauls with N==0: ", nHauls0))
+    if(verbose) writeLines(paste("Number of hauls with N==0: ", nHauls0, sep = "\t\t\t\t\t\t\t\t\t"))
     nHaulsTot <- length(unique(survey.spp$haul.id))
-    writeLines(paste0("Number of hauls total: ", nHaulsTot))
+    if(verbose) writeLines(paste("Number of hauls total: ", nHaulsTot, sep = "\t\t\t\t\t\t\t\t\t\t\t"))
 
 
     ## Required Nage
@@ -276,6 +295,8 @@ prep.species <- function(data, aphiaID,
     ## withweight (download CA)  d<-addWeightByHaul(d,to1min=FALSE) but not clear if enough info
     ## maybe future project
 
-    return(survey.spp)
 
+    ## Return
+    ## --------------------------------------
+    return(survey.spp)
 }
