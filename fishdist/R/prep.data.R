@@ -410,7 +410,7 @@ prep.data <- function(data, AphiaID = NULL,
     survey$N <- as.numeric(survey$N)
 
     dontUse <- c("N","multiplier","CatIdentifier","SubFactor","LngtClass","HLNoAtLngt",
-                 "TotalNo","DataType","SpecVal","Sex")
+                 "TotalNo","DataType","SpecVal","Sex","HaulVal","StdSpecRecCode")
     survey <- aggregate(as.formula(
         paste0("N ~ ",
                paste0(colnames(survey)[-which(colnames(survey) %in% dontUse)],
