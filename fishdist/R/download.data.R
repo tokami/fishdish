@@ -116,5 +116,9 @@ download.data <- function(first.year = 1967,
         }
     }
 
-    return(list(HH=hh, HL=hl))
+    ## Return
+    ## -----------
+    res <- list(HH = hh, HL = hl)
+    class(res) <- c("fdist.datras","list")
+    return(res)
 }
