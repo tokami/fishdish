@@ -21,8 +21,8 @@ prep.data <- function(data, AphiaID = NULL,
 
     ## Check validity of data
     ## ------------------
-    if(class(data) != "list" || length(data) != 2 || names(data) != c("HH","HL"))
-        stop("Function requires data list with two DATRAS data sets 'HH' and 'HL' as elements.")
+    if(!inherits(data,"fdist.datras") || !all(names(data) %in% c("HH","HL")))
+        stop("Function requires list with two DATRAS data sets 'HH' and 'HL' as elements (see download.data).")
     hh <- data$HH
     hl <- data$HL
 
@@ -461,5 +461,7 @@ prep.data <- function(data, AphiaID = NULL,
 
     ## Return
     ## -----------
-    return(list(survey0 = survey0, survey = survey))
+    res <- list(survey0 = survey0, survey = survey)
+    class(res) <- c("fdist.prepped","list")
+    return(res)
 }

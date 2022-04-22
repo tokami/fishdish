@@ -21,11 +21,10 @@ prep.species <- function(data, aphiaID,
                          min.gears = 1, min.surveys = 1, min.hauls = 1, min.ship.gear = 1,
                          verbose = TRUE){
 
-
     ## Check validity of data
     ## ------------------
-    if(class(data) != "list" || length(data) != 2 || names(data) != c("survey0","survey"))
-        stop("Function requires data list with the data sets 'survey0' and 'survey' created by the function 'prep.data'.")
+    if(!inherits(data,"fdist.prepped") || !all(names(data) %in% c("survey0","survey")))
+        stop("Function requires list with the data sets 'survey0' and 'survey' created by the function 'prep.data'.")
     survey0 <- data$survey0
     survey <- data$survey
 
@@ -298,5 +297,6 @@ prep.species <- function(data, aphiaID,
 
     ## Return
     ## --------------------------------------
+    class(survey.spp) <- c("fdist.species","data.frame")
     return(survey.spp)
 }
