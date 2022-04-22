@@ -4,15 +4,32 @@
 \alias{est.dist}
 \title{Estimate distribution}
 \usage{
-est.dist(data, mc.cores = 1, verbose = TRUE)
+est.dist(
+  data,
+  mods = NULL,
+  n.lon = 20,
+  nBoot = 0,
+  use.bathy = FALSE,
+  resolution = 20,
+  mc.cores = 1,
+  verbose = TRUE
+)
 }
 \arguments{
 \item{data}{Data set}
 
+\item{mods}{NULL default}
+
+\item{nBoot}{number of bootrstrapping samples}
+
+\item{use.bathy}{Use bathymetry for distribution. Default: FALSE}
+
+\item{resolution}{Resolution for bathymetry map}
+
 \item{verbose}{Print stuff? Default: TRUE}
 }
 \value{
-List containing hh and hl data sets.
+List containing model results
 }
 \description{
 Estimate distribution

@@ -10,7 +10,7 @@ est.dist.one(
   n.lon = 20,
   nBoot = 0,
   use.bathy = FALSE,
-  resolution = 2,
+  resolution = 20,
   verbose = TRUE
 )
 }
@@ -28,7 +28,7 @@ est.dist.one(
 \item{verbose}{Print stuff? Default: TRUE}
 }
 \value{
-List containing hh and hl data sets.
+List containing model results
 }
 \description{
 Estimated distribution
