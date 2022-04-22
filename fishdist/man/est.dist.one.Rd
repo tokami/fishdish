@@ -4,7 +4,15 @@
 \alias{est.dist.one}
 \title{Estimated distribution}
 \usage{
-est.dist.one(specdata, mods = NULL, n.lon = 20, mc.cores = 1, nBoot = 0)
+est.dist.one(
+  specdata,
+  mods = NULL,
+  n.lon = 20,
+  nBoot = 0,
+  use.bathy = FALSE,
+  resolution = 2,
+  verbose = TRUE
+)
 }
 \arguments{
 \item{specdata}{Data set of one species}
@@ -12,6 +20,12 @@ est.dist.one(specdata, mods = NULL, n.lon = 20, mc.cores = 1, nBoot = 0)
 \item{mods}{NULL default}
 
 \item{nBoot}{number of bootrstrapping samples}
+
+\item{use.bathy}{Use bathymetry for distribution. Default: FALSE}
+
+\item{resolution}{Resolution for bathymetry map}
+
+\item{verbose}{Print stuff? Default: TRUE}
 }
 \value{
 List containing hh and hl data sets.

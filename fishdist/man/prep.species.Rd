@@ -12,7 +12,8 @@ prep.species(
   min.gears = 1,
   min.surveys = 1,
   min.hauls = 1,
-  min.ship.gear = 1
+  min.ship.gear = 1,
+  verbose = TRUE
 )
 }
 \arguments{
@@ -31,6 +32,8 @@ prep.species(
 \item{min.hauls}{= 1}
 
 \item{min.ship.gear}{= 1}
+
+\item{verbose}{Print stuff Default: TRUE}
 }
 \value{
 List containing hh and hl data sets.

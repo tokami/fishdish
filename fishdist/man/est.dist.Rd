@@ -4,10 +4,12 @@
 \alias{est.dist}
 \title{Estimate distribution}
 \usage{
-est.dist(data, mc.cores = 1)
+est.dist(data, mc.cores = 1, verbose = TRUE)
 }
 \arguments{
 \item{data}{Data set}
+
+\item{verbose}{Print stuff? Default: TRUE}
 }
 \value{
 List containing hh and hl data sets.

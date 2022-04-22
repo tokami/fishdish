@@ -4,7 +4,14 @@
 \alias{list.recom.models}
 \title{List all model recommended structures}
 \usage{
-list.recom.models(specdata, use.toy = TRUE, use.swept.area = TRUE)
+list.recom.models(
+  specdata,
+  use.toy = TRUE,
+  use.swept.area = TRUE,
+  dim.lat.lon = 128,
+  dim.ctime.lat.lon = c(12, 32),
+  dim.timeOfYear.lat.lon = c(6, 30)
+)
 }
 \arguments{
 \item{specdata}{Species data}
@@ -12,6 +19,15 @@ list.recom.models(specdata, use.toy = TRUE, use.swept.area = TRUE)
 \item{use.toy}{Use time of year? (Caused problems for some species)}
 
 \item{use.swept.area}{Use swept area? (Might not be available)}
+
+\item{dim.lat.lon}{Dimensions of the basis for the Lat - Lon smooth term (1
+number)}
+
+\item{dim.ctime.lat.lon}{Dimensions of the basis for the ctime - Lat - Lon
+smooth term (2 numbers)}
+
+\item{dim.timeOfYear.lat.lon}{Dimensions of the basis for the timeOfYear -
+Lat - Lon smooth term (2 numbers)}
 }
 \value{
 List with all model structures
