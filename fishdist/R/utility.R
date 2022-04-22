@@ -110,124 +110,78 @@ get.info.surveys <- function(survey=NULL, statrec = FALSE, plot = TRUE){
 
 
 
-
-
 #' @name list.recom.models
+#'
 #' @title List all model recommended structures
+#'
 #' @param specdata Species data
 #' @param use.toy Use time of year? (Caused problems for some species)
 #' @param use.swept.area Use swept area? (Might not be available)
+#' @param dim.lat.lon Dimensions of the basis for the Lat - Lon smooth term (1
+#'     number)
+#' @param dim.ctime.lat.lon Dimensions of the basis for the ctime - Lat - Lon
+#'     smooth term (2 numbers)
+#' @param dim.timeOfYear.lat.lon Dimensions of the basis for the timeOfYear -
+#'     Lat - Lon smooth term (2 numbers)
+#'
 #' @return List with all model structures
+#'
 #' @export
-list.recom.models <- function(specdata, use.toy = TRUE, use.swept.area = TRUE){
+list.recom.models <- function(specdata, use.toy = TRUE,
+                              use.swept.area = TRUE,
+                              dim.lat.lon = 128,
+                              dim.ctime.lat.lon = c(12,32),
+                              dim.timeOfYear.lat.lon = c(6,30)){
 
+    ## Checks
+    if(length(dim.ctime.lat.lon) != 2) stop("The variable dim.ctime.lat.lon has to have length equal to 2.")
+    if(length(dim.timeOfYear.lat.lon) != 2) stop("The variable dim.timeOfYear.lat.lon has to have length equal to 2.")
+
+    LatLon <- paste0("s(Lon, Lat, bs=c('ds'), k=c(",dim.lat.lon[1],"), m=c(1,0.5))")
+    ctimeLatLon <- paste0("te(ctime, Lon, Lat, d=c(1,2), bs=c('ds','ds'), k=c(",
+                          dim.ctime.lat.lon[1], ",",
+                          dim.ctime.lat.lon[2],"), m=list(c(1,0), c(1,0.5)))")
+    timeOfYearLatLon <- paste0("te(timeOfYear, Lon, Lat, d=c(1,2), bs=c('cc','ds'), k=c(",
+                               dim.timeOfYear.lat.lon[1],",",
+                               dim.timeOfYear.lat.lon[2],"), m=list(c(1,0), c(1,0.5)))")
+    depth <- "s(Depth, bs='ds', k=5, m=c(1,0))"
+    ship <- "s(ShipG, bs='re')"
+    gear <- "Gear"
     offset.var <- ifelse(use.swept.area, "SweptArea", "HaulDur")
+    offset <- paste0("offset(log(",offset.var,"))")
 
-    if(use.toy){
+    ##        1        2            3                 4      5    6     7
+    mm <- c(LatLon, ctimeLatLon, timeOfYearLatLon, depth, gear, ship, offset)
+    mSel <- rep(TRUE, length(mm))
 
-        ## models
-        if(length(unique(specdata$Gear)) > 1 && length(unique(specdata$ShipG)) > 1){
+    if (!use.toy) mSel[3] <- FALSE
+    if(length(unique(specdata$Gear)) == 1)  mSel[5] <- FALSE
+    if(length(unique(specdata$ShipG)) == 1) mSel[6] <- FALSE
 
-            mps <- list(
-                paste0("s(Lon, Lat, bs=c('ds'), k=c(128), m=c(1,0.5)) + te(ctime, Lon, Lat, d=c(1,2), bs=c('ds','ds'), k=c(12,32), m=list(c(1,0), c(1,0.5))) + te(timeOfYear, Lon, Lat, d=c(1,2), bs=c('cc','ds'), k=c(6,30), m=list(c(1,0), c(1,0.5))) + s(Depth, bs='ds', k=5, m=c(1,0)) + Gear + s(ShipG, bs='re') + offset(log(",offset.var,"))"),
-                ##
-                paste0("s(Lon, Lat, bs=c('ds'), k=c(128), m=c(1,0.5)) + te(ctime, Lon, Lat, d=c(1,2), bs=c('ds','ds'), k=c(12,32), m=list(c(1,0), c(1,0.5))) + te(timeOfYear, Lon, Lat, d=c(1,2), bs=c('cc','ds'), k=c(6,30), m=list(c(1,0), c(1,0.5))) + s(Depth, bs='ds', k=5, m=c(1,0)) + Gear + offset(log(",offset.var,"))"),
-                ##
-                paste0("s(Lon, Lat, bs=c('ds'), k=c(128), m=c(1,0.5)) + te(ctime, Lon, Lat, d=c(1,2), bs=c('ds','ds'), k=c(12,32), m=list(c(1,0), c(1,0.5))) + te(timeOfYear, Lon, Lat, d=c(1,2), bs=c('cc','ds'), k=c(6,30), m=list(c(1,0), c(1,0.5))) + s(Depth, bs='ds', k=5, m=c(1,0)) + offset(log(",offset.var,"))"),
-                ##
-                paste0("s(Lon, Lat, bs=c('ds'), k=c(128), m=c(1,0.5)) + te(ctime, Lon, Lat, d=c(1,2), bs=c('ds','ds'), k=c(12,32), m=list(c(1,0), c(1,0.5))) + s(Depth, bs='ds', k=5, m=c(1,0)) + offset(log(SweptArea))"),
-                ##
-                paste0("s(Lon, Lat, bs=c('ds'), k=c(128), m=c(1,0.5)) + te(ctime, Lon, Lat, d=c(1,2), bs=c('ds','ds'), k=c(12,32), m=list(c(1,0), c(1,0.5))) + offset(log(",offset.var,"))")
-            )
-
-        }else if(length(unique(specdata$ShipG)) > 1){
-
-            writeLines(paste0("Not using Gear as variable - only one gear present in data set."))
-
-            mps <- list(
-                paste0("s(Lon, Lat, bs=c('ds'), k=c(128), m=c(1,0.5)) + te(ctime, Lon, Lat, d=c(1,2), bs=c('ds','ds'), k=c(12,32), m=list(c(1,0), c(1,0.5))) + te(timeOfYear, Lon, Lat, d=c(1,2), bs=c('cc','ds'), k=c(6,30), m=list(c(1,0), c(1,0.5))) + s(Depth, bs='ds', k=5, m=c(1,0)) + s(ShipG, bs='re') + offset(log(",offset.var,"))"),
-                ##
-                paste0("s(Lon, Lat, bs=c('ds'), k=c(128), m=c(1,0.5)) + te(ctime, Lon, Lat, d=c(1,2), bs=c('ds','ds'), k=c(12,32), m=list(c(1,0), c(1,0.5))) + te(timeOfYear, Lon, Lat, d=c(1,2), bs=c('cc','ds'), k=c(6,30), m=list(c(1,0), c(1,0.5))) + s(Depth, bs='ds', k=5, m=c(1,0)) + offset(log(",offset.var,"))"),
-                ##
-                paste0("s(Lon, Lat, bs=c('ds'), k=c(128), m=c(1,0.5)) + te(ctime, Lon, Lat, d=c(1,2), bs=c('ds','ds'), k=c(12,32), m=list(c(1,0), c(1,0.5))) + te(timeOfYear, Lon, Lat, d=c(1,2), bs=c('cc','ds'), k=c(6,30), m=list(c(1,0), c(1,0.5))) + s(Depth, bs='ds', k=5, m=c(1,0)) + offset(log(",offset.var,"))"),
-                ##
-                paste0("s(Lon, Lat, bs=c('ds'), k=c(128), m=c(1,0.5)) + te(ctime, Lon, Lat, d=c(1,2), bs=c('ds','ds'), k=c(12,32), m=list(c(1,0), c(1,0.5))) + s(Depth, bs='ds', k=5, m=c(1,0)) + offset(log(",offset.var,"))"),
-                ##
-                paste0("s(Lon, Lat, bs=c('ds'), k=c(128), m=c(1,0.5)) + te(ctime, Lon, Lat, d=c(1,2), bs=c('ds','ds'), k=c(12,32), m=list(c(1,0), c(1,0.5))) + offset(log(",offset.var,"))")
-            )
-
-        }else{
-
-            writeLines(paste0("Not using Gear nor ShipG as variable - only one gear and ShipG present in data set."))
-
-            mps <- list(
-                paste0("s(Lon, Lat, bs=c('ds'), k=c(128), m=c(1,0.5)) + te(ctime, Lon, Lat, d=c(1,2), bs=c('ds','ds'), k=c(12,32), m=list(c(1,0), c(1,0.5))) + te(timeOfYear, Lon, Lat, d=c(1,2), bs=c('cc','ds'), k=c(6,30), m=list(c(1,0), c(1,0.5))) + s(Depth, bs='ds', k=5, m=c(1,0)) + offset(log(",offset.var,"))"),
-                ##
-                paste0("s(Lon, Lat, bs=c('ds'), k=c(128), m=c(1,0.5)) + te(ctime, Lon, Lat, d=c(1,2), bs=c('ds','ds'), k=c(12,32), m=list(c(1,0), c(1,0.5))) + te(timeOfYear, Lon, Lat, d=c(1,2), bs=c('cc','ds'), k=c(6,30), m=list(c(1,0), c(1,0.5))) + s(Depth, bs='ds', k=5, m=c(1,0)) + offset(log(",offset.var,"))"),
-                ##
-                paste0("s(Lon, Lat, bs=c('ds'), k=c(128), m=c(1,0.5)) + te(ctime, Lon, Lat, d=c(1,2), bs=c('ds','ds'), k=c(12,32), m=list(c(1,0), c(1,0.5))) + te(timeOfYear, Lon, Lat, d=c(1,2), bs=c('cc','ds'), k=c(6,30), m=list(c(1,0), c(1,0.5))) + s(Depth, bs='ds', k=5, m=c(1,0)) + offset(log(",offset.var,"))"),
-                ##
-                paste0("s(Lon, Lat, bs=c('ds'), k=c(128), m=c(1,0.5)) + te(ctime, Lon, Lat, d=c(1,2), bs=c('ds','ds'), k=c(12,32), m=list(c(1,0), c(1,0.5))) + s(Depth, bs='ds', k=5, m=c(1,0)) + offset(log(",offset.var,"))"),
-                ##
-                paste0("s(Lon, Lat, bs=c('ds'), k=c(128), m=c(1,0.5)) + te(ctime, Lon, Lat, d=c(1,2), bs=c('ds','ds'), k=c(12,32), m=list(c(1,0), c(1,0.5))) + offset(log(",offset.var,"))")
-            )
-
-        }
-
-
-    }else{
-        ## models
-        if(length(unique(specdata$Gear)) > 1 && length(unique(specdata$ShipG)) > 1){
-
-            mps <- list(
-                paste0("s(Lon, Lat, bs=c('ds'), k=c(128), m=c(1,0.5)) + te(ctime, Lon, Lat, d=c(1,2), bs=c('ds','ds'), k=c(12,32), m=list(c(1,0), c(1,0.5))) + s(Depth, bs='ds', k=5, m=c(1,0)) + Gear + s(ShipG, bs='re') + offset(log(",offset.var,"))"),
-                ##
-                paste0("s(Lon, Lat, bs=c('ds'), k=c(128), m=c(1,0.5)) + te(ctime, Lon, Lat, d=c(1,2), bs=c('ds','ds'), k=c(12,32), m=list(c(1,0), c(1,0.5))) + s(Depth, bs='ds', k=5, m=c(1,0)) + Gear + offset(log(",offset.var,"))"),
-                ##
-                paste0("s(Lon, Lat, bs=c('ds'), k=c(128), m=c(1,0.5)) + te(ctime, Lon, Lat, d=c(1,2), bs=c('ds','ds'), k=c(12,32), m=list(c(1,0), c(1,0.5))) + s(Depth, bs='ds', k=5, m=c(1,0)) + offset(log(",offset.var,"))"),
-                ##
-                paste0("s(Lon, Lat, bs=c('ds'), k=c(128), m=c(1,0.5)) + te(ctime, Lon, Lat, d=c(1,2), bs=c('ds','ds'), k=c(12,32), m=list(c(1,0), c(1,0.5))) + s(Depth, bs='ds', k=5, m=c(1,0)) + offset(log(",offset.var,"))"),
-                ##
-                paste0("s(Lon, Lat, bs=c('ds'), k=c(128), m=c(1,0.5)) + te(ctime, Lon, Lat, d=c(1,2), bs=c('ds','ds'), k=c(12,32), m=list(c(1,0), c(1,0.5))) + offset(log(",offset.var,"))")
-            )
-
-        }else if(length(unique(specdata$ShipG)) > 1){
-
-            writeLines(paste0("Not using Gear as variable - only one gear present."))
-
-            mps <- list(
-                paste0("s(Lon, Lat, bs=c('ds'), k=c(128), m=c(1,0.5)) + te(ctime, Lon, Lat, d=c(1,2), bs=c('ds','ds'), k=c(12,32), m=list(c(1,0), c(1,0.5))) + s(Depth, bs='ds', k=5, m=c(1,0)) + s(ShipG, bs='re') + offset(log(",offset.var,"))"),
-                ##
-                paste0("s(Lon, Lat, bs=c('ds'), k=c(128), m=c(1,0.5)) + te(ctime, Lon, Lat, d=c(1,2), bs=c('ds','ds'), k=c(12,32), m=list(c(1,0), c(1,0.5))) + s(Depth, bs='ds', k=5, m=c(1,0)) + offset(log(",offset.var,"))"),
-                ##
-                paste0("s(Lon, Lat, bs=c('ds'), k=c(128), m=c(1,0.5)) + te(ctime, Lon, Lat, d=c(1,2), bs=c('ds','ds'), k=c(12,32), m=list(c(1,0), c(1,0.5))) + s(Depth, bs='ds', k=5, m=c(1,0)) + offset(log(",offset.var,"))"),
-                ##
-                paste0("s(Lon, Lat, bs=c('ds'), k=c(128), m=c(1,0.5)) + te(ctime, Lon, Lat, d=c(1,2), bs=c('ds','ds'), k=c(12,32), m=list(c(1,0), c(1,0.5))) + s(Depth, bs='ds', k=5, m=c(1,0)) + offset(log(",offset.var,"))"),
-                ##
-                paste0("s(Lon, Lat, bs=c('ds'), k=c(128), m=c(1,0.5)) + te(ctime, Lon, Lat, d=c(1,2), bs=c('ds','ds'), k=c(12,32), m=list(c(1,0), c(1,0.5))) + offset(log(",offset.var,"))")
-            )
-
-        }else{
-
-            writeLines(paste0("Not using Gear nor ShipG as variable - only one gear and ShipG present."))
-
-            mps <- list(
-                paste0("s(Lon, Lat, bs=c('ds'), k=c(128), m=c(1,0.5)) + te(ctime, Lon, Lat, d=c(1,2), bs=c('ds','ds'), k=c(12,32), m=list(c(1,0), c(1,0.5))) + s(Depth, bs='ds', k=5, m=c(1,0)) + offset(log(",offset.var,"))"),
-                ##
-                paste0("s(Lon, Lat, bs=c('ds'), k=c(128), m=c(1,0.5)) + te(ctime, Lon, Lat, d=c(1,2), bs=c('ds','ds'), k=c(12,32), m=list(c(1,0), c(1,0.5))) + s(Depth, bs='ds', k=5, m=c(1,0)) + offset(log(",offset.var,"))"),
-                ##
-                paste0("s(Lon, Lat, bs=c('ds'), k=c(128), m=c(1,0.5)) + te(ctime, Lon, Lat, d=c(1,2), bs=c('ds','ds'), k=c(12,32), m=list(c(1,0), c(1,0.5))) + s(Depth, bs='ds', k=5, m=c(1,0)) + offset(log(",offset.var,"))"),
-                ##
-                paste0("s(Lon, Lat, bs=c('ds'), k=c(128), m=c(1,0.5)) + te(ctime, Lon, Lat, d=c(1,2), bs=c('ds','ds'), k=c(12,32), m=list(c(1,0), c(1,0.5))) + s(Depth, bs='ds', k=5, m=c(1,0)) + offset(log(",offset.var,"))"),
-                ##
-                paste0("s(Lon, Lat, bs=c('ds'), k=c(128), m=c(1,0.5)) + te(ctime, Lon, Lat, d=c(1,2), bs=c('ds','ds'), k=c(12,32), m=list(c(1,0), c(1,0.5))) + offset(log(",offset.var,"))")
-            )
-
-        }
+    ## all
+    mps <- list(paste(mm,collapse=' + '))
+    ## no ship, if exist
+    if(mSel[6]){
+        mSel[6] <- FALSE
+        mps <- append(mps,paste(mm[mSel],collapse=' + '))
+    }
+    ## no gear, if exist
+    if(mSel[5]){
+        mSel[5] <- FALSE
+        mps <- append(mps,paste(mm[mSel],collapse=' + '))
+    }
+    ## no timeOfYear, if exist
+    if(mSel[3]){
+        mSel[3] <- FALSE
+        mps <- append(mps,paste(mm[mSel],collapse=' + '))
+    }
+    ## no depth, if exist
+    if(mSel[4]){
+        mSel[4] <- FALSE
+        mps <- append(mps,paste(mm[mSel],collapse=' + '))
     }
 
     return(mps)
-
 }
 
 
@@ -383,57 +337,57 @@ correct.species <- function(data){
 
     ## Code to integrate from Anna on species bycatch corrections
     if("Species" %in% colnames(data)){
-    data$Species[which(data$Species == "Synaphobranchus kaupii")] <- "Synaphobranchus kaupi"
-    data$Species[which(data$Species == "Dipturus batis")] <- "Dipturus spp"
-    data$Species[which(data$Species == "Dipturus flossada")] <- "Dipturus spp"
-    data$Species[which(data$Species == "Dipturus batis-complex")] <- "Dipturus spp"
-    data$Species[which(data$Species == "Dipturus intermedia")] <- "Dipturus spp"
-    data$Species[which(data$Species == "Dipturus")] <- "Dipturus spp"
-    data$Species[which(data$Species == "Liparis montagui")] <- "Liparis spp"
-    data$Species[which(data$Species == "Liparis liparis")] <- "Liparis spp"
-    data$Species[which(data$Species == "Liparis liparis liparis")] <- "Liparis spp"
-    data$Species[which(data$Species == "Chelon aurata")] <- "Chelon spp"
-    data$Species[which(data$Species == "Chelon ramada")] <- "Chelon spp"
-    data$Species[which(data$Species == "Mustelus mustelus/asterias")] <- "Mustelus spp"
-    data$Species[which(data$Species == "Mustelus")] <- "Mustelus spp"
-    data$Species[which(data$Species == "Mustelus mustelus")] <- "Mustelus spp"
-    data$Species[which(data$Species == "Mustelus asterias")] <- "Mustelus spp"
-    data$Species[which(data$Species == "Alosa")] <- "Alosa spp"
-    data$Species[which(data$Species == "Alosa alosa")] <- "Alosa spp"
-    data$Species[which(data$Species == "Alosa fallax")] <- "Alosa spp"
-    data$Species[which(data$Species == "Argentina")] <- "Argentina spp"
-    data$Species[which(data$Species == "Argentinidae")] <- "Argentina spp"
-    data$Species[which(data$Species == "Argentina silus")] <- "Argentina spp"
-    data$Species[which(data$Species == "Argentina sphyraena")] <- "Argentina spp"
-    data$Species[which(data$Species == "Callionymus reticulatus")] <- "Callionymus spp"
-    data$Species[which(data$Species == "Callionymus maculatus")] <- "Callionymus spp"
-    data$Species[which(data$Species == "Ciliata mustela")] <- "Ciliata spp"
-    data$Species[which(data$Species == "Ciliata septentrionalis")] <- "Ciliata spp"
-    data$Species[which(data$Species == "Gaidropsarus")] <- "Gaidropsarus spp"
-    data$Species[which(data$Species == "Gaidropsaurus macrophthalmus")] <- "Gaidropsarus spp"
-    data$Species[which(data$Species == "Gaidropsaurus mediterraneus")] <- "Gaidropsarus spp"
-    data$Species[which(data$Species == "Gaidropsaurus vulgaris")] <- "Gaidropsarus spp"
-    data$Species[which(data$Species == "Sebastes")] <- "Sebastes spp"
-    data$Species[which(data$Species == "Sebastes norvegicus")] <- "Sebastes spp"
-    data$Species[which(data$Species == "Sebastes mentella")] <- "Sebastes spp"
-    data$Species[which(data$Species == "Sebastes marinus")] <- "Sebastes spp"
-    data$Species[which(data$Species == "Syngnathus")] <- "Syngnatus spp"
-    data$Species[which(data$Species == "Syngnathus rostellatus")] <- "Syngnatus spp"
-    data$Species[which(data$Species == "Syngnathus acus")] <- "Syngnatus spp"
-    data$Species[which(data$Species == "Syngnathus typhle")] <- "Syngnatus spp"
-    data$Species[which(data$Species == "Nerophis ophidion")] <- "Syngnatus spp"
-    data$Species[which(data$Species == "Pomatoschistus")] <- "Pomatoschistus spp"
-    data$Species[which(data$Species == "Pomatoschistus microps")] <- "Pomatoschistus spp"
-    data$Species[which(data$Species == "Pomatoschistus minutus")] <- "Pomatoschistus spp"
-    data$Species[which(data$Species == "Pomatoschistus pictus")] <- "Pomatoschistus spp"
-    data$Species[which(data$Species == "Lesueurigobius")] <- "Gobius spp"
-    data$Species[which(data$Species == "Gobius cobitis")] <- "Gobius spp"
-    data$Species[which(data$Species == "Gobius niger")] <- "Gobius spp"
-    data$Species[which(data$Species == "Leusueurigobius friesii")] <- "Gobius spp"
-    data$Species[which(data$Species == "Neogobius melanostomus")] <- "Gobius spp"
-    data$Species[which(data$Species == "Neogobius")] <- "Gobius spp"
+        data$Species[which(data$Species == "Synaphobranchus kaupii")] <- "Synaphobranchus kaupi"
+        data$Species[which(data$Species == "Dipturus batis")] <- "Dipturus spp"
+        data$Species[which(data$Species == "Dipturus flossada")] <- "Dipturus spp"
+        data$Species[which(data$Species == "Dipturus batis-complex")] <- "Dipturus spp"
+        data$Species[which(data$Species == "Dipturus intermedia")] <- "Dipturus spp"
+        data$Species[which(data$Species == "Dipturus")] <- "Dipturus spp"
+        data$Species[which(data$Species == "Liparis montagui")] <- "Liparis spp"
+        data$Species[which(data$Species == "Liparis liparis")] <- "Liparis spp"
+        data$Species[which(data$Species == "Liparis liparis liparis")] <- "Liparis spp"
+        data$Species[which(data$Species == "Chelon aurata")] <- "Chelon spp"
+        data$Species[which(data$Species == "Chelon ramada")] <- "Chelon spp"
+        data$Species[which(data$Species == "Mustelus mustelus/asterias")] <- "Mustelus spp"
+        data$Species[which(data$Species == "Mustelus")] <- "Mustelus spp"
+        data$Species[which(data$Species == "Mustelus mustelus")] <- "Mustelus spp"
+        data$Species[which(data$Species == "Mustelus asterias")] <- "Mustelus spp"
+        data$Species[which(data$Species == "Alosa")] <- "Alosa spp"
+        data$Species[which(data$Species == "Alosa alosa")] <- "Alosa spp"
+        data$Species[which(data$Species == "Alosa fallax")] <- "Alosa spp"
+        data$Species[which(data$Species == "Argentina")] <- "Argentina spp"
+        data$Species[which(data$Species == "Argentinidae")] <- "Argentina spp"
+        data$Species[which(data$Species == "Argentina silus")] <- "Argentina spp"
+        data$Species[which(data$Species == "Argentina sphyraena")] <- "Argentina spp"
+        data$Species[which(data$Species == "Callionymus reticulatus")] <- "Callionymus spp"
+        data$Species[which(data$Species == "Callionymus maculatus")] <- "Callionymus spp"
+        data$Species[which(data$Species == "Ciliata mustela")] <- "Ciliata spp"
+        data$Species[which(data$Species == "Ciliata septentrionalis")] <- "Ciliata spp"
+        data$Species[which(data$Species == "Gaidropsarus")] <- "Gaidropsarus spp"
+        data$Species[which(data$Species == "Gaidropsaurus macrophthalmus")] <- "Gaidropsarus spp"
+        data$Species[which(data$Species == "Gaidropsaurus mediterraneus")] <- "Gaidropsarus spp"
+        data$Species[which(data$Species == "Gaidropsaurus vulgaris")] <- "Gaidropsarus spp"
+        data$Species[which(data$Species == "Sebastes")] <- "Sebastes spp"
+        data$Species[which(data$Species == "Sebastes norvegicus")] <- "Sebastes spp"
+        data$Species[which(data$Species == "Sebastes mentella")] <- "Sebastes spp"
+        data$Species[which(data$Species == "Sebastes marinus")] <- "Sebastes spp"
+        data$Species[which(data$Species == "Syngnathus")] <- "Syngnatus spp"
+        data$Species[which(data$Species == "Syngnathus rostellatus")] <- "Syngnatus spp"
+        data$Species[which(data$Species == "Syngnathus acus")] <- "Syngnatus spp"
+        data$Species[which(data$Species == "Syngnathus typhle")] <- "Syngnatus spp"
+        data$Species[which(data$Species == "Nerophis ophidion")] <- "Syngnatus spp"
+        data$Species[which(data$Species == "Pomatoschistus")] <- "Pomatoschistus spp"
+        data$Species[which(data$Species == "Pomatoschistus microps")] <- "Pomatoschistus spp"
+        data$Species[which(data$Species == "Pomatoschistus minutus")] <- "Pomatoschistus spp"
+        data$Species[which(data$Species == "Pomatoschistus pictus")] <- "Pomatoschistus spp"
+        data$Species[which(data$Species == "Lesueurigobius")] <- "Gobius spp"
+        data$Species[which(data$Species == "Gobius cobitis")] <- "Gobius spp"
+        data$Species[which(data$Species == "Gobius niger")] <- "Gobius spp"
+        data$Species[which(data$Species == "Leusueurigobius friesii")] <- "Gobius spp"
+        data$Species[which(data$Species == "Neogobius melanostomus")] <- "Gobius spp"
+        data$Species[which(data$Species == "Neogobius")] <- "Gobius spp"
 
-    data <- subset(data, !(BySpecRecCode==0 & Data == "BTS" &
+        data <- subset(data, !(BySpecRecCode==0 & Data == "BTS" &
                                !Species %in% c("Chelidonichthys cuculus","Chelidonichthys lucerna","Eutrigla gurnardus",
                                                "Gadus morhua","Limanda limanda","Lophius piscatorius",
                                                "Merlangius merlangus","Microstomus kitt","Mullus surmuletus",
@@ -444,7 +398,7 @@ correct.species <- function(data){
 
 
 
-    data <- subset(data, !(BySpecRecCode==0 & Data == "SP-NORTH" &
+        data <- subset(data, !(BySpecRecCode==0 & Data == "SP-NORTH" &
                                !Species %in% c("Chelidonichthys lucerna","Conger conger","Eutrigla gurnardus",
                                                "Galeus melastomus","Helicolenus dactylopterus","Lepidorhombus boscii",
                                                "Lepidorhombus whiffiagoni","Leucoraja circularis",
@@ -452,7 +406,7 @@ correct.species <- function(data){
                                                "Micromesistius poutassou","Phycis blennoides", "Raja clavata","Raja montagui",
                                                "Scomber scombrus","Scyliorhinus canicula","Trachurus trachurus",
                                                "Trisopterus luscus","Zeus faber")))
-    data <- subset(data, !(BySpecRecCode==0 & Data == "SP-PORC" &
+        data <- subset(data, !(BySpecRecCode==0 & Data == "SP-PORC" &
                                !Species %in% c("Argentina silus","Chelidonichthys lucerna","Conger conger",
                                                "Eutrigla gurnardus","Gadus morhua","Galeus melastomus",
                                                "Glyptocephalus cynoglossu","Helicolenus dactylopterus","Hexanchus griseus",
@@ -462,10 +416,10 @@ correct.species <- function(data){
                                                "Molva dypterygia","Molva molva","Phycis blennoides","Raja clavata",
                                                "Raja montagui","Scomber scombrus","Scyliorhinus canicula",
                                                "Trachurus trachurus","Zeus faber")))
-    data <- subset(data, !(BySpecRecCode==0 & Data %in% c("NS-IBTS1","NS-IBTS3") &
+        data <- subset(data, !(BySpecRecCode==0 & Data %in% c("NS-IBTS1","NS-IBTS3") &
                                !Species %in% c("Clupea harengus","Sprattus sprattus","Scomber scombrus","Gadus morhua",
                                                "Melanogrammus aeglefinus","Merlangius merlangus","Trisopterus esmarkii")))
-    data <- subset(data, !(BySpecRecCode==2 &
+        data <- subset(data, !(BySpecRecCode==2 &
                                !Species %in% c("Ammodytidae","Anarhichas lupus","Argentina silus","Argentina sphyraena",
                                                "Chelidonichthys cuculus","Callionymus lyra","Eutrigla gurnardus",
                                                "Lumpenus lampretaeformis", "Mullus surmuletus","Squalus acanthias",
@@ -477,18 +431,18 @@ correct.species <- function(data){
                                                "Merluccius merluccius","Brosme brosme", "Clupea harengus","Sprattus sprattus",
                                                "Scomber scombrus","Gadus morhua","Melanogrammus aeglefinus" ,"Merlangius merlangus",
                                                "Trisopterus esmarkii")))
-    data <- subset(data, !(BySpecRecCode==3 &
+        data <- subset(data, !(BySpecRecCode==3 &
                                !Species %in% c("Pollachius virens","Pollachius pollachius","Trisopterus luscus","Trisopterus minutus",
                                                "Micromesistius poutassou","Molva molva", "Merluccius merluccius","Brosme brosme",
                                                "Clupea harengus","Sprattus sprattus","Scomber scombrus","Gadus morhua",
                                                "Melanogrammus aeglefinus","Merlangius merlangus","Trisopterus esmarkii")))
-    data <- subset(data, !(BySpecRecCode==4 &
+        data <- subset(data, !(BySpecRecCode==4 &
                                !Species %in% c("Platichthys flesus","Pleuronectes platessa","Limanda limanda",
                                                "Lepidorhombus whiffiagoni","Hippoglossus hippoglossus","Hippoglossoides platessoi",
                                                "Glyptocephalus cynoglossu","Microstomus kitt","Scophthalmus maximus","Scophthalmus rhombus",
                                                "Solea solea", "Clupea harengus","Sprattus sprattus","Scomber scombrus","Gadus morhua",
                                                "Melanogrammus aeglefinus","Merlangius merlangus","Trisopterus esmarkii")))
-    data <- subset(data, !(BySpecRecCode==5 &
+        data <- subset(data, !(BySpecRecCode==5 &
                                !Species %in% c("Ammodytidae","Anarhichas lupus","Argentina silus","Argentina sphyraena",
                                                "Chelidonichthys cuculus","Callionymus lyra","Eutrigla gurnardus",
                                                "Lumpenus lampretaeformis", "Mullus surmuletus","Squalus acanthias","Trachurus trachurus",
@@ -501,70 +455,6 @@ correct.species <- function(data){
 
 
 
-#' @name summary.data
-#'
-#' @title Summary of data
-#'
-#' @param data Data set
-#'
-#' @return NULL
-#'
-#' @export
-summary.data <- function(data){
-
-    ## TODO: ADD: check for variables incl. in data
-
-    if(FALSE){
-            dat_sum <- survey0[,c("Survey","Quarter","Year","N")]
-    dat_sum <- dat_sum[!duplicated(dat_sum),]
-    dat_sum <- aggregate(list(Years=dat_sum$Year),
-                         by = list(Survey = dat_sum$Survey, Quarter = dat_sum$Quarter),
-                         range)
-    dat_sum <- dat_sum[order(dat_sum$Survey),]
-    dat_sum[,3] <- apply(dat_sum[,3],1,paste,collapse="-")
-
-    dat_sum2 <- aggregate(list(StatRec=survey0$StatRec),
-                          by = list(Survey = survey0$Survey, Quarter = survey0$Quarter),
-                          function(x) length(unique(x)))
-
-    tmp <- cbind(dat_sum,StatRec=dat_sum2[,3])
-    rownames(tmp) <- 1:nrow(tmp)
-    if(verbose) print(tmp)
-
-
-    }
-
-
-    ## TODO: add more stats and summary, e.g. data ranges
-
-
-    ## Day and Night
-    ## ---------
-    ## unique(data$DayNight)
-    ## meaningful
-
-
-    ## HaulDur
-    ## ---------
-    unique(data$HaulDur)
-    range(data$HaulDur)
-    ## meaningful
-
-
-    ## Swept Area
-    ## ---------
-    range(data$SweptArea)
-    ## meaningful
-
-
-    ## Subfactor
-    range(data$SubFactor)  ## high values ... realistic? keeping them for now
-    ##     unique(data$Species[data$SubFactor > 20])
-
-
-    return(NULL)
-}
-
 
 #' @name checkmark
 #'
@@ -576,3 +466,93 @@ summary.data <- function(data){
 #'
 #' @export
 checkmark <- function(x) ifelse(x, '\u2714', '\u2613')
+
+
+
+#' @name subset.fdist.datras
+#'
+#' @title Subset
+#'
+#' @param x object to be subsetted.
+#' @param subset logical expression indicating elements or rows to keep: missing
+#'     values are taken as false.
+#'
+#' @export
+subset.fdist.datras <- function(x, subset){
+
+    ## Check validity of data
+    ## ------------------
+    if(!inherits(x, "fdist.datras")){
+        stop("Function requires a list of class fdist.datras with two DATRAS data sets 'HH' and 'HL' as elements (see function 'download.data').")
+    }
+
+    hh <- x$HH
+    hl <- x$HL
+    e <- substitute(subset)
+
+    ## AphiaID only in survey
+    ind <- grepl("AphiaID", e, fixed = TRUE)
+    if(any(ind)){
+        e1 <- e[!ind]
+        ind1 <- which(grepl("&", e1, fixed = TRUE))
+        if(ind1 == 1 || ind1 == length(e1)) e1 <- e1[-ind1]
+        if(length(e1) == 1) e1 <- e1[[1]]
+    }else{
+        e1 <- e
+    }
+
+    hh <- base::subset.data.frame(hh, eval(e1))
+    hl <- base::subset.data.frame(hl, eval(e))
+
+
+
+    ## Return
+    ## -----------
+    res <- list(HH = hh, HL = hl)
+    class(res) <- c("fdist.datras","list")
+    return(res)
+}
+
+
+#' @name subset.fdist.prepped
+#'
+#' @title Subset
+#'
+#' @param x object to be subsetted.
+#' @param subset logical expression indicating elements or rows to keep: missing
+#'     values are taken as false.
+#'
+#' @export
+subset.fdist.prepped <- function(x, subset){
+
+    ## Check validity of data
+    ## ------------------
+    if(!inherits(x, "fdist.prepped")){
+        stop("Function requires a list of class fdist.preppred with two data sets 'survey0' and 'survey' as elements (see function 'prep.data').")
+    }
+
+    survey0 <- x$survey0
+    survey <- x$survey
+    e <- substitute(subset)
+
+    ## AphiaID only in survey
+    ind <- grepl("AphiaID", e, fixed = TRUE)
+    if(any(ind)){
+        e1 <- e[!ind]
+        ind1 <- which(grepl("&", e1, fixed = TRUE))
+        if(ind1 == 1 || ind1 == length(e1)) e1 <- e1[-ind1]
+        if(length(e1) == 1) e1 <- e1[[1]]
+    }else{
+        e1 <- e
+    }
+
+    survey0 <- base::subset.data.frame(survey0, eval(e1))
+    survey <- base::subset.data.frame(survey, eval(e))
+
+
+    ## Return
+    ## -----------
+    res <- list(survey0 = survey0, survey = survey)
+    class(res) <- c("fdist.prepped","list")
+    return(res)
+}
