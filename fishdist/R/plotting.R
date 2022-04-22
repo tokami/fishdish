@@ -91,15 +91,23 @@ plotdist <- function(data, plot.survey.dist = TRUE){
 
 
 
-#' @name plotfit
+#' @name plotfdist.abund
+#'
 #' @title plot fit
-#' @param data data
+#'
+#' @param fit fit
+#'
 #' @importFrom maps map
+#'
 #' @return Nothing
+#'
 #' @export
-plotfit <- function(data){
+plotfdist.abund <- function(fit){
 
-    ns <- length(data)
+    fit <- fit$fit
+
+    ## CHECK: TODO: might be species if fitted with est.dist
+    ns <- length(fit)
 
 
     ## if(ns >= 19){
@@ -113,13 +121,13 @@ plotfit <- function(data){
     ## }
     ## par(mfrow = mfrow, mar = c(3,3,2,1), oma = c(2.5,2.5,1,1))
 
-    ylim <- range(sapply(data, function(x) x$idx))
+    ylim <- range(sapply(fit, function(x) x$idx))
 
-    plot(rownames(data[[1]]$idx), data[[1]]$idx, ty='n',
-         xlim = range(as.numeric(rownames(data[[1]]$idx))),
+    plot(rownames(fit[[1]]$idx), fit[[1]]$idx, ty='n',
+         xlim = range(as.numeric(rownames(fit[[1]]$idx))),
          ylim = ylim)
     for(i in 1:ns){
-        lines(rownames(data[[i]]$idx), data[[i]]$idx, ty='b', col = i)
+        lines(rownames(fit[[i]]$idx), fit[[i]]$idx, ty='b', col = i)
     }
     box(lwd=1.5)
     mtext("Abundance index", 2, 3)
@@ -128,4 +136,50 @@ plotfit <- function(data){
                       legend = paste0("model ",1:ns),
                       col = 1:ns, lwd = 1, lty = 1,
                       bg = "white")
+}
+
+
+
+#' @name plotfdist.dist
+#' @title plot fit
+#' @param fit fit
+#' @importFrom maps map
+#' @return Nothing
+#' @export
+plotfdist.dist <- function(fit){
+
+    nmods <- length(fit$fit)
+    use.bathy <- fit$use.bathy
+
+
+    if(use.bathy){
+        predD <- fit$grid
+        myids <- NULL
+    }else{
+        predD <- NULL
+        myids <- fit$grid[[3]]
+    }
+
+    if(nmods >= 19){
+        mfrow = c(4,ceiling(nmods/4))
+    }else if(nmods >= 9){
+        mfrow = c(3,ceiling(nmods/3))
+    }else if(nmods < 9 & nmods >= 4){
+        mfrow = c(2,ceiling(nmods/2))
+    }else if(nmods < 4){
+        mfrow = c(1,nmods)
+    }
+    par(mfrow = mfrow, mar = c(3,3,2,1), oma = c(2.5,2.5,1,1))
+
+
+    for(i in 1:nmods){
+        surveyIndex::surveyIdxPlots(fit$fit[[i]], fit$data,
+                                    cols=1, alt.idx=NULL,
+                                    myids = myids, predD = predD,
+                                    par=NULL,legend=FALSE,
+                                    map.cex = 1.5, main = paste0("Model ",i),
+                                    colors=rev(heat.colors(8)),
+                                    select="map",plotByAge=FALSE)
+    }
+
 }
