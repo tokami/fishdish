@@ -7,6 +7,8 @@
 #' @param nBoot number of bootrstrapping samples
 #' @param use.bathy Use bathymetry for distribution. Default: FALSE
 #' @param resolution Resolution for bathymetry map
+#' @param use.obs.for.pred Logical, Only use observed hauls for prediction values? Default: TRUE
+#' @param predfix Prediction data. Default: NULL
 #' @param verbose Print stuff? Default: TRUE
 #'
 #' @return List containing model results
@@ -15,6 +17,8 @@
 est.dist.one <- function(specdata, mods = NULL, n.lon = 20, nBoot = 0,
                          use.bathy = FALSE,
                          resolution = 20,
+                         use.obs.for.pred = TRUE,
+                         predfix = NULL,
                          verbose = TRUE){
 
     saflag <- ifelse(all(is.na(specdata$SweptArea)),0,1)
@@ -52,24 +56,64 @@ est.dist.one <- function(specdata, mods = NULL, n.lon = 20, nBoot = 0,
     }
     if(!verbose) sink()
 
-    ## set max basis dim for spatial smooths, P=positive and Z=zero/absence. (as high as possible, but computation speed)
-    kvP <- 100
+    ## set max basis dim for spatial smooths, P=positive and Z=zero/absence.
+    kvP <- 100 ## (as high as possible, but computation speed)
 
-    ## prediction
+    ## Prediction data
     ## --------------------
     ## Median time of year
-    unique(specdata$Quarter)
-    flag <- any(specdata$Quarter=="1")
-    if(verbose) print(paste0("Includes Q1: ", flag))
-    if(flag){
-        toyPred <- median(specdata$timeOfYear[specdata$Quarter=="1"])
+    if(is.null(predfix)){
+
+        if(use.obs.for.pred){
+            pred.data <- subset(specdata, N > 0)
+        }else{
+            pred.data <- specdata
+        }
+
+        ## Empty list
+        predfix <- list()
+
+        ## Time of year
+        flag <- any(sapply(mods, function(x) grepl("timeOfYear", x)))
+        if(any(colnames(pred.data) == "timeOfYear") && flag){
+            if(any(colnames(pred.data) == "Quarter")){
+                if(any(pred.data$Quarter=="1")){
+                    toyPred <- median(pred.data$timeOfYear[pred.data$Quarter=="1"])
+                }else if(any(pred.data$Quarter=="4")){
+                    toyPred <- median(pred.data$timeOfYear[pred.data$Quarter=="4"])
+                }else{
+                    toyPred <- median(pred.data$timeOfYear)
+                }
+            }else{
+                toyPred <- median(pred.data$timeOfYear)
+            }
+            predfix$timeOfYear <- toyPred
+        }
+
+        ## Swept area
+        flag <- any(sapply(mods, function(x) grepl("SweptArea", x)))
+        if(any(colnames(pred.data) == "SweptArea") && flag){
+            predfix$SweptArea <- median(pred.data$SweptArea)
+        }
+
+        ## Haul duration
+        flag <- any(sapply(mods, function(x) grepl("HaulDur", x)))
+        if(any(colnames(pred.data) == "HaulDur") && flag){
+            predfix$HaulDur <- median(pred.data$HaulDur)
+        }
+
+        ## Depth
+        flag <- any(sapply(mods, function(x) grepl("Depth", x)))
+        if(any(colnames(pred.data) == "Depth") && flag){
+            predfix$Depth <- median(pred.data$Depth)
+        }
+
     }else{
-        toyPred <- median(specdata$timeOfYear[specdata$Quarter=="4"])
+
+        pot.vars <- colnames(specdata)
+
+        ## TODO: include checks that check if all variables in model formula are included in predfix (or fill prediction values for missing variables)
     }
-    ## Median SweptArea
-    sweptAreaPred <- median(specdata$SweptArea)
-    ## Median depth
-    depthPred <- median(specdata$Depth)
 
     ## knots (don't use)
     ## ---------------------
@@ -109,9 +153,7 @@ est.dist.one <- function(specdata, mods = NULL, n.lon = 20, nBoot = 0,
                              nBoot = nBoot,
                              CIlevel = 0.95,
                              mc.cores = 1, ## only parallel over ages
-                             predfix = list(timeOfYear = toyPred,
-                                            SweptArea = sweptAreaPred,
-                                            Depth = depthPred),
+                             predfix = predfix,
                              control = list(trace=FALSE,
                                             maxit=10)
                          ),
@@ -120,6 +162,8 @@ est.dist.one <- function(specdata, mods = NULL, n.lon = 20, nBoot = 0,
         if(!verbose) sink()
     }
     names(resList) <- paste0("mod",1:nmods)
+
+    ## TODO: add stratmena to resList!
 
 
     ## ## Save info

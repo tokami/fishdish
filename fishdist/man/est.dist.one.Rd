@@ -11,6 +11,8 @@ est.dist.one(
   nBoot = 0,
   use.bathy = FALSE,
   resolution = 20,
+  use.obs.for.pred = TRUE,
+  predfix = NULL,
   verbose = TRUE
 )
 }
@@ -24,6 +26,10 @@ est.dist.one(
 \item{use.bathy}{Use bathymetry for distribution. Default: FALSE}
 
 \item{resolution}{Resolution for bathymetry map}
+
+\item{use.obs.for.pred}{Logical, Only use observed hauls for prediction values? Default: TRUE}
+
+\item{predfix}{Prediction data. Default: NULL}
 
 \item{verbose}{Print stuff? Default: TRUE}
 }

@@ -297,6 +297,9 @@ summary.fdist.fit <- function(fit){
     ## TODO: number of surveys, etc.
 
 
+    ## TODO: account for model not-convergence (if try-error?)
+
+
     ## Model formulas
     ## ----------------
     for(i in 1:nmods){

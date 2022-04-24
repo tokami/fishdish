@@ -16,13 +16,14 @@ Depends:
     R (>= 3.0)
 Imports:
     icesDatras,
-    surveyIndex
+    surveyIndex,
+    mapdata,
+    mgcv,
+    maps
 Suggests:
     knitr,
     glmmTMB,
-    mgcv,
-    sp,
-    maps
+    sp
 Remotes:
     tokami/icesDatras@fishdist,
     tokami/surveyIndex/surveyIndex@fishdist
