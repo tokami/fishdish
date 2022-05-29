@@ -11,9 +11,12 @@ est.dist.one(
   nBoot = 0,
   use.bathy = FALSE,
   resolution = 20,
+  max.dist = 3,
+  var.grid = TRUE,
   use.obs.for.pred = TRUE,
   predfix = NULL,
-  verbose = TRUE
+  verbose = TRUE,
+  ...
 )
 }
 \arguments{
@@ -25,7 +28,11 @@ est.dist.one(
 
 \item{use.bathy}{Use bathymetry for distribution. Default: FALSE}
 
-\item{resolution}{Resolution for bathymetry map}
+\item{resolution}{Resolution for bathymetry map. Default: 20}
+
+\item{max.dist}{Maximum distance to sample locations for bathymetry map. Default: 3}
+
+\item{var.grid}{Use variable grid by year. Default: TRUE.}
 
 \item{use.obs.for.pred}{Logical, Only use observed hauls for prediction values? Default: TRUE}
 

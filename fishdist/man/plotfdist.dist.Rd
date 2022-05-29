@@ -4,10 +4,12 @@
 \alias{plotfdist.dist}
 \title{plot fit}
 \usage{
-plotfdist.dist(fit)
+plotfdist.dist(fit, mod = NULL)
 }
 \arguments{
 \item{fit}{fit}
+
+\item{mod}{Select one of the models. Default: NULL}
 }
 \value{
 Nothing

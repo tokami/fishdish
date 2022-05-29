@@ -6,7 +6,9 @@
 #' @param mods NULL default
 #' @param nBoot number of bootrstrapping samples
 #' @param use.bathy Use bathymetry for distribution. Default: FALSE
-#' @param resolution Resolution for bathymetry map
+#' @param resolution Resolution for bathymetry map. Default: 20
+#' @param max.dist Maximum distance to sample locations for bathymetry map. Default: 3
+#' @param var.grid Use variable grid by year. Default: TRUE.
 #' @param use.obs.for.pred Logical, Only use observed hauls for prediction values? Default: TRUE
 #' @param predfix Prediction data. Default: NULL
 #' @param verbose Print stuff? Default: TRUE
@@ -17,9 +19,11 @@
 est.dist.one <- function(specdata, mods = NULL, n.lon = 20, nBoot = 0,
                          use.bathy = FALSE,
                          resolution = 20,
+                         max.dist = 3,
+                         var.grid = TRUE,
                          use.obs.for.pred = TRUE,
                          predfix = NULL,
-                         verbose = TRUE){
+                         verbose = TRUE, ...){
 
     saflag <- ifelse(all(is.na(specdata$SweptArea)),0,1)
 
@@ -35,7 +39,6 @@ est.dist.one <- function(specdata, mods = NULL, n.lon = 20, nBoot = 0,
     if(any(colnames(specdata) != "lon")) colnames(specdata)[colnames(specdata) == "Lon"] <- "lon"
     if(any(colnames(specdata) != "lat")) colnames(specdata)[colnames(specdata) == "Lat"] <- "lat"
 
-
     ## Stratified mean
     ## --------------------------------------
     stratMean <- try(
@@ -44,13 +47,26 @@ est.dist.one <- function(specdata, mods = NULL, n.lon = 20, nBoot = 0,
     )
     if(inherits(stratMean,"try-error")) print(paste0("Error in stratMean"))
 
-
     ## Fit GAMs
     ## --------------------------------------
     ## Get grid (doesn't matter too much for this approach)
     if(!verbose) sink("/dev/null")  ## CHECK: this might be platform dependent? sink("NUL")
     if(use.bathy){
-        grid <- surveyIndex::getBathyGrid(specdata, resolution = resolution)
+        if(var.grid){
+            years <- sort(unique(specdata$Year))
+            ny <- length(years)
+            grid <- vector("list", ny)
+            for(y in 1:ny){
+                grid[[y]] <- surveyIndex::getBathyGrid(subset(specdata, Year == years[y]),
+                                                       resolution = resolution,
+                                                       maxDist = max.dist)
+            }
+            names(grid) <- years
+        }else{
+            grid <- surveyIndex::getBathyGrid(specdata,
+                                              resolution = resolution,
+                                              maxDist = max.dist)
+        }
     }else{
         grid <- surveyIndex::getGrid(specdata, nLon = n.lon)
     }
@@ -103,10 +119,10 @@ est.dist.one <- function(specdata, mods = NULL, n.lon = 20, nBoot = 0,
         }
 
         ## Depth
-        flag <- any(sapply(mods, function(x) grepl("Depth", x)))
-        if(any(colnames(pred.data) == "Depth") && flag){
-            predfix$Depth <- median(pred.data$Depth)
-        }
+        ## flag <- any(sapply(mods, function(x) grepl("Depth", x)))
+        ## if(any(colnames(pred.data) == "Depth") && flag){
+        ##     predfix$Depth <- median(pred.data$Depth)
+        ## }
 
     }else{
 
@@ -131,6 +147,7 @@ est.dist.one <- function(specdata, mods = NULL, n.lon = 20, nBoot = 0,
                 writeLines("Fitting model.")
             }
         }
+
         ## run gams
         if(!verbose) sink("/dev/null")  ## CHECK: this might be platform dependent? sink("NUL")
         if(use.bathy){
@@ -155,7 +172,8 @@ est.dist.one <- function(specdata, mods = NULL, n.lon = 20, nBoot = 0,
                              mc.cores = 1, ## only parallel over ages
                              predfix = predfix,
                              control = list(trace=FALSE,
-                                            maxit=10)
+                                            maxit=10),
+                             ...
                          ),
             silent = TRUE
         )

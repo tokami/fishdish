@@ -294,6 +294,9 @@ prep.species <- function(data, aphiaID,
     ## withweight (download CA)  d<-addWeightByHaul(d,to1min=FALSE) but not clear if enough info
     ## maybe future project
 
+    if(any(colnames(survey.spp) != "haul.id")) colnames(survey.spp)[colnames(survey.spp) == "HaulID"] <- "haul.id"
+    if(any(colnames(survey.spp) != "lon")) colnames(survey.spp)[colnames(survey.spp) == "Lon"] <- "lon"
+    if(any(colnames(survey.spp) != "lat")) colnames(survey.spp)[colnames(survey.spp) == "Lat"] <- "lat"
 
     ## Return
     ## --------------------------------------
