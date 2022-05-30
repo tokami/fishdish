@@ -47,6 +47,7 @@ est.dist.one <- function(specdata, mods = NULL, n.lon = 20, nBoot = 0,
     )
     if(inherits(stratMean,"try-error")) print(paste0("Error in stratMean"))
 
+
     ## Fit GAMs
     ## --------------------------------------
     ## Get grid (doesn't matter too much for this approach)
@@ -124,6 +125,12 @@ est.dist.one <- function(specdata, mods = NULL, n.lon = 20, nBoot = 0,
         ##     predfix$Depth <- median(pred.data$Depth)
         ## }
 
+        ## ShipG
+        flag <- any(sapply(mods, function(x) grepl("ShipG", x)))
+        if(any(colnames(pred.data) == "ShipG") && flag){
+            predfix$ShipG <- names(which.max(summary(pred.data$ShipG)))
+        }
+
     }else{
 
         pot.vars <- colnames(specdata)
@@ -134,6 +141,7 @@ est.dist.one <- function(specdata, mods = NULL, n.lon = 20, nBoot = 0,
     ## knots (don't use)
     ## ---------------------
     ## knots=list(timeOfYear=seq(0,1,length=6))
+
 
 
     ## Loop through models (saves directory for each)
