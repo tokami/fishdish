@@ -17,9 +17,9 @@ Depends:
 Imports:
     icesDatras,
     surveyIndex,
-    mapdata,
     mgcv,
-    maps
+    maps,
+    mapdata
 Suggests:
     knitr,
     glmmTMB,
