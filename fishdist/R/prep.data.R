@@ -17,451 +17,740 @@
 #' @export
 prep.data <- function(data, AphiaID = NULL,
                       datras.variables = list.datras.variables.req(),
+                      est.n = TRUE, est.bio = FALSE,
+                      split.juv.adults = FALSE,
                       verbose = TRUE){
+
+    specflag <- ifelse(is.null(AphiaID[1]) || is.na(AphiaID[1]) || AphiaID[1] %in% c("all","All","ALL"),0,1)
 
     ## Check validity of data
     ## ------------------
-    if(!inherits(data,"fdist.datras") || !all(names(data) %in% c("HH","HL")))
-        stop("Function requires list with two DATRAS data sets 'HH' and 'HL' as elements (see download.data).")
-    hh <- data$HH
-    hl <- data$HL
+    if((!inherits(data,"fdist.datras") && !inherits(data,"fdist.prepped")) ||
+       (!all(c("HH","HL") %in% names(data)) && !all(c("survey0","survey") %in% names(data))))
+        stop("Function requires list (of class fdist.datras) with two DATRAS data sets 'HH' and 'HL' as elements (see download.data) or list (of class fdist.prepped) with two survey data sets 'survey0' and 'survey' as elements (see prep.data).")
+
+    if(inherits(data,"fdist.datras")){
+        hh <- data$HH
+        hl <- data$HL
+        ca <- data$CA
+        rm(data)
 
 
-    ## Flags
-    ## ------------------
-    saflag <- ifelse(any("SweptAreaDSKM2" == colnames(hh)),1,0)
-    specflag <- ifelse(is.null(AphiaID[1]) || is.na(AphiaID[1]) || AphiaID[1] %in% c("all","All","ALL"),0,1)
+        ## Flags
+        ## ------------------
+        saflag <- ifelse(any("SweptAreaDSKM2" == colnames(hh)),1,0)
 
 
+        ## Species subsetting for hl (full hh needed for survey0)
+        ## ------------------
+        if(specflag){
+            if(!inherits(AphiaID, "data.frame")) specs <- data.frame(AphiaID = AphiaID)
+            if(!any(colnames(specs) == "AphiaID"))
+                stop("At least one of the columns in AphiaID needs to indicate the Aphia ID and be called 'AphiaID'")
 
-    ## Species subsetting for hl (hh sufficient for survey0)
-    ## ------------------
-    if(specflag){
-        if(!inherits(AphiaID, "data.frame")) specs <- data.frame(AphiaID = AphiaID)
-        if(!any(colnames(specs) == "AphiaID"))
-            stop("At least one of the columns in AphiaID needs to indicate the Aphia ID and be called 'AphiaID'")
-
-        ## Species that could not be matched
-        ## ---------
-        flag <- any(specs$AphiaID %in% hl$Valid_Aphia)
-        if(!flag) stop("Provided Aphia IDs were not found in the data set. Please check data and/or IDs!")
-        ind <- which(!(specs$AphiaID %in% hl$Valid_Aphia))
-        if(length(ind) > 0){
-            if(verbose){
-                writeLines("These Aphia IDs could not be matched:")
-                print(specs[ind,])
+            ## Species that could not be matched
+            ## ---------
+            flag <- any(specs$AphiaID %in% hl$AphiaID)
+            if(!flag) stop("Provided Aphia IDs were not found in the data set. Please check data and/or IDs!")
+            ind <- which(!(specs$AphiaID %in% hl$AphiaID))
+            if(length(ind) > 0){
+                if(verbose){
+                    writeLines("These Aphia IDs could not be matched:")
+                    print(specs[ind,])
+                }
             }
+
+            ## Subset based on species list
+            ## ---------
+            hl <- subset(hl, AphiaID %in% specs$AphiaID)
+            if(!is.null(ca)) ca <- subset(ca, AphiaID %in% specs$AphiaID)
         }
 
-        ## Subset based on species list
-        ## ---------
-        hl <- subset(hl, Valid_Aphia %in% specs$AphiaID)
-    }
+
+        ## Subset data sets to reduce memory usage and prevent R collapse
+        ## ------------------
+        ind <- datras.variables[["HH"]]
+        if(!saflag) ind <- ind[-which(ind %in% c("SweptAreaDSKM2",
+                                                 "SweptAreaWSKM2",
+                                                 "SweptAreaBWKM2"))]
+        hh <- hh[,which(colnames(hh) %in% ind)]
 
 
-    ## Subset data sets to reduce memory usage and prevent R collapse
-    ## ------------------
-    ind <- datras.variables[["HH"]]
-    if(!saflag) ind <- ind[-which(ind %in% c("SweptAreaDSKM2", "SweptAreaWSKM2", "SweptAreaBWKM2"))]
-    hh <- hh[,which(colnames(hh) %in% ind)]
+        ## Create haul IDs (SLOW:)
+        ## ------------------
+        hl$HaulID <- paste(hl$Survey, hl$Year, hl$Quarter, hl$Country, hl$Ship, hl$Gear,
+                           hl$StNo, hl$HaulNo, sep = ":")
+        hh$HaulID <- paste(hh$Survey, hh$Year, hh$Quarter, hh$Country, hh$Ship, hh$Gear,
+                           hh$StNo, hh$HaulNo, sep = ":")
+        if(!is.null(ca)){
+            ca$HaulID <- paste(ca$Survey, ca$Year, ca$Quarter, ca$Country, ca$Ship, ca$Gear,
+                               ca$StNo, ca$HaulNo, sep = ":")
+        }
 
 
-    ## Create haul IDs (SLOW:)
-    ## ------------------
-    hl$HaulID <- paste(hl$Survey, hl$Year,hl$Quarter, hl$Country, hl$Ship, hl$Gear,
-                       hl$StNo, hl$HaulNo, sep = ":")
-    hh$HaulID <- paste(hh$Survey, hh$Year,hh$Quarter, hh$Country, hh$Ship, hh$Gear,
-                       hh$StNo, hh$HaulNo, sep = ":")
-
-
-    ## Remove duplicated haul IDs in hh
-    ## ------------------
-    tmp <- duplicated(hh$HaulID)
-    ind <- which(tmp)
-    if(length(ind) > 0){
-        for(i in 1:length(ind)){
-            dups <- hh[which(hh$HaulID==hh$HaulID[ind[i]]),]
-            flag <- all(apply(dups,2,function(x) all(x == x[1],na.rm = TRUE)))
-            ## writeLines(paste0(i, ": ", flag))
-            if(!flag){
-                for(j in 2:nrow(dups)){
-                    if(verbose){
-                        writeLines(paste0(colnames(dups)[which(dups[j,] != dups[1,])]))
-                        writeLines(paste0(dups[c(1,j),which(dups[j,] != dups[1,])]))
+        ## Remove duplicated haul IDs in hh
+        ## ------------------
+        tmp <- duplicated(hh$HaulID)
+        ind <- which(tmp)
+        if(length(ind) > 0){
+            for(i in 1:length(ind)){
+                dups <- hh[which(hh$HaulID==hh$HaulID[ind[i]]),]
+                flag <- all(apply(dups,2,function(x) all(x == x[1],na.rm = TRUE)))
+                ## writeLines(paste0(i, ": ", flag))
+                if(!flag){
+                    for(j in 2:nrow(dups)){
+                        if(verbose){
+                            writeLines(paste0(colnames(dups)[which(dups[j,] != dups[1,])]))
+                            writeLines(paste0(dups[c(1,j),which(dups[j,] != dups[1,])]))
+                        }
                     }
                 }
             }
+            ## Only differences between duplicated HaulIDs in WindSpeed -> delete duplicates
+            hh <- hh[-ind,]
         }
-        ## Only differences between duplicated HaulIDs in WindSpeed -> delete duplicates
-        hh <- hh[-ind,]
-    }
-    if(verbose) writeLines(paste("All haul IDs unique: ",
-                                 checkmark(nrow(hh) == length(unique(hh$HaulID))),
-                                 sep="\t\t\t\t\t\t\t\t\t\t\t\t\t\t"))
+        if(verbose) writeLines(paste("All haul IDs unique: ",
+                                     checkmark(nrow(hh) == length(unique(hh$HaulID))),
+                                     sep="\t\t\t\t\t\t\t\t\t\t\t\t\t\t"))
 
 
-    ## Remove HaulIDs that are NA
-    ## ------------------
-    if(any(is.na(hh$HaulID))){
-        hh <- hh[-is.na(hh$HaulID),]
-    }
-    if(any(is.na(hl$HaulID))){
-        hl <- hl[-is.na(hl$HaulID),]
-    }
-    if(verbose) writeLines(paste("All haul IDs meaningful (no NA): ",
-                                 checkmark(all(!is.na(hh$HaulID)) && all(!is.na(hl$HaulID))),
-                                 sep="\t\t\t\t\t\t\t\t"))
+        ## Remove HaulIDs that are NA
+        ## ------------------
+        if(any(is.na(hh$HaulID))){
+            hh <- hh[-is.na(hh$HaulID),]
+        }
+        if(any(is.na(hl$HaulID))){
+            hl <- hl[-is.na(hl$HaulID),]
+        }
+        if(!is.null(ca)){
+            if(any(is.na(ca$HaulID))){
+                ca <- ca[-is.na(ca$HaulID),]
+            }
+        }
+        if(verbose) writeLines(paste("All haul IDs meaningful (no NA): ",
+                                     checkmark(all(!is.na(hh$HaulID)) && all(!is.na(hl$HaulID))),
+                                     sep="\t\t\t\t\t\t\t\t"))
 
 
-    ## Subset HL, only keep hauls with a length composition
-    ## ------------------
-    hl <- subset(hl, hl$HaulID %in% hh$HaulID)
-    if(verbose) writeLines(paste("All hauls in HL included in HH: ",
-                                 checkmark(all(hl$HaulID %in% hh$HaulID)),
-                                 sep="\t\t\t\t\t\t\t\t"))
+        ## Subset HL, only keep hauls with a length composition
+        ## ------------------
+        hl <- subset(hl, hl$HaulID %in% hh$HaulID)
+        if(verbose) writeLines(paste("All hauls in HL included in HH: ",
+                                     checkmark(all(hl$HaulID %in% hh$HaulID)),
+                                     sep="\t\t\t\t\t\t\t\t"))
+        if(!is.null(ca)) ca <- subset(ca, ca$HaulID %in% hh$HaulID)
+
+
+        ## Subset HL (also to avoid double info in hh and hl after merging)
+        ## ------------------
+        hl <- hl[,c("HaulID","SpecCodeType","SpecCode","SpecVal",
+                    "TotalNo","CatIdentifier","SubFactor", "LngtCode",
+                    "LngtClass","HLNoAtLngt","AphiaID")]
+
+        ## Subset CA (also to avoid double info in hh and ca after merging)
+        ## ------------------
+        if(!is.null(ca)){
+            ca <- ca[,c("HaulID","LngtCode","LngtClass","Sex","Maturity",
+                        "PlusGr","Age","CANoAtLngt","IndWgt","MaturityScale",
+                        "AphiaID")]
+        }
+
+
+        ## Add StatRec, SubStatRec, Ecoregion and Area_27 (before: add missing StatRec)
+        ## -------------
+        ## CHECK:
+        oldStatRec <- hh$StatRec
+        hh$StatRec <- NULL
+        hh <- pred.statrec(hh, verbose = verbose) ## SLOW:
+        ind <- which(is.na(hh$StatRec))
+        if(length(ind) > 0){
+            if(verbose) writeLines("Removing entries that could not be matched to any statistical rectangle.")
+            hh <- hh[-ind,]
+        }
+        if(verbose) writeLines(paste("All StatRec meaningful (no NA): ",
+                                     checkmark(all(!is.na(hh$StatRec))),
+                                     sep="\t\t\t\t\t\t\t\t"))
+
+        ## REMOVE:
+        if(FALSE){
+            ## Add Ecoregion and Area 27
+            ## -------------
+            data(ices.rectangles)
+            tmp <- ices.rectangles[,c("ICESNAME","Ecoregion","Area_27")]
+            colnames(tmp)[1] <- "StatRec"
+            ## survey <- merge(survey, tmp, by="StatRec",all.x=TRUE) ## 148s
+            hh <- plyr::join(hh, tmp, by="StatRec") ## 27s
+            ind <- which(is.na(hh$Ecoregion)) ## StatRec 43E6 has no Ecoregion...
+        }
 
 
 
-    ## Subset HL (also to avoid double info in hh and hl after merging)
-    ## ------------------
-    hl <- hl[,c("HaulID","SpecCodeType","SpecCode","SpecVal",
-                "TotalNo","CatIdentifier","SubFactor",
-                "HLNoAtLngt","Valid_Aphia")] ## "LngtClass"
+        ## Some data transformation
+        ## ---------
+        hh$abstime <- hh$Year+(hh$Month-1)*1/12+(hh$Day-1)/365
+        hh$timeOfYear <- (hh$Month-1)*1/12+(hh$Day-1)/365
+        hh$ctime <- as.numeric(as.character(hh$Year)) + round(hh$timeOfYear,1)
+        if("TimeShot" %in% colnames(hh))
+            hh$TimeShotHour <- as.integer(hh$TimeShot/100) + (hh$TimeShot%%100)/60
+        hh$Depth <- replace(hh$Depth, hh$Depth<0, NA)
+        hh$Ship <- as.factor(hh$Ship)
+        hh$Gear <- as.factor(hh$Gear)
+        hh$ShipG <- factor(paste(hh$Ship, hh$Gear, sep=":"))
 
 
-    ## Merge HH and HL into survey and clean up (SLOW:) alternatives:  plyr::join, sqldf::sqldf
-    ## ------------------
-    ## survey <- merge(hh, hl, by="HaulID", all = TRUE) ## 158s
-    survey <- plyr::join(hh, hl, by="HaulID") ## 16s
-    ## survey <- sqldf::sqldf(c("create index ix1 on hh(HaulID)",
-    ##                          "select * from main.hh join hl using(HaulID)")) ## 74s
-    rm(hh, hl, data)
-    gc() ## pryr::mem_used()
+        ## Overwrite depth
+        ## -------------
+        if(any(colnames(hh) == "Depth_gam")) hh$Depth <- hh$Depth_gam
+        hh$Depth_gam <- NULL
 
 
-    ## Add missing StatRec
-    ## -------------
-    survey <- predict.statrec(survey)
-    if(verbose) writeLines(paste("All StatRec meaningful (no NA): ",
-                                 checkmark(all(!is.na(survey$StatRec))),
-                                 sep="\t\t\t\t\t\t\t\t"))
+        ## Combine swept area
+        ## -------------
+        if(saflag){
+            hh$SweptArea <- hh$SweptAreaBWKM2
+            hh$SweptArea[is.na(hh$SweptArea)] <- hh$SweptAreaWSKM2[is.na(hh$SweptArea)]
+            hh$SweptArea[is.na(hh$SweptArea)] <- hh$SweptAreaDSKM2[is.na(hh$SweptArea)]
+            if(verbose) writeLines(paste("All swept area entries meaningful (no NA): ",
+                                         checkmark(all(!is.na(hh$SweptArea))),
+                                         sep="\t\t\t"))
+        }else{
+            hh$SweptArea <- NA
+        }
+        hh$SweptAreaWSKM2 <- NULL
+        hh$SweptAreaBWKM2 <- NULL
+        hh$SweptAreaDSKM2 <- NULL
 
 
-    ## Add Ecoregion and Area 27
-    ## -------------
-    data(ices.rectangles)
-    tmp <- ices.rectangles[,c("ICESNAME","Ecoregion","Area_27")]
-    colnames(tmp)[1] <- "StatRec"
-    ## survey <- merge(survey, tmp, by="StatRec",all.x=TRUE) ## 148s
-    survey <- plyr::join(survey, tmp, by="StatRec") ## 27s
-    ind <- which(is.na(survey$Ecoregion)) ## StatRec 43E6 has no Ecoregion...
+        ## Remove invalid data and clean data set
+        ## -----------------------
+
+        ## Convert -9 to NA
+        ## ---------
+        hh <- minus9toNA(hh)
+        hl <- minus9toNA(hl)
+        if(!is.null(ca)) ca <- minus9toNA(ca)
+
+        ## DataType
+        ## ---------
+        ind <- which(is.na(hh$DataType))
+        if(length(ind) > 0) hh <- hh[-ind,]
+        ## EVHOE datatype is entered as ‘C’ in 2018. This is a mistake it should be ‘R’.
+        ind <- which(hh$Survey == "EVHOE" & hh$Year == 2018)
+        if(length(ind) > 0) hh$DataType[ind] <- "R"
+        ## CHECK: this warning necessary?
+        ## if (any(hh$DataType == "S"))
+        ##     warning("DataType 'S' found in length data. These hauls will be interpreted as DataType 'R' wrt. total numbers caught.")
+
+        ## AphiaID
+        ## ---------
+        ind <- which(is.na(hl$AphiaID))
+
+        ## HaulVal
+        ## ---------
+        ind <- which(!hl$HaulVal %in% c("A","V"))
+
+        ## SpecVal (1,4,7,10) see: http://vocab.ices.dk/?ref=5
+        ## ---------
+        ind <- which(!(hl$SpecVal %in% c(1,4,7,10)))
+
+        ## StdSpecRecCode
+        ## ---------
+        ## http://vocab.ices.dk/?ref=88
+        ## 0 	No standard species recorded
+        ## 1 	All standard species recorded
+        ## 2 	Pelagic standard species recorded
+        ## 3 	Roundfish standard species recorded
+        ## 4 	Individual standard species recorded
+        ind <- which(hh$StdSpecRecCode != 1)
+        ## only keep StdSpecRecCode == 1
+
+        ## lat and lon
+        ## ---------
+        ind <- which(is.na(hh$lat))
+        ind <- which(is.na(hh$lon))
+
+        ## Apply selection
+        ## ---------
+        hh <- subset(hh, HaulVal %in% c("A","V") &
+                         StdSpecRecCode == 1 &
+                         !is.na(lat) & !is.na(lon))
+        if(saflag) hh <- subset(hh, !is.na(SweptArea))
 
 
-    ## Rename some surveys
-    ## -------------
-    survey$Survey[which(survey$Survey == "SCOWCGFS")] <- "SWC-IBTS"
-    survey$Survey[which(survey$Survey == "SCOROC")] <- "ROCKALL"
-    survey$Survey[which(survey$Survey == "BTS-VIII")] <- "BTS"
+        ## Surveys
+        ## -------------
+        hh <- correct.surveys(hh)
+
+        ## Gear Categories
+        ## -------------
+        hh <- add.gear.categories(hh)
+        ## any gear categories NA?
+        if(verbose) writeLines(paste("Gear categories succesfully assigned (no NA): ",
+                                     checkmark(all(!is.na(hh$GearCat))), sep="\t"))
 
 
-    ## Remove other gears than TVL and TVS from BITS
-    ## -------------
-    survey <- subset(survey, Survey != "BITS" |
-                             (Survey == "BITS" & Gear %in% c("TVS","TVL")))
+        ## Double-check key variables
+        ## -------
+        ## Key variables not NA
+        flag <- all(!is.na(hh$Year)) && all(!is.na(hh$lat)) &&
+            all(!is.na(hh$lon)) &&
+            all(!is.na(hh$timeOfYear)) &&
+            all(!is.na(hh$Depth)) &&
+            (!saflag || (all(!is.na(hh$SweptArea)) && all(hh$SweptArea > 0)))
+        if(verbose) writeLines(paste("Meaningful key variables (no NA): ",
+                                     checkmark(flag), sep=":\t\t\t\t\t\t\t"))
 
 
-    ## Gear Categories
-    ## -------------
-    survey <- add.gear.categories(survey)
-    ## Manual gear corrections
-    ## 1. 27.7g and 27.7a
-    unique(survey$Area_27)
-    ind <- which(survey$Survey == "IE-IGFS" & survey$Gear == "GOV" &
-                 survey$Area_27 %in% c("7.g","7.a"))
-    if(length(ind) > 0) survey$GearCat[ind] <- "GOV_CL"
-    ## 2.
-    ind <- which(survey$Survey == "SWC-IBTS" & survey$Gear == "GOV" &
-                 survey$ShootLat < 57.5)
-    if(length(ind) > 0) survey$GearCat[ind] <- "GOV_CL"
-    ## any gear categories NA?
-    if(verbose) writeLines(paste("Gear categories succesfully assigned (no NA): ",
-                                 checkmark(all(!is.na(survey$GearCat))), sep="\t"))
 
-
-    ## Rename some variables
-    ## -------------
-    colnames(survey)[which(colnames(survey) == "ShootLong")] <- "Lon"
-    colnames(survey)[which(colnames(survey) == "ShootLat")] <- "Lat"
-    colnames(survey)[which(colnames(survey) == "Valid_Aphia")] <- "AphiaID"
-
-
-    ## Overwrite depth
-    ## -------------
-    if(any(colnames(survey) == "Depth_gam")) survey$Depth <- survey$Depth_gam
-    survey$Depth_gam <- NULL
-
-
-    ## Combine swept area
-    ## -------------
-    if(saflag){
-        survey$SweptArea <- survey$SweptAreaBWKM2
-        survey$SweptArea[is.na(survey$SweptArea)] <- survey$SweptAreaWSKM2[is.na(survey$SweptArea)]
-        survey$SweptArea[is.na(survey$SweptArea)] <- survey$SweptAreaDSKM2[is.na(survey$SweptArea)]
-
-        if(verbose) writeLines(paste("All swept area entries meaningful (no NA): ",
-                                     checkmark(all(!is.na(survey$SweptArea))),
-                                               sep="\t\t\t"))
-    }else{
-        survey$SweptArea <- NA
-    }
-    survey$SweptAreaWSKM2 <- NULL
-    survey$SweptAreaBWKM2 <- NULL
-    survey$SweptAreaDSKM2 <- NULL
-
-    ## CHECK: some (200000) entries without SweptArea! check in calc.swept.area!
-
-
-    ## Remove invalid data and clean data set
-    ## -----------------------
-
-    ## Convert -9 to NA
-    ## ---------
-    survey <- minus9toNA(survey)
-
-    ## DataType
-    ## ---------
-    ind <- which(is.na(survey$DataType))
-    if(length(ind) > 0) survey$DataType[ind] <- "Z"
-    ## EVHOE datatype is entered as ‘C’ in 2018. This is a mistake it should be ‘R’.
-    ind <- which(survey$Survey == "EVHOE" & survey$Year == 2018)
-    if(length(ind) > 0) survey$DataType[ind] <- "R"
-
-    ## AphiaID
-    ## ---------
-    ind <- which(is.na(survey$AphiaID))
-
-    ## HaulVal
-    ## ---------
-    ind <- which(survey$HaulVal != "V")
-
-    ## SpecVal (1,4,7,10) see: http://vocab.ices.dk/?ref=5
-    ## ---------
-    ind <- which(!(survey$SpecVal %in% c(1,4,7,10)))
-
-    ## StdSpecRecCode
-    ## ---------
-    ## http://vocab.ices.dk/?ref=88
-    ## 0 	No standard species recorded
-    ## 1 	All standard species recorded
-    ## 2 	Pelagic standard species recorded
-    ## 3 	Roundfish standard species recorded
-    ## 4 	Individual standard species recorded
-    ind <- which(survey$StdSpecRecCode != 1)
-    ## only keep StdSpecRecCode == 1
-
-    ## Lat and Lon
-    ## ---------
-    ind <- which(is.na(survey$Lat))
-    ind <- which(is.na(survey$Lon))
-
-    ## Apply selection
-    ## ---------
-    survey <- subset(survey, HaulVal == "V" &
-                             StdSpecRecCode == 1 &
-                             !is.na(Lat) & !is.na(Lon))
-
-    ## Merge species list
-    ## --------------------------------------------------------------
-    ## Try to connect AphiaID that is NA by using TSN_code
-    ## ----------
-    ## In historical submissions TSN and NODC species codes were used, which is
-    ## reflected in the SpecCodeTypes T and N in older data.
-    aphia_list <- as.numeric(unique(survey$AphiaID))
-
-    if(specflag){
-        ## Subset relevant columns from species list
-        ## ----------
-        ind <- which(is.na(specs$AphiaID))
-        if(length(ind) > 0) specs <- specs[-ind,]
-        ind <- which(duplicated(specs$AphiaID))
-        if(length(ind) > 0) specs <- specs[-ind,]
-
-        ## Merge species list to survey
-        ## ----------
-        survey <- plyr::join(survey, specs, by="AphiaID")
-
-        ## Species and bycatch corrections
-        ## ------------
-        survey <- correct.species(survey)
-    }
-
-
-    ## Some data transformation
-    ## ---------
-    survey$abstime <- survey$Year+(survey$Month-1)*1/12+(survey$Day-1)/365
-    survey$timeOfYear <- (survey$Month-1)*1/12+(survey$Day-1)/365
-    survey$ctime <- as.numeric(as.character(survey$Year)) + round(survey$timeOfYear,1)
-    if("TimeShot" %in% colnames(survey))
-        survey$TimeShotHour <- as.integer(survey$TimeShot/100) + (survey$TimeShot%%100)/60
-    survey$Depth <- replace(survey$Depth, survey$Depth<0, NA)
-    survey$Ship <- as.factor(survey$Ship)
-    survey$Gear <- as.factor(survey$Gear)
-    survey$ShipG <- factor(paste(survey$Ship, survey$Gear, sep=":"))
-
-
-    ## Remove surveys with issues
-    ## -------
-    ## Remove NS-IBTS quarter 2 and 4
-    ind <- which(survey$Survey == "NS-IBTS" & survey$Quarter %in% c(2,4))
-    if(length(ind) > 0) survey <- survey[-ind,]
-    ## IGFS survey only sampled at depths greater than 200m from 2005 to present
-    ind <- which(survey$Survey == "NIGFS" & survey$Year < 2005)
-    if(length(ind) > 0) survey <- survey[-ind,]
-    ## CHECK: With survey experts
-    ## length(which(survey$Survey=='SWC-IBTS' & survey$Quarter %in% c(2,3))) ## 3300
-    ## length(which(survey$Survey=='BTS' & survey$Year<1987))    ## 7618
-
-
-    ## Double-check key variables
-    ## -------
-    ## Key variables not NA
-    flag <- all(!is.na(survey$Year)) && all(!is.na(survey$Lat)) &&
-    all(!is.na(survey$Lon)) &&
-    all(!is.na(survey$timeOfYear)) &&
-    all(!is.na(survey$Depth))
-    ## all(!is.na(survey$SweptArea)) && ## CHECK: why some Swept Area NA? pattern? remove?
-    ## all(survey$SweptArea > 0))
-    if(verbose) writeLines(paste("Meaningful key variables (no NA): ",
-                                 checkmark(flag), sep=":\t\t\t\t\t\t\t"))
-
-
-    ## Zero data (includes all hauls independent of caught species)
-    ## --------------------------------------------------------------
-    survey0 <- survey[,c("HaulID", "Survey", "Year", "Month", "Day", "Quarter",
-                         "StatRec", "Lat", "Lon", "HaulDur", "Ship", "Gear",
+        ## Zero data (includes all hauls independent of caught species)
+        ## --------------------------------------------------------------
+        ## CHECK: if other variables in hh should be kept
+        survey0 <- hh[,c("HaulID", "Survey", "Year", "Month", "Day", "Quarter",
+                         "StatRec", "lat", "lon", "HaulDur", "Ship", "Gear",
                          "Depth", "SweptArea", "ShipG", "GearCat", "Ecoregion",
                          "Area_27", "BySpecRecCode", "abstime", "timeOfYear",
                          "ctime")]
-    if("TimeShotHour" %in% colnames(survey)) survey0$TimeShotHour <- survey$TimeShotHour
-    ind <- duplicated(survey0$HaulID)
-    survey0 <- survey0[!ind,]
-    survey0$N <- 0
-    colnames(survey0)[which(colnames(survey0) == "HaulID")] <- "haul.id" ## required by surveyIdx package
+        ## add optional variables
+        if("TimeShotHour" %in% colnames(hh)) survey0$TimeShotHour <- hh$TimeShotHour
+        ind <- duplicated(survey0$HaulID)
+        survey0 <- survey0[!ind,]
 
 
-    ## SpecVal (5,6) only useful for presence-absence
-    ## ---------
-    survey <- subset(survey, SpecVal %in% c(1,10,4,7,5,6)) ## REMOVE: 5,6?
-    unique(survey$SpecVal)
+        ## Data sets including species
+        ## --------------------------------------------
+        ## Merge variables from hh needed in hl
+        hl <- plyr::join(hl, hh[,c("HaulID","BySpecRecCode","HaulDur","DataType")], by="HaulID") ## 16s
+        rm(hh)
 
-    ## HERE: CHECK: this
-    ind <- which(survey$SpecVal %in% c(5,6))
-    tmp <- survey[ind,]
-    if(any(colnames(survey) == "Species")){
-        tmp <- as.data.frame(table(tmp$Species))
-        if(nrow(tmp)>0){
-            colnames(tmp) <- c("Species", "Frequency")
-            print(tmp)
-            writeLines(paste0("Removing these for now."))
-            if(length(ind) > 0) survey <- survey[-ind,]
+
+        ## Merge species list
+        ## --------------------------------------------------------------
+        ## Try to connect AphiaID that is NA by using TSN_code
+        ## ----------
+        ## In historical submissions TSN and NODC species codes were used, which is
+        ## reflected in the SpecCodeTypes T and N in older data.
+        ## TODO: account for this
+
+        if(specflag){
+            ## Subset relevant columns from species list
+            ## ----------
+            ind <- which(is.na(specs$AphiaID))
+            if(length(ind) > 0) specs <- specs[-ind,]
+            ind <- which(duplicated(specs$AphiaID))
+            if(length(ind) > 0) specs <- specs[-ind,]
+            ## Merge species list to survey
+            ## ----------
+            hl <- plyr::join(hl, specs, by="AphiaID")
+            ## Species and bycatch corrections
+            ## ------------
+            hl <- correct.species(hl)
         }
-    }
 
 
-    ## HLNoAtLngt
-    ## -------------
-    ind <- which(is.na(survey$HLNoAtLngt))
+        ## SpecVal (5,6) only useful for presence-absence
+        ## ---------
+        ## CHECK: REMOVE: 5,6?
+        hl <- subset(hl, SpecVal %in% c(1,10,4,7,5,6))
+        unique(hl$SpecVal)
 
-    ## HERE: REMOVE:?
-    if(FALSE){
-    tmp <- cbind(paste0(survey$HaulID[ind],"-",survey$AphiaID[ind]),
-                 survey$CatIdentifier[ind], survey$TotalNo[ind],
-                 survey$NoMeas[ind], survey$SubFactor[ind])
-    ## only two duplicated but Sex different: => summing up okay
-    survey[which(paste0(survey$HaulID, "-", survey$AphiaID) %in% tmp[which(duplicated(tmp[,1]))][1]),]
-    survey[which(paste0(survey$HaulID, "-", survey$AphiaID) %in% tmp[which(duplicated(tmp[,1]))][2]),]
-    }
+        ## CHECK: this:
+        ind <- which(hl$SpecVal %in% c(5,6))
+        tmp <- hl[ind,]
+        if(any(colnames(hl) == "Species")){
+            tmp <- as.data.frame(table(tmp$Species))
+            if(nrow(tmp)>0){
+                colnames(tmp) <- c("Species", "Frequency")
+                print(tmp)
+                writeLines(paste0("Removing these for now."))
+                if(length(ind) > 0) hl <- hl[-ind,]
+            }
+        }
 
-    ## DECISION: Using TotalNo when HLNoAtLngt == NA and setting subFactor to 1.
-    if(verbose && length(ind) > 0){
-        survey$HLNoAtLngt[ind] <- survey$TotalNo[ind]
-        survey$SubFactor[ind] <- 1
-        ind2 <- which(!is.na(survey$TotalNo[ind]))
-        if(verbose) writeLines(paste0(paste("Number of entries with missing HLNoAtLngt: ",
-                                            paste0(length(ind), " (",round(length(ind)/nrow(survey)*100,1),
-                                                   "%)"), sep = "\t\t\t"),
-                                      " Using TotalNo (with SubFactor = 1) for these hauls."))
-        writeLines(paste("Number of meaningful TotalNo replacements: ",
+        ## HLNoAtLngt
+        ## -------------
+        ind <- which(is.na(hl$HLNoAtLngt))
+
+        ## CHECK:
+        ## DECISION: Using TotalNo when HLNoAtLngt == NA and setting subFactor to 1.
+        if(length(ind) > 0){
+            hl$HLNoAtLngt[ind] <- hl$TotalNo[ind]
+            hl$SubFactor[ind] <- 1
+            ind2 <- which(!is.na(hl$TotalNo[ind]))
+            if(verbose){
+                writeLines(paste0(paste("Number of entries with missing HLNoAtLngt: ",
+                                        paste0(length(ind), " (",round(length(ind)/nrow(hl)*100,1),
+                                               "%)"), sep = "\t\t\t"),
+                                  " Using TotalNo (with SubFactor = 1) for these hauls."))
+                writeLines(paste("Number of meaningful TotalNo replacements: ",
                                  paste0(length(ind2), " (",round(length(ind2)/length(ind)*100,1),
-                                 "%)"), sep = "\t\t\t"))
-    }
+                                        "%)"), sep = "\t\t\t"))
+            }
+        }
 
+        ## Account for LngtCode (mm and cm)
+        ## Remove LngtCode = NA (LngtClass also NA)
+        ind <- which(is.na(hl$LngtCode))
+        if(length(ind) > 0) hl <- hl[-ind,]
+        ## DATRAS:::getAccuracyCM
+        lngt2cm <- c(. = 0.1, `0` = 0.5, `1` = 1, `2` = 2, `5` = 5)[as.character(hl$LngtCode)]
+        hl$LngtCm <- lngt2cm * hl$LngtClass
+        ## DATRAS::addSpectrum
+        ## https://www.ices.dk/data/Documents/DATRAS/DATRAS_FAQs.pdf:
+        ## DataType R,S: TotalNo –report the total number of fish of one species, sex, and category in the given haul
+        ## DataType C: TotalNo –report the total number of fish of one species and sex in the given haul, raised to 1 hour hauling;
+        hl$multiplier <- ifelse(hl$DataType=="C", hl$HaulDur/60, hl$SubFactor)  ## not using SubFactor if DataType == "C"
+        hl$Counts <- as.numeric(hl$HLNoAtLngt * hl$multiplier)
 
-    ## Using HLNoAgeLngt for now
-    ## -------------------
-    ## account for datatype
-    ## https://www.ices.dk/data/Documents/DATRAS/DATRAS_FAQs.pdf:
-    ## DataType R,S: TotalNo –report the total number of fish of one species, sex, and category in the given haul
-    ## DataType C: TotalNo –report the total number of fish of one species and sex in the given haul, raised to 1 hour hauling;
-    survey$multiplier <- ifelse(survey$DataType=="C", survey$HaulDur/60, survey$SubFactor)  ## not using SubFactor if DataType == "C"
-    survey$N <- survey$HLNoAtLngt * survey$multiplier
-    ## sum up counts
-    survey[is.na(survey)] <- "NA"  ## needed because aggregate deletes all NA
-    survey$N <- as.numeric(survey$N)
+        ## Remove columns that are not needed any longer
+        hl$LngtClass <- hl$multiplier <- hl$SubFactor <- hl$HLNoAtLngt <- hl$DataType <- NULL
 
-    dontUse <- c("N","multiplier","CatIdentifier","SubFactor","LngtClass","HLNoAtLngt",
-                 "TotalNo","DataType","SpecVal","Sex","HaulVal","StdSpecRecCode")
-    survey <- aggregate(as.formula(
-        paste0("N ~ ",
-               paste0(colnames(survey)[-which(colnames(survey) %in% dontUse)],
-                      collapse=" + "))),
-                        function(x) sum(x, na.rm = TRUE), data = survey, na.action = na.pass)
-    survey$N <- round(survey$N)
-    colnames(survey)[which(colnames(survey) == "HaulID")] <- "haul.id" ## required by surveyIdx package
+        ## Estimate N & Bio (requires CA)
+        ## -------------------
+        if(est.n){
 
-    dim(survey)
+            if(split.juv.adults){
+                data("bio.pars")
+            }
 
-    flag <- all(!is.na(survey$N))
-    if(verbose) writeLines(paste("Meaningful N estimated for all hauls: ",
-                                 checkmark(flag),
-                                 sep = "\t\t\t\t\t"))
+            survey <- NULL
+            nspec <- nrow(specs)
+            for(i in 1:nspec){
 
+                hlc <- subset(hl, AphiaID == specs$AphiaID[i])
+                unique(hlc$AphiaID)
 
+                ## DATRAS::addSpectrum
+                lngt2cm <- c(. = 0.1, `0` = 0.5, `1` = 1, `2` = 2, `5` = 5)[as.character(hlc$LngtCode)]
+                by <- max(lngt2cm, na.rm = TRUE)
+                cm.breaks <- seq(min(hlc$LngtCm, na.rm = TRUE),
+                                 max(hlc$LngtCm, na.rm = TRUE) + by,
+                                 by = by)
+                midLengths <- cm.breaks[-1] - diff(cm.breaks)/2 ## TODO: make issue/PR for DATRAS (always assumes 1cm bins)
+                hlc$sizeGroup <- cut(hlc$LngtCm, breaks = cm.breaks, right = FALSE)
+                n.by.length <- round(xtabs(Counts ~ HaulID + sizeGroup, data = hlc))
 
-    ## Worms list
-    ## -----------
-    ## creating taxonomy tables for each species
-    aphia_list2 <- aphia_list[!is.na(aphia_list)]
-    nspec <- length(aphia_list2)
-    seqi <- seq(1, nspec + 100, 50)
-    worms.rec <- NULL
-    for(i in 1:ceiling(nspec/50)){  ## Seems that only 50 species can be downloaded at a time
-        endind <- ifelse(seqi[i+1]-1 > nspec, nspec, seqi[i+1]-1)
-        tmp <- try(worrms::wm_record(id = aphia_list2[seqi[i]:endind]),
-                         silent = TRUE)
-        if(!inherits(tmp,"try-error")){
-            worms.rec <- rbind(worms.rec, tmp)
+                if(split.juv.adults && any(bio.pars$AphiaID == specs$AphiaID[i])){
+                    ind.juv <- which(midLengths < bio.pars$Lm[bio.pars$AphiaID == specs$AphiaID[i]])
+                    ind.adult <- which(midLengths >= bio.pars$Lm[bio.pars$AphiaID == specs$AphiaID[i]])
+                    survey.spec <- data.frame(haul.id = rownames(n.by.length),
+                                              AphiaID = specs$AphiaID[i],
+                                              n.juv = unname(apply(n.by.length[,ind.juv], 1, sum)),
+                                              n.adult = unname(apply(n.by.length[,ind.adult], 1, sum))
+                                              )
+                }else{
+                    survey.spec <- data.frame(haul.id = rownames(n.by.length),
+                                              AphiaID = specs$AphiaID[i],
+                                              N = unname(apply(n.by.length, 1, sum)))
+                }
+
+                if(est.bio){
+                    if(!is.null(ca) && any(ca$AphiaID == specs$AphiaID[i])){
+
+                        cac <- subset(ca, AphiaID == specs$AphiaID[i])
+                        ## DATRAS::addWeightByHaul
+                        cac$LngtCm <- c(. = 0.1, `0` = 0.5, `1` = 1, `2` = 2, `5` = 5)[as.character(cac$LngtCode)] * cac$LngtClass
+                        mod <- lm(log(IndWgt) ~ log(LngtCm), data = subset(cac, IndWgt > 0))
+                        LW <- exp(predict(mod, newdata = data.frame(LngtCm = midLengths)))
+                        if(split.juv.adults && any(bio.pars$AphiaID == specs$AphiaID[i])){
+                            survey.spec$bio.juv <- unname(apply(n.by.length[,ind.juv], 1,
+                                                                function(x) x %*% LW[ind.juv]))
+                            survey.spec$bio.adult <- unname(apply(n.by.length[,ind.adult], 1,
+                                                                  function(x) x %*% LW[ind.adult]))
+                        }else{
+                            survey.spec$bio <- unname(apply(n.by.length, 1, function(x) x %*% LW))
+                        }
+                    }else{
+                        ## Look up in downloaded fishbase data
+                        data(fishbase.dat)
+                        ind <- which(fishbase.dat$AphiaID == specs$AphiaID[i])
+                        if(length(ind) > 0){
+                            LW <- fishbase.dat$LWa[ind] * midLengths ^ fishbase.dat$LWb[ind]
+                            if(split.juv.adults && any(bio.pars$AphiaID == specs$AphiaID[i])){
+                                survey.spec$bio.juv <- unname(apply(n.by.length[,ind.juv], 1,
+                                                                    function(x) x %*% LW[ind.juv]))
+                                survey.spec$bio.adult <- unname(apply(n.by.length[,ind.adult], 1,
+                                                                      function(x) x %*% LW[ind.adult]))
+                            }else{
+                                survey.spec$bio <- unname(apply(n.by.length, 1, function(x) x %*% LW))
+                            }
+                        }else{
+                            ## otherwise try to download
+                            tmp <- try(as.data.frame(rfishbase::length_weight(spec)), silent = TRUE)
+                            if(!inherits(tmp,"try-error")){
+                                LW <- median(na.omit(tmp$a)) * midLengths ^ median(na.omit(tmp$b))
+                                survey.spec$bio <- unname(apply(n.by.length, 1, function(x) x %*% LW))
+                            }else{
+                                warning("Cannot estimate biomass, because neither CA data available nor are the length-weight parameters available on fishbase.")
+                                survey.spec$bio <- NA
+                            }
+                        }
+                    }
+                }else{
+                    survey.spec$bio <- NA
+                }
+                survey <- rbind(survey, survey.spec)
+            }
+
+            ## CHECK: put this in prep.data
+            colnames(survey0)[colnames(survey0) == "HaulID"] <- "haul.id"
+            ## merge other variables to survey
+            survey <- plyr::join(survey, survey0, by="haul.id")
+            if(split.juv.adults && any(colnames(survey) == "n.juv") &&
+               any(colnames(survey) == "n.adult")){
+                survey$n.juv[is.na(survey$n.juv)] <- 0
+                survey$n.adult[is.na(survey$n.adult)] <- 0
+            }
+
+            ## Add species information
+            if(specflag){
+                ## Subset relevant columns from species list
+                ## ----------
+                ind <- which(is.na(specs$AphiaID))
+                if(length(ind) > 0) specs <- specs[-ind,]
+                ind <- which(duplicated(specs$AphiaID))
+                if(length(ind) > 0) specs <- specs[-ind,]
+
+                ## Merge species list to survey
+                ## ----------
+                survey <- plyr::join(survey, specs, by="AphiaID")
+
+                ## Species and bycatch corrections
+                ## ------------
+                survey <- correct.species(survey)
+            }
         }else{
-            if(verbose) writeLines(paste("There was a problem downloading information from the Worms list."))
+            ## CHECK: put this in prep.data
+            colnames(survey0)[colnames(survey0) == "HaulID"] <- "haul.id"
+            colnames(hl)[colnames(hl) == "HaulID"] <- "haul.id"
+            survey <- plyr::join(hl, survey0, by="haul.id")
+            survey$N <- NA
+            survey$bio <- NA
+        }
+        survey0$N <- 0
+        survey0$bio <- 0
+
+        ## Worms list
+        ## -----------
+        ## Try to get info from worms.dat (data in package)
+        data(worms.dat)
+        survey <- plyr::join(survey, worms.dat, by='AphiaID')
+        ## For species not matched: download info
+        aphia_list <- as.numeric(unique(survey$AphiaID[is.na(survey$scientificname)]))
+        if(length(aphia_list) > 0){
+            aphia_list2 <- aphia_list[!is.na(aphia_list)]
+            nspec <- length(aphia_list2)
+            seqi <- seq(1, nspec + 100, 50)
+            worms.rec <- NULL
+            for(i in 1:ceiling(nspec/50)){  ## Seems that only 50 species can be downloaded at a time
+                endind <- ifelse(seqi[i+1]-1 > nspec, nspec, seqi[i+1]-1)
+                tmp <- try(worrms::wm_record(id = aphia_list2[seqi[i]:endind]),
+                           silent = TRUE)
+                if(!inherits(tmp,"try-error")){
+                    worms.rec <- rbind(worms.rec, tmp)
+                }else{
+                    if(verbose) writeLines(paste("There was a problem downloading information from the Worms list."))
+                }
+            }
+            if(!inherits(worms.rec,"try-error") && !is.null(worms.rec)){
+                worms.dat <- as.data.frame(worms.rec)[,c("AphiaID","scientificname","genus","family","order","class")]
+                survey <- plyr::join(survey, worms.dat, by='AphiaID')
+            }
+        }
+
+        ## Order
+        ## -----------
+        survey0 <- survey0[order(survey0$Year, survey0$Month, survey0$Day),]
+        survey <- survey[order(survey$Year, survey$Month, survey$Day),]
+        ## required by surveyIdx package
+        colnames(survey0)[which(colnames(survey0) == "HaulID")] <- "haul.id"
+        colnames(survey)[which(colnames(survey) == "HaulID")] <- "haul.id"
+
+
+    }else if(inherits(data,"fdist.prepped")){
+
+        survey0 <- data$survey0
+        surveyIn <- data$survey
+        ca <- data$CA
+        rm(data)
+
+        ## Species subsetting for survey
+        ## ------------------
+        if(!is.null(AphiaID[1]) && !is.na(AphiaID[1]) && !(AphiaID[1] %in% c("all","All","ALL"))){
+            if(!inherits(AphiaID, "data.frame")) specs <- data.frame(AphiaID = AphiaID)
+            if(!any(colnames(specs) == "AphiaID"))
+                stop("At least one of the columns in AphiaID needs to indicate the Aphia ID and be called 'AphiaID'")
+
+            ## Species that could not be matched
+            ## ---------
+            flag <- any(specs$AphiaID %in% surveyIn$AphiaID)
+            if(!flag) stop("Provided Aphia IDs were not found in the data set. Please check data and/or IDs!")
+            ind <- which(!(specs$AphiaID %in% surveyIn$AphiaID))
+            if(length(ind) > 0){
+                if(verbose){
+                    writeLines("These Aphia IDs could not be matched:")
+                    print(specs[ind,])
+                }
+            }
+
+            ## Subset based on species list
+            ## ---------
+            surveyIn <- subset(surveyIn, AphiaID %in% specs$AphiaID)
+            if(!is.null(ca)) ca <- subset(ca, AphiaID %in% specs$AphiaID)
+        }
+
+
+        ## Estimate N & Bio (requires CA)
+        ## -------------------
+        if(est.n){
+
+            if(split.juv.adults){
+                data("bio.pars")
+            }
+
+
+            survey <- NULL
+            nspec <- nrow(specs)
+            for(i in 1:nspec){
+
+                surveyc <- subset(surveyIn, AphiaID == specs$AphiaID[i])
+                unique(surveyc$AphiaID)
+
+                ## DATRAS::addSpectrum
+                lngt2cm <- c(. = 0.1, `0` = 0.5, `1` = 1, `2` = 2, `5` = 5)[as.character(surveyc$LngtCode)]
+                by <- max(lngt2cm, na.rm = TRUE)
+                cm.breaks <- seq(min(surveyc$LngtCm, na.rm = TRUE),
+                                 max(surveyc$LngtCm, na.rm = TRUE) + by,
+                                 by = by)
+                midLengths <- cm.breaks[-1] - diff(cm.breaks)/2 ## TODO: make issue/PR for DATRAS (always assumes 1cm bins)
+                surveyc$sizeGroup <- cut(surveyc$LngtCm, breaks = cm.breaks, right = FALSE)
+                n.by.length <- round(xtabs(Counts ~ haul.id + sizeGroup, data = surveyc))
+
+                if(split.juv.adults && any(bio.pars$AphiaID == specs$AphiaID[i])){
+                    ind.juv <- which(midLengths < bio.pars$Lm[bio.pars$AphiaID == specs$AphiaID[i]])
+                    ind.adult <- which(midLengths >= bio.pars$Lm[bio.pars$AphiaID == specs$AphiaID[i]])
+                    survey.spec <- data.frame(haul.id = rownames(n.by.length),
+                                              AphiaID = specs$AphiaID[i],
+                                              n.juv = unname(apply(n.by.length[,ind.juv], 1, sum)),
+                                              n.adult = unname(apply(n.by.length[,ind.adult], 1, sum))
+                                              )
+                }else{
+                    survey.spec <- data.frame(haul.id = rownames(n.by.length),
+                                              AphiaID = specs$AphiaID[i],
+                                              N = unname(apply(n.by.length, 1, sum)))
+                }
+
+                if(est.bio){
+                    if(!is.null(ca) && any(ca$AphiaID == specs$AphiaID[i])){
+                        cac <- subset(ca, AphiaID == specs$AphiaID[i])
+                        ## DATRAS::addWeightByHaul
+                        cac$LngtCm <- c(. = 0.1, `0` = 0.5, `1` = 1, `2` = 2, `5` = 5)[as.character(cac$LngtCode)] * cac$LngtClass
+                        mod <- lm(log(IndWgt) ~ log(LngtCm), data = subset(cac, IndWgt > 0))
+                        LW <- exp(predict(mod, newdata = data.frame(LngtCm = midLengths)))
+                        if(split.juv.adults && any(bio.pars$AphiaID == specs$AphiaID[i])){
+                            survey.spec$bio.juv <- unname(apply(n.by.length[,ind.juv], 1,
+                                                                function(x) x %*% LW[ind.juv]))
+                            survey.spec$bio.adult <- unname(apply(n.by.length[,ind.adult], 1,
+                                                                  function(x) x %*% LW[ind.adult]))
+                        }else{
+                            survey.spec$bio <- unname(apply(n.by.length, 1, function(x) x %*% LW))
+                        }
+                    }else{
+                        ## Look up in downloaded fishbase data
+                        if(verbose) writeLines("No CA data found! Using fishbased pars for L-W rel.")
+                        data("fishbase.dat")
+                        ind <- which(fishbase.dat$AphiaID == specs$AphiaID[i])
+                        if(length(ind) > 0){
+                            LW <- fishbase.dat$LWa[ind] * midLengths ^ fishbase.dat$LWb[ind]
+                            if(split.juv.adults && any(bio.pars$AphiaID == specs$AphiaID[i])){
+                                survey.spec$bio.juv <- unname(apply(n.by.length[,ind.juv], 1,
+                                                                    function(x) x %*% LW[ind.juv]))
+                                survey.spec$bio.adult <- unname(apply(n.by.length[,ind.adult], 1,
+                                                                      function(x) x %*% LW[ind.adult]))
+                            }else{
+                                survey.spec$bio <- unname(apply(n.by.length, 1, function(x) x %*% LW))
+                            }
+                        }else{
+                            ## otherwise try to download
+                            tmp <- try(as.data.frame(rfishbase::length_weight(spec)), silent = TRUE)
+                            if(!inherits(tmp,"try-error")){
+                                LW <- median(na.omit(tmp$a)) * midLengths ^ median(na.omit(tmp$b))
+                                survey.spec$bio <- unname(apply(n.by.length, 1, function(x) x %*% LW))
+                            }else{
+                                warning("Cannot estimate biomass, because neither CA data available nor are the length-weight parameters available on fishbase.")
+                                survey.spec$bio <- NA
+                            }
+                        }
+                    }
+                }else{
+                    survey.spec$bio <- NA
+                }
+                survey <- rbind(survey, survey.spec)
+            }
+
+            ## merge other variables to survey
+            survey <- plyr::join(survey, survey0[,!(colnames(survey0) %in% c("N","bio"))], by="haul.id")
+            if(split.juv.adults && any(colnames(survey) == "n.juv") &&
+               any(colnames(survey) == "n.adult")){
+                survey$n.juv[is.na(survey$n.juv)] <- 0
+                survey$n.adult[is.na(survey$n.adult)] <- 0
+            }
+
+            ## Add species information
+            if(specflag){
+                ## Subset relevant columns from species list
+                ## ----------
+                ind <- which(is.na(specs$AphiaID))
+                if(length(ind) > 0) specs <- specs[-ind,]
+                ind <- which(duplicated(specs$AphiaID))
+                if(length(ind) > 0) specs <- specs[-ind,]
+
+                ## Merge species list to survey
+                ## ----------
+                survey <- plyr::join(survey, specs, by="AphiaID")
+
+                ## Species and bycatch corrections
+                ## ------------
+                survey <- correct.species(survey)
+            }
+
+            ## Worms list
+            ## -----------
+            ## Try to get info from worms.dat (data in package)
+            data(worms.dat)
+            survey <- plyr::join(survey, worms.dat, by='AphiaID')
+            ## For species not matched: download info
+            aphia_list <- as.numeric(unique(survey$AphiaID[is.na(survey$scientificname)]))
+            if(length(aphia_list) > 0){
+                aphia_list2 <- aphia_list[!is.na(aphia_list)]
+                nspec <- length(aphia_list2)
+                seqi <- seq(1, nspec + 100, 50)
+                worms.rec <- NULL
+                for(i in 1:ceiling(nspec/50)){  ## Seems that only 50 species can be downloaded at a time
+                    endind <- ifelse(seqi[i+1]-1 > nspec, nspec, seqi[i+1]-1)
+                    tmp <- try(worrms::wm_record(id = aphia_list2[seqi[i]:endind]),
+                               silent = TRUE)
+                    if(!inherits(tmp,"try-error")){
+                        worms.rec <- rbind(worms.rec, tmp)
+                    }else{
+                        if(verbose) writeLines(paste("There was a problem downloading information from the Worms list."))
+                    }
+                }
+                if(!inherits(worms.rec,"try-error") && !is.null(worms.rec)){
+                    worms.dat <- as.data.frame(worms.rec)[,c("AphiaID","scientificname","genus","family","order","class")]
+                    survey <- plyr::join(survey, worms.dat, by='AphiaID')
+                }
+            }
         }
     }
-    if(!inherits(worms.rec,"try-error") && !is.null(worms.rec)){
-        worms.dat <- as.data.frame(worms.rec)[,c("AphiaID","scientificname","genus","family","order","class")]
-        survey <- plyr::join(survey, worms.dat, by='AphiaID')
-    }
-    ## save(worms.dat, file="worms.dat.rda", version = 2)
-    ## TODO: load worms.dat and try to find aphiaID in there, then only download once that were not found!
-
-
-    ## Order
-    ## -----------
-    survey0 <- survey0[order(survey0$Year, survey0$Month, survey0$Day),]
-    survey <- survey[order(survey$Year, survey$Month, survey$Day),]
 
 
     ## Return
     ## -----------
-    res <- list(survey0 = survey0, survey = survey)
+    if(est.bio){
+        res <- list(survey0 = survey0, survey = survey)
+    }else{
+        res <- list(survey0 = survey0, survey = survey, CA = ca)
+    }
     class(res) <- c("fdist.prepped","list")
     return(res)
 }

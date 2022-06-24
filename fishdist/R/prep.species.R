@@ -15,7 +15,7 @@
 #' @return List containing hh and hl data sets.
 #'
 #' @export
-prep.species <- function(data, aphiaID,
+prep.species <- function(data, aphiaID = NULL,
                          use.gear.cat = TRUE,
                          remove.fragmented.years = TRUE,
                          min.gears = 1, min.surveys = 1, min.hauls = 1, min.ship.gear = 1,
@@ -23,16 +23,30 @@ prep.species <- function(data, aphiaID,
 
     ## Check validity of data
     ## ------------------
-    if(!inherits(data,"fdist.prepped") || !all(names(data) %in% c("survey0","survey")))
+    if(!inherits(data,"fdist.prepped") || !all(c("survey0","survey") %in% names(data)))
         stop("Function requires list with the data sets 'survey0' and 'survey' created by the function 'prep.data'.")
     survey0 <- data$survey0
     survey <- data$survey
 
+    if(any(colnames(survey) == "N")){
+    }else if(!any(colnames(survey) == "N") && any(colnames(survey) == "n.juv") && any(colnames(survey) == "n.adult")){
+        survey$N <- survey$n.juv + survey$n.adult
+    }else{
+        stop("No N!")
+    }
+    if(!any(colnames(survey) == "bio") && any(colnames(survey) == "bio.juv") && any(colnames(survey) == "bio.adult")){
+        survey$bio <- survey$bio.juv + survey$bio.adult
+    }
+
 
     ## Subset all species for given species category
     ## --------------------------------------
-    if(!any(aphiaID %in% unique(survey$AphiaID))) stop("Provided Aphia IDs are not included in the data set! Please check if the Aphia IDs were included in the data preparation step (prep.data).")
-    survey.spp <- subset(survey, AphiaID %in% aphiaID)
+    if(!is.null(aphiaID) && !is.na(aphiaID)){
+        if(!any(aphiaID %in% unique(survey$AphiaID))) stop("Provided Aphia IDs are not included in the data set! Please check if the Aphia IDs were included in the data preparation step (prep.data).")
+        survey.spp <- subset(survey, AphiaID %in% aphiaID)
+    }else{
+        survey.spp <- survey
+    }
 
 
     ## Gears and surveys
@@ -82,15 +96,18 @@ prep.species <- function(data, aphiaID,
     ## --------------------------------------
     ## only keep ices squares where species category is present
     ices.keep <- sort(unique(survey.spp$StatRec))  ## CHECK: that no StatRec with N=0 are in survey.spp
+    ## NEW: make argument or only use this?
+    ## TODO: make check that Area_27 is included!!
+    ices.keep <- sort(unique(survey.spp$Area_27))
 
 
     ## Apply selections to both data sets
     ## --------------------------------------
-    survey.spp <- subset(survey.spp, StatRec %in% ices.keep &
+    survey.spp <- subset(survey.spp, Area_27 %in% ices.keep &
                                      Gear %in% gears.keep &
                                      ShipG %in% shipgear.keep &
                                      Survey %in% surveys.keep)
-    survey0 <- subset(survey0, StatRec %in% ices.keep &
+    survey0 <- subset(survey0, Area_27 %in% ices.keep &
                                Gear %in% gears.keep &
                                ShipG %in% shipgear.keep &
                                Survey %in% surveys.keep)
@@ -120,7 +137,9 @@ prep.species <- function(data, aphiaID,
                          by = "Year", all.x = TRUE)
             tmp$obs[is.na(tmp$obs)] <- tmp$all[is.na(tmp$obs)]
             tmp2 <- rle(tmp$obs)
-            if(nrow(tmp) > 1 && tmp2$lengths[1] == 1 && tmp2$lengths[2] >= 1){
+            if(nrow(tmp) > 1 &&
+               (tmp2$lengths[1] == 1 && tmp2$lengths[2] >= 1) ||
+               (tmp2$lengths[1] == 2 && tmp2$lengths[2] == 1)){
                 rmYears <- c(rmYears, min(tmp$Year))
                 keepYears <- tmp$Year[min(which(tmp$obs == 1)[-1])]
                 survey.spp <- subset(survey.spp, Year >= keepYears)
@@ -131,7 +150,7 @@ prep.species <- function(data, aphiaID,
         }
         if(verbose && !is.null(rmYears)){
             writeLines(paste0("The years: ", paste(rmYears,collapse=","),
-                              " are followed by one more years without observations and are thus removed (remove.fragmented.years = TRUE)."))
+                              " are followed by one or more years without observations and are thus removed (remove.fragmented.years = TRUE)."))
         }
     }
 
@@ -171,12 +190,8 @@ prep.species <- function(data, aphiaID,
             rmYears <- c(rmYears,min(tmp$year))
             keepYears <- min(tmp$year[-1])
 
-            browser()
-
-            survey.spp <- survey.spp %>%
-                filter(Year >= keepYears)
-            survey0 <- survey0 %>%
-                filter(Year >= keepYears)
+            survey.spp <- subset(survey.spp, Year >= keepYears)
+            survey0 <- subset(survey0, Year >= keepYears)
 
         }else{
             conti <- FALSE
@@ -215,13 +230,16 @@ prep.species <- function(data, aphiaID,
     ## --------------
     ## only keep ices squares where species is present
     ices.keep <- sort(unique(survey.spp$StatRec))
+    ## NEW: make argument or only use this?
+    ## TODO: make check that Area_27 is included!!
+    ices.keep <- sort(unique(survey.spp$Area_27))
     ## Apply selections to both data sets
     ## -------------
-    survey.spp <- subset(survey.spp, StatRec %in% ices.keep &
+    survey.spp <- subset(survey.spp, Area_27 %in% ices.keep &
                                      Gear %in% gears.keep &
                                      ShipG %in% shipgear.keep &
                                      Survey %in% surveys.keep)
-    survey0 <- subset(survey0, StatRec %in% ices.keep &
+    survey0 <- subset(survey0, Area_27 %in% ices.keep &
                                Gear %in% gears.keep &
                                ShipG %in% shipgear.keep &
                                Survey %in% surveys.keep)
@@ -235,30 +253,77 @@ prep.species <- function(data, aphiaID,
 
     ## Combine surveys with observations and zeros
     ## --------------------------------------
+    if(any(colnames(survey.spp) == "n.juv")) survey0$n.juv <- 0
+    if(any(colnames(survey.spp) == "n.adult")) survey0$n.adult <- 0
+    if(any(colnames(survey.spp) == "bio.juv")) survey0$bio.juv <- 0
+    if(any(colnames(survey.spp) == "bio.adult")) survey0$bio.adult <- 0
     ind <- colnames(survey0)[colnames(survey0) %in% colnames(survey.spp)]
-    ind <- !(colnames(survey.spp) %in% ind[!(ind %in% c("haul.id","N"))])
+    ind2 <- c("haul.id","N","bio")
+    if(any(colnames(survey.spp) == "n.juv")) ind2 <- c(ind2, "n.juv")
+    if(any(colnames(survey.spp) == "n.adult")) ind2 <- c(ind2, "n.adult")
+    if(any(colnames(survey.spp) == "bio.juv")) ind2 <- c(ind2, "bio.juv")
+    if(any(colnames(survey.spp) == "bio.adult")) ind2 <- c(ind2, "bio.adult")
+    ind <- !(colnames(survey.spp) %in% ind[!(ind %in% ind2)])
     survey.spp2 <- plyr::join(survey0, survey.spp[,ind], by="haul.id")
+    if(is.null(aphiaID)){
+        aphiaID <- unique(survey.spp$AphiaID)
+    }
     survey.spp2$AphiaID <- paste0(aphiaID, collapse = ",")
-    ## Combine Ns from survey0 and survey
+    survey.spp2$scientificname <- paste0(unique(survey.spp$sceintificname), collapse = ",")
+    survey.spp2$genus <- paste0(unique(survey.spp$genus), collapse = ",")
+    survey.spp2$family <- paste0(unique(survey.spp$family), collapse = ",")
+    survey.spp2$order <- paste0(unique(survey.spp$order), collapse = ",")
+    survey.spp2$class <- paste0(unique(survey.spp$class), collapse = ",")
+    ## Combine N from survey0 and survey
     ind <- which(colnames(survey.spp2) == "N")
     N <- rowSums(survey.spp2[,ind], na.rm = TRUE)
     survey.spp2[,ind] <- NULL
     survey.spp2$N <- N
+    if(any(colnames(survey.spp) == "n.juv")){
+        ind <- which(colnames(survey.spp2) == "n.juv")
+        N <- rowSums(survey.spp2[,ind], na.rm = TRUE)
+        survey.spp2[,ind] <- NULL
+        survey.spp2$n.juv <- N
+    }
+    if(any(colnames(survey.spp) == "n.adult")){
+        ind <- which(colnames(survey.spp2) == "n.adult")
+        N <- rowSums(survey.spp2[,ind], na.rm = TRUE)
+        survey.spp2[,ind] <- NULL
+        survey.spp2$n.adult <- N
+    }
+    ## Combine bio from survey0 and survey
+    ind <- which(colnames(survey.spp2) == "bio")
+    bio <- rowSums(survey.spp2[,ind], na.rm = TRUE)
+    survey.spp2[,ind] <- NULL
+    survey.spp2$bio <- bio
+    if(any(colnames(survey.spp) == "bio.juv")){
+        ind <- which(colnames(survey.spp2) == "bio.juv")
+        bio <- rowSums(survey.spp2[,ind], na.rm = TRUE)
+        survey.spp2[,ind] <- NULL
+        survey.spp2$bio.juv <- bio
+    }
+    if(any(colnames(survey.spp) == "bio.adult")){
+        ind <- which(colnames(survey.spp2) == "bio.adult")
+        bio <- rowSums(survey.spp2[,ind], na.rm = TRUE)
+        survey.spp2[,ind] <- NULL
+        survey.spp2$bio.adult <- bio
+    }
+    ## overwrite
     survey.spp <- survey.spp2
     rm(survey0, survey.spp2)
 
 
     ## Some checks
     ## --------------------------------------
-    ## - No NA in Lat/Lon?
-    ind <- which(is.na(survey.spp$Lat))
+    ## - No NA in lat/lon?
+    ind <- which(is.na(survey.spp$lat))
     if(length(ind) > 0){
-        if(verbose) writeLines(paste0(length(ind)," hauls have Lat == NA. Omitting them."))
+        if(verbose) writeLines(paste0(length(ind)," hauls have lat == NA. Omitting them."))
         survey.spp <- survey.spp[-ind,]
     }
-    ind <- which(is.na(survey.spp$Lon))
+    ind <- which(is.na(survey.spp$lon))
     if(length(ind) > 0){
-        if(verbose) writeLines(paste0(length(ind)," hauls have Lon == NA. Omitting them."))
+        if(verbose) writeLines(paste0(length(ind)," hauls have lon == NA. Omitting them."))
         survey.spp <- survey.spp[-ind,]
     }
     ## - Duplicates in data?
@@ -284,19 +349,8 @@ prep.species <- function(data, aphiaID,
     nHaulsTot <- length(unique(survey.spp$haul.id))
     if(verbose) writeLines(paste("Number of hauls total: ", nHaulsTot, sep = "\t\t\t\t\t\t\t\t\t\t\t"))
 
-
-    ## Required Nage
-    ## --------------------------------------
-    Nage <- as.matrix(survey.spp$N, na.rm=TRUE)
-    colnames(Nage) <- "1"
-    survey.spp$Nage <- Nage
-    ages <- 1
-    ## withweight (download CA)  d<-addWeightByHaul(d,to1min=FALSE) but not clear if enough info
-    ## maybe future project
-
     if(any(colnames(survey.spp) != "haul.id")) colnames(survey.spp)[colnames(survey.spp) == "HaulID"] <- "haul.id"
-    if(any(colnames(survey.spp) != "lon")) colnames(survey.spp)[colnames(survey.spp) == "Lon"] <- "lon"
-    if(any(colnames(survey.spp) != "lat")) colnames(survey.spp)[colnames(survey.spp) == "Lat"] <- "lat"
+    if(!inherits(survey.spp$Year, "factor")) survey.spp$Year <- as.factor(survey.spp$Year)
 
     ## Return
     ## --------------------------------------

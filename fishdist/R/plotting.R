@@ -1,3 +1,20 @@
+
+#' @name plotfdist.cog
+#' @title plot cog
+#' @param cog cog
+#' @return Nothing
+#' @export
+plotfdist.cog <- function(cog){
+    par(mfrow = c(2,1), mar = c(1,5,2,1), oma = c(4,0,1,1))
+    plot(cog$year, cog$cog.lon, ty = 'b',
+         ylab = "Longitude", xlab = "")
+    plot(cog$year, cog$cog.lat, ty = 'b',
+         ylab = "Latitude", xlab = "")
+    mtext("Year", 1, 2, outer = TRUE)
+    mtext("Center of gravity", 3, -1, outer = TRUE, font = 2)
+}
+
+
 #' @name plotdist
 #' @title plot dist
 #' @param data data
@@ -7,32 +24,29 @@
 plotdist <- function(data, plot.survey.dist = TRUE){
 
     if(inherits(data, "list")){
-        if(any(names(data[[2]]) == "AphiaID")){
-            aphia.name <- "AphiaID"
-        }else{
-            aphia.name <- "Valid_Aphia"
-            stop("Not yet implemented. Run prep.data first.")
-        }
+        aphia.name <- "AphiaID"
         specs <- unique(data[[2]][,aphia.name])
         ns <- length(specs)
+##         ns <- 1
 
         statrec.all <- statrec.obs <- statrec.nonobs <- vector("list", ns)
         for(i in 1:ns){
             sub0 <- data[[1]]
-            sub <- data[[2]][data[[2]][,aphia.name] == specs[i],]
+           sub <- data[[2]][data[[2]][,aphia.name] == specs[i],]
             statrec.all[[i]] <- unique(c(sub0$StatRec, sub$StatRec))
-            statrec.obs[[i]] <- unique(sub$StatRec[which(sub$N > 0)])
-            statrec.nonobs[[i]] <- statrec.all[[i]][!statrec.all[[i]] %in% statrec.obs[[i]]]
+            statrec.all[[i]] <- unique(sub0$StatRec)
+           statrec.obs[[i]] <- unique(sub$StatRec[which(sub$N > 0)])
+           statrec.nonobs[[i]] <- statrec.all[[i]][!statrec.all[[i]] %in% statrec.obs[[i]]]
         }
     }else{
         specs <- unique(data$AphiaID)
         ns <- length(specs)
 
-        statrec.all <- statrec.obs <- statrec.nonobs <- vector("list", ns)
+        statrec.all <- statrec.obs <- statrec.nonobs <- sub <- vector("list", ns)
         for(i in 1:ns){
-            sub <- subset(data, AphiaID == specs[i])
-            statrec.all[[i]] <- unique(sub$StatRec)
-            statrec.obs[[i]] <- unique(sub$StatRec[which(sub$N > 0)])
+            sub[[i]] <- subset(data, AphiaID == specs[i])
+            statrec.all[[i]] <- unique(sub[[i]]$StatRec)
+            statrec.obs[[i]] <- unique(sub[[i]]$StatRec[which(sub[[i]]$N > 0)])
             statrec.nonobs[[i]] <- statrec.all[[i]][!statrec.all[[i]] %in% statrec.obs[[i]]]
         }
     }
@@ -57,29 +71,32 @@ plotdist <- function(data, plot.survey.dist = TRUE){
              xlim = lon.range, ylim = lat.range,
              ty='n',
              xlab = "", ylab = "")
+        ## HERE:
         if(plot.survey.dist & length(statrec.nonobs[[i]]) > 0){
             ind <- which(ices.rectangles$ICESNAME %in% statrec.nonobs[[i]])
             tmp <- ices.rectangles[ind,]
             for(j in 1:nrow(tmp)){
                 tmpj <- tmp[j,]
-                polygon(c(tmpj$WEST, tmpj$EAST, tmpj$EAST, tmpj$WEST),
-                        c(tmpj$SOUTH, tmpj$SOUTH, tmpj$NORTH, tmpj$NORTH),
+                polygon(c(tmpj$stat_west, tmpj$stat_east, tmpj$stat_east, tmpj$stat_west),
+                        c(tmpj$stat_south, tmpj$stat_south, tmpj$stat_north, tmpj$stat_north),
                         border = "goldenrod2", col = "goldenrod3")
             }
         }
-        ind <- which(ices.rectangles$ICESNAME %in% statrec.obs[[i]])
+        ind <- which(ices.rectangles$ICESNAME %in% statrec.obs[[i]]) ## obs
         tmp <- ices.rectangles[ind,]
         for(j in 1:nrow(tmp)){
             tmpj <- tmp[j,]
-            polygon(c(tmpj$WEST, tmpj$EAST, tmpj$EAST, tmpj$WEST),
-                    c(tmpj$SOUTH, tmpj$SOUTH, tmpj$NORTH, tmpj$NORTH),
+                polygon(c(tmpj$stat_west, tmpj$stat_east, tmpj$stat_east, tmpj$stat_west),
+                        c(tmpj$stat_south, tmpj$stat_south, tmpj$stat_north, tmpj$stat_north),
                     border = "dodgerblue2", col = "dodgerblue3")
         }
-        maps::map("world", xlim = lon.range, ylim = lat.range,
-                  fill = TRUE, plot = TRUE, add = TRUE,
-                  col = grey(0.8),
-                  border = grey(0.7)
-                  )
+        ## maps::map("world", xlim = lon.range, ylim = lat.range,
+        ##           fill = TRUE, plot = TRUE, add = TRUE,
+        ##           col = grey(0.8),
+        ##           border = grey(0.7)
+        ##           )
+        ## points(sub[[i]]$lon[sub[[i]]$N > 0], sub[[i]]$lat[sub[[i]]$N > 0], pch = 16, col = 1, cex = 0.8)
+        ## points(sub[[i]]$lon, sub[[i]]$lat, pch = 16, col = 1, cex = 0.8)
         mtext(paste0("AphiaID: ", specs[i]), 3, 0.5)
         box(lwd=1.5)
     }
@@ -91,41 +108,117 @@ plotdist <- function(data, plot.survey.dist = TRUE){
 
 
 
-#' @name plotfdist.abund
+#' @name plotfdist.abun
 #'
 #' @title plot fit
 #'
 #' @param fit fit
+#' @param by by
 #'
-#' @importFrom maps map
 #'
 #' @return Nothing
 #'
 #' @export
-plotfdist.abund <- function(fit){
+plotfdist.abun <- function(fit, by.area = FALSE,
+                           ylab = "Abundance index",
+                           y.scale = 1){
+    if(by.area){
 
-    fit <- fit$fit
+        browser()
 
-    ## CHECK: TODO: might be species if fitted with est.dist
-    ns <- length(fit)
+        nareas
+        length(fit)
+
+        cols <- color
+
+        areas <- sapply(fit, function(x) unique(x$grid[[1]]$Area_27))
+        ecoregions <- sapply(fit, function(x) tail(unique(x$grid[[1]]$Ecoregion),1))
+        ecoregions.uni <- unique(ecoregions)
+        nareas <- length(areas)
+        neco <- length(ecoregions.uni)
+
+        if(neco >= 19){
+            mfrow = c(4,ceiling(neco/4))
+        }else if(neco >= 9){
+            mfrow = c(3,ceiling(neco/3))
+        }else if(neco < 9 & neco >= 4){
+            mfrow = c(2,ceiling(neco/2))
+        }else if(neco < 4){
+            mfrow = c(1,neco)
+        }
+        if(neco > 1){
+            par(mfrow = mfrow, mar = c(0.5,0.5,0.5,0.5), oma = c(4,3,2,1))
+        }
+
+        ylim <- range(unlist(lapply(fit, function(x){
+            if(!inherits(x$fits[[1]],"try-error")){
+                x$fits[[1]]$idx
+            }else{
+                NA
+            }})), na.rm = TRUE) / y.scale
+        xlim <- range(as.numeric(unlist(lapply(fit, function(x){
+            if(!inherits(x$fits[[1]],"try-error")){
+                rownames(x$fits[[1]]$idx)
+            }else{
+                NA
+            }}))), na.rm = TRUE)
+        xaxt.ind <- (prod(mfrow) - mfrow[2] + 1):prod(mfrow)
+        yaxt.ind <- seq(1, prod(mfrow), mfrow[2])
+        for(i in 1:neco){
+            xaxt <- ifelse(i %in% xaxt.ind, "s", "n")
+            yaxt <- ifelse(i %in% yaxt.ind, "s", "n")
+            plot(xlim, c(1,1), ty = "n",
+                 xaxt = xaxt, yaxt = yaxt,
+                 ylim = ylim, xlim = xlim,
+                 xlab = "", ylab = "")
+            ias <- which(ecoregions %in% ecoregions.uni[i])
+            nia <- length(ias)
+            for(j in 1:nia){
+                years <- rownames(fit[[ias[j]]]$fits[[1]]$idx)
+                idx <- fit[[ias[j]]]$fits[[1]]$idx
+                lines(years, idx, col = cols[j])
+            }
+            legend("topleft",
+                   legend = areas[i],
+                   pch = NA,
+                   x.intersp = 0.1,
+                   bg = "white")
+        }
 
 
-    ylim <- range(sapply(fit, function(x) x$idx))
+    }else{
 
-    plot(rownames(fit[[1]]$idx), fit[[1]]$idx, ty='n',
-         xlim = range(as.numeric(rownames(fit[[1]]$idx))),
-         ylim = ylim)
-    for(i in 1:ns){
-        lines(rownames(fit[[i]]$idx), fit[[i]]$idx, ty='b', col = i)
+        ## TODO: plot relative (to what?) or absolute
+        alpha <- 0.3
+        cols <- c("dodgerblue","darkorange","darkgreen","goldenrod")
+
+        fiti <- fit$fits
+        ## CHECK: TODO: might be species if fitted with est.dist
+        ns <- length(fiti)
+        years <- as.numeric(rownames(fiti[[1]]$idx))
+        ylim <- range(lapply(fiti, function(x) c(x$idx, x$up, x$lo) / y.scale))
+        xlim <- range(years)
+        plot(years, fiti[[1]]$idx/y.scale, ty='n',
+             xlim = xlim, ylim = ylim,
+             xlab = "", ylab = "")
+        for(i in 1:ns){
+            polygon(c(years,rev(years)), c(fiti[[i]]$lo,rev(fiti[[i]]$up))/y.scale,
+                    border = NA, col = rgb(t(col2rgb(cols[i]))/255, alpha = alpha))
+        }
+        for(i in 1:ns){
+            lines(years, fiti[[i]]$idx/y.scale, ty='b', col = cols[i])
+        }
+        box(lwd=1.5)
+        mtext(ylab, 2, 3)
+        mtext("Year", 1, 3)
+        if(ns > 1) legend("topright",
+                          legend = paste0("model ",1:ns),
+                          col = cols[1:ns], lwd = 1, lty = 1,
+                          bg = "white")
+
     }
-    box(lwd=1.5)
-    mtext("Abundance index", 2, 3)
-    mtext("Year", 1, 3)
-    if(ns > 1) legend("topright",
-                      legend = paste0("model ",1:ns),
-                      col = 1:ns, lwd = 1, lty = 1,
-                      bg = "white")
 }
+
 
 
 
@@ -141,7 +234,7 @@ plotfdist.abund <- function(fit){
 #' @return Nothing
 #'
 #' @export
-plotfdist.dist <- function(fit, mod = NULL){
+plotfdist.dist <- function(fit, mod = NULL, cex = 1){
 
     nmods <- length(fit$fit)
     if(is.null(mod)){
@@ -152,16 +245,16 @@ plotfdist.dist <- function(fit, mod = NULL){
         }
     }
     nmods <- length(fit$fit[mod])
-    use.bathy <- fit$use.bathy
+    pred.by.haul <- fit$pred.by.haul
 
-
-    if(use.bathy){
-        predD <- fit$grid
-        myids <- NULL
-    }else{
+    if(pred.by.haul){
         predD <- NULL
         myids <- fit$grid[[3]]
+    }else{
+        predD <- fit$grid
+        myids <- NULL
     }
+
 
     if(nmods >= 19){
         mfrow = c(4,ceiling(nmods/4))
@@ -190,7 +283,7 @@ plotfdist.dist <- function(fit, mod = NULL){
         predD = predD
         par=NULL
         legend=TRUE
-        map.cex = 1.5
+        map.cex = cex
         main = paste0("Model ",i)
         colors=rev(heat.colors(8))
         select="map"
@@ -205,7 +298,10 @@ plotfdist.dist <- function(fit, mod = NULL){
         } else {
             tmp = predD
         }
-        if(!any(names(tmp) == "lat")) stop("Seems that yearly variable Bathy grid is used. Overall map not implemented yet. Plot maps by year!")
+        if(!any(names(tmp) == "lat")){
+            tmp <- predD[[1]]
+            warning("Seems that yearly variable grid is used. Using only the grid for the first year!")
+        }
         if (is.null(year)) {
             concT = surveyIndex:::concTransform(log(x$gPreds[[a]]))
             mapvals = x$gPreds[[a]]
@@ -232,7 +328,7 @@ plotfdist.dist <- function(fit, mod = NULL){
         ## ## REMOVE:
         ## sp:::plot.SpatialPolygons(sandeel_areas, xlim = xlims, ylim = ylims,add=TRUE,
         ##                           border = rgb(t(col2rgb("grey10"))/255,alpha=0.4))
-        maps::map("worldHires", xlim = xlims, ylim = ylims,
+        maps::map("world", xlim = xlims, ylim = ylims,
                   fill = TRUE, plot = TRUE, add = TRUE, col = grey(0.5))
         ## ## REMOVE:
         ## sp:::plot.SpatialPolygons(tobisbanker_wgs84, xlim = xlims, ylim = ylims, add=TRUE,
@@ -280,28 +376,29 @@ plotfdist.dist <- function(fit, mod = NULL){
 #' @return Nothing
 #'
 #' @export
-plotfdist.dist.year <- function(fit, mod = NULL, var.lim = FALSE, all.years = TRUE, sandeel_areas = NULL, tobisbanker_wgs84 = NULL){
+plotfdist.dist.year <- function(fit, mod = NULL, var.lim = FALSE, all.years = TRUE,
+                                sandeel_areas = NULL, tobisbanker_wgs84 = NULL,
+                                xlim = NULL, ylim = NULL, cex = 1){
 
-    nmods <- length(fit$fit)
+    nmods <- length(fit$fits)
     if(nmods == 1){
         mod <- 1
     }else if(is.null(mod)){
         stop("Please use argument 'mod' to select one of the models, e.g. 'mod=1' for the first model!")
     }
-    use.bathy <- fit$use.bathy
+    pred.by.haul <- fit$pred.by.haul
 
-
-    if(use.bathy){
-        predD <- fit$grid
-        myids <- NULL
-    }else{
+    if(pred.by.haul){
         predD <- NULL
         myids <- fit$grid[[3]]
+    }else{
+        predD <- fit$grid
+        myids <- NULL
     }
 
     fitx <- fit$fit[[mod]]
     data <- fit$data
-    map.cex <- 1
+    map.cex <- cex
     years0 <- sort(unique(fitx$yearNum))
 
     if(all.years){
@@ -322,7 +419,7 @@ plotfdist.dist.year <- function(fit, mod = NULL, var.lim = FALSE, all.years = TR
             ## lt <- layout(matrix(c(1:(mfrow[1]*mfrow[2]),rep(mfrow[1]*mfrow[2]+1,3)),
             ##                     mfrow[1]+1,mfrow[2],byrow = TRUE),
             ##              heights = c(rep(1,mfrow[1]),0.2))
-            par(mfrow = mfrow, mar = c(1,1,2,1), oma = c(4,3,2,1))
+            par(mfrow = mfrow, mar = c(1,1,2,1), oma = c(2,2,2,1))
         }else{
             par(mar = c(1,1,2,1), oma = c(4,3,2,1))
         }
@@ -332,12 +429,17 @@ plotfdist.dist.year <- function(fit, mod = NULL, var.lim = FALSE, all.years = TR
             if(is.na(year)) break()
             colors=rev(heat.colors(8))
             a <- 1
-            if(var.lim){
-                xlims <- NULL
-                ylims <- NULL
+            if(is.null(xlim) || is.null(ylim)){
+                if(var.lim){
+                    xlims <- NULL
+                    ylims <- NULL
+                }else{
+                    xlims = range(data$lon, na.rm = TRUE)
+                    ylims = range(data$lat, na.rm = TRUE)
+                }
             }else{
-                xlims = range(data$lon, na.rm = TRUE)
-                ylims = range(data$lat, na.rm = TRUE)
+                xlims <- xlim
+                ylims <- ylim
             }
             if (is.null(predD)) {
                 tmp = subset(data, haul.id %in% myids)
@@ -367,13 +469,18 @@ plotfdist.dist.year <- function(fit, mod = NULL, var.lim = FALSE, all.years = TR
                      cex = map.cex)
                 title(yy, line = 1)
                 sel = which(ally$year == yy)
-                points(tmpx$lon, y = tmpx$lat, col = colors[as.numeric(ally$zFac[sel])],
-                       pch = 16, cex = map.cex)
+                for(i in 1:nlevels(ally$zFac[sel])){
+                    ind <- which(ally$zFac[sel] == levels(ally$zFac[sel])[i])
+                    points(tmpx$lon[ind], y = tmpx$lat[ind],
+                           col = colors[i], ## col = colors[as.numeric(ally$zFac[sel])],
+                           pch = 16, cex = map.cex)
+                }
                 ## ## REMOVE:
                 ## sp:::plot.SpatialPolygons(sandeel_areas, xlim = xlims, ylim = ylims,add=TRUE,
                 ##      border = rgb(t(col2rgb("grey10"))/255,alpha=0.4))
-                maps::map("worldHires", xlim = xlims, ylim = ylims,
-                          fill = TRUE, plot = TRUE, add = TRUE, col = grey(0.5))
+                maps::map("world", xlim = xlims, ylim = ylims,
+                          fill = TRUE, plot = TRUE, add = TRUE,
+                          col = grey(0.95), border = grey(0.5))
                 ## ## REMOVE:
                 ## sp:::plot.SpatialPolygons(tobisbanker_wgs84, xlim = xlims, ylim = ylims, add=TRUE,
                 ##      col=rgb(t(col2rgb("darkgoldenrod4"))/255,alpha=0.4),
@@ -393,7 +500,8 @@ plotfdist.dist.year <- function(fit, mod = NULL, var.lim = FALSE, all.years = TR
         legend("center",
                ## ncol = length(leg),
                legend = leg, pch = 16,
-               col = colors, bg = "white")
+               col = colors, bg = "white",
+               cex = 1.2)
 
     }else{
 
@@ -440,7 +548,7 @@ plotfdist.dist.year <- function(fit, mod = NULL, var.lim = FALSE, all.years = TR
                 sel = which(ally$year == yy)
                 points(tmpx$lon, y = tmpx$lat, col = colors[as.numeric(ally$zFac[sel])],
                        pch = 16, cex = map.cex)
-                maps::map("worldHires", xlim = xlims, ylim = ylims,
+                maps::map("world;", xlim = xlims, ylim = ylims,
                           fill = TRUE, plot = TRUE, add = TRUE, col = grey(0.5))
                 box(lwd=1.5)
             }

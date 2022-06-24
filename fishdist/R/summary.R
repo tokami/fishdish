@@ -24,14 +24,14 @@ summary.fdist.datras <- function(data){
     writeLines(paste("Surveys: ", ntmp, sep="\t\t\t\t"))
 
     ## Years
-    tmp <- unique(dat1$Year)
+    tmp <- unique(as.numeric(as.character(dat1$Year)))
     ntmp <- length(tmp)
     tmp1 <- range(tmp, na.rm = TRUE)
     writeLines(paste(paste("Years: ", ntmp, sep="\t\t\t\t\t"),
                paste0("(",paste0(tmp1,collapse = " - "),")"), sep="\t"))
 
     ## Species
-    tmp <- unique(dat2$Valid_Aphia)
+    tmp <- unique(dat2$AphiaID)
     ntmp <- length(tmp)
     writeLines(paste("Species: ", ntmp, sep="\t\t\t\t"))
 
@@ -77,7 +77,7 @@ summary.fdist.prepped <- function(data){
     writeLines(paste("Surveys: ", ntmp, sep="\t\t\t\t"))
 
     ## Years
-    tmp <- unique(dat1$Year)
+    tmp <- unique(as.numeric(as.character(dat1$Year)))
     ntmp <- length(tmp)
     tmp1 <- range(tmp, na.rm = TRUE)
     writeLines(paste(paste("Years: ", ntmp, sep="\t\t\t\t\t"),
@@ -106,7 +106,7 @@ summary.fdist.prepped <- function(data){
 
     dat_sum <- dat1[,c("Survey","Quarter","Year","N")]
     dat_sum <- dat_sum[!duplicated(dat_sum),]
-    dat_sum <- aggregate(list(Years=dat_sum$Year),
+    dat_sum <- aggregate(list(Years=as.numeric(as.character(dat_sum$Year))),
                          by = list(Survey = dat_sum$Survey, Quarter = dat_sum$Quarter),
                          range)
     dat_sum <- dat_sum[order(dat_sum$Survey),]
@@ -151,7 +151,7 @@ summary.fdist.species <- function(data){
     writeLines(paste("Surveys: ", ntmp, sep="\t\t\t\t\t"))
 
     ## Years
-    tmp <- unique(dat1$Year)
+    tmp <- unique(as.numeric(as.character(dat1$Year)))
     ntmp <- length(tmp)
     tmp1 <- range(tmp, na.rm = TRUE)
     writeLines(paste(paste("Years: ", ntmp, sep="\t\t\t\t\t\t"),
@@ -216,7 +216,7 @@ summary.fdist.species <- function(data){
     ## --------------
     dat_sum <- dat1[,c("Survey","Quarter","Year","N")]
     dat_sum <- dat_sum[!duplicated(dat_sum),]
-    dat_sum <- aggregate(list(Years=dat_sum$Year),
+    dat_sum <- aggregate(list(Years=as.numeric(as.character(dat_sum$Year))),
                          by = list(Survey = dat_sum$Survey, Quarter = dat_sum$Quarter),
                          range)
     dat_sum <- dat_sum[order(dat_sum$Survey),]
@@ -248,14 +248,14 @@ summary.fdist.species <- function(data){
     writeLines("By year\n")
     ## --------------------
     dat_sum <- aggregate(list(Surveys = dat1$Survey, StatRec = dat1$StatRec, Hauls = dat1$haul.id),
-                         by = list(Year = dat1$Year),
+                         by = list(Year = as.numeric(as.character(dat1$Year))),
                          function(x) length(unique(x)))
-    dat_sum <- dat_sum[order(dat_sum$Year),]
+    dat_sum <- dat_sum[order(as.numeric(as.character(dat_sum$Year))),]
     dat_sum2 <- aggregate(list(dat1$N),
-                          by = list(Year = dat1$Year),
+                          by = list(Year = as.numeric(as.character(dat1$Year))),
                           function(x) sum(x, na.rm = TRUE))
     dat_sum3 <- aggregate(list(dat1$Area_27),
-                          by = list(Year = dat1$Year),
+                          by = list(Year = as.numeric(as.character(dat1$Year))),
                           function(x) paste0(unique(sapply(strsplit(x,".", fixed = TRUE),"[[",1)),
                                              collapse = ","))
     tmp <- cbind(dat_sum, dat_sum2[,2], dat_sum3[,2])

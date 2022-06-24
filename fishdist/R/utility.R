@@ -117,68 +117,67 @@ get.info.surveys <- function(survey=NULL, statrec = FALSE, plot = TRUE){
 #' @param specdata Species data
 #' @param use.toy Use time of year? (Caused problems for some species)
 #' @param use.swept.area Use swept area? (Might not be available)
-#' @param dim.lat.lon Dimensions of the basis for the Lat - Lon smooth term (1
+#' @param dim.lat.lon Dimensions of the basis for the lat - lon smooth term (1
 #'     number)
-#' @param dim.ctime.lat.lon Dimensions of the basis for the ctime - Lat - Lon
+#' @param dim.ctime.lat.lon Dimensions of the basis for the ctime - lat - lon
 #'     smooth term (2 numbers)
 #' @param dim.timeOfYear.lat.lon Dimensions of the basis for the timeOfYear -
-#'     Lat - Lon smooth term (2 numbers)
+#'     lat - lon smooth term (2 numbers)
 #'
 #' @return List with all model structures
 #'
 #' @export
-list.recom.models <- function(specdata, use.toy = TRUE,
+list.recom.models <- function(specdata,
+                              use.toy = TRUE,
                               use.swept.area = TRUE,
-                              dim.lat.lon = 128,
-                              dim.ctime.lat.lon = c(12,32),
+                              dim.lat.lon = 256,
+                              dim.ctime = "nyears",
+                              dim.ctime.lat.lon = c("nyears",10),
                               dim.timeOfYear.lat.lon = c(6,30)){
 
     ## Checks
     if(length(dim.ctime.lat.lon) != 2) stop("The variable dim.ctime.lat.lon has to have length equal to 2.")
     if(length(dim.timeOfYear.lat.lon) != 2) stop("The variable dim.timeOfYear.lat.lon has to have length equal to 2.")
 
-    LatLon <- paste0("s(Lon, Lat, bs=c('ds'), k=c(",dim.lat.lon[1],"), m=c(1,0.5))")
-    ctimeLatLon <- paste0("te(ctime, Lon, Lat, d=c(1,2), bs=c('ds','ds'), k=c(",
+    if(dim.ctime == "nyears" && !is.null(specdata)) dim.ctime <- length(unique(specdata$Year))
+    if(dim.ctime.lat.lon[1] == "nyears" && !is.null(specdata))
+        dim.ctime.lat.lon[1] <- length(unique(specdata$Year))
+
+    latLon <- paste0("s(lon, lat, bs=c('ds'), k=",dim.lat.lon[1],", m=c(1,0.5))")
+    ctime <- paste0("s(ctime, bs='ds', k=",dim.ctime[1],", m=c(1,0))")
+    ctimeLatLon <- paste0("ti(ctime, lon, lat, d=c(1,2), bs=c('ds','ds'), k=c(",
                           dim.ctime.lat.lon[1], ",",
                           dim.ctime.lat.lon[2],"), m=list(c(1,0), c(1,0.5)))")
-    timeOfYearLatLon <- paste0("te(timeOfYear, Lon, Lat, d=c(1,2), bs=c('cc','ds'), k=c(",
+    timeOfYearLatLon <- paste0("te(timeOfYear, lon, lat, d=c(1,2), bs=c('cc','ds'), k=c(",
                                dim.timeOfYear.lat.lon[1],",",
                                dim.timeOfYear.lat.lon[2],"), m=list(c(1,0), c(1,0.5)))")
     depth <- "s(Depth, bs='ds', k=5, m=c(1,0))"
-    ship <- "s(ShipG, bs='re')"
+    ship <- "s(ShipG, bs='re')" ## might be dangerous to include, omitted for now! TEST:
     gear <- "Gear"
     offset.var <- ifelse(use.swept.area, "SweptArea", "HaulDur")
     offset <- paste0("offset(log(",offset.var,"))")
 
-    ##        1        2            3                 4      5    6     7
-    mm <- c(LatLon, ctimeLatLon, timeOfYearLatLon, depth, gear, ship, offset)
+    ##        1        2        3               4           5     6      7
+    mm <- c(latLon, ctime, ctimeLatLon, timeOfYearLatLon, gear, depth, offset)
     mSel <- rep(TRUE, length(mm))
-
-    if (!use.toy) mSel[3] <- FALSE
+    if (!use.toy) mSel[4] <- FALSE
     if(length(unique(specdata$Gear)) == 1)  mSel[5] <- FALSE
-    if(length(unique(specdata$ShipG)) == 1) mSel[6] <- FALSE
+    ## if(length(unique(specdata$ShipG)) == 1) mSel[6] <- FALSE
+
 
     ## all
     mps <- list(paste(mm,collapse=' + '))
-    ## no ship, if exist
-    if(mSel[6]){
-        mSel[6] <- FALSE
-        mps <- append(mps,paste(mm[mSel],collapse=' + '))
-    }
-    ## no gear, if exist
-    if(mSel[5]){
-        mSel[5] <- FALSE
-        mps <- append(mps,paste(mm[mSel],collapse=' + '))
-    }
-    ## no timeOfYear, if exist
+    ## keep all terms, reduce k
     if(mSel[3]){
-        mSel[3] <- FALSE
-        mps <- append(mps,paste(mm[mSel],collapse=' + '))
+        ctimeLatLon <- paste0("ti(ctime, lon, lat, d=c(1,2), bs=c('ds','ds'), k=c(",
+                              dim.ctime.lat.lon[1], ",", 5, "), m=list(c(1,0), c(1,0.5)))")
+        mps <- append(mps,paste(c(latLon, ctime, ctimeLatLon, timeOfYearLatLon, gear, depth, offset)[mSel],
+                                collapse=' + '))
     }
-    ## no depth, if exist
-    if(mSel[4]){
-        mSel[4] <- FALSE
-        mps <- append(mps,paste(mm[mSel],collapse=' + '))
+    if(mSel[1]){
+        latLon <- paste0("s(lon, lat, bs=c('ds'), k=",128,", m=c(1,0.5))")
+        mps <- append(mps,paste(c(latLon, ctime, ctimeLatLon, timeOfYearLatLon, gear, depth, offset)[mSel],
+                                collapse=' + '))
     }
 
     return(mps)
@@ -195,8 +194,8 @@ list.datras.variables.all <- function(){
     all.variables[["HH"]] <- c("RecordType","Survey","Quarter","Country","Ship",
                                "Gear","SweepLngt","GearEx","DoorType","StNo",
                                "HaulNo","Year","Month","Day","TimeShot",
-                               "DepthStratum","HaulDur","DayNight","ShootLat",
-                               "ShootLong","HaulLat","HaulLong","StatRec",
+                               "DepthStratum","HaulDur","DayNight","lat",
+                               "lon","HaulLat","HaulLong","StatRec",
                                "Depth","HaulVal","HydroStNo","StdSpecRecCode",
                                "BySpecRecCode","DataType","Netopening",
                                "Rigging","Tickler","Distance","Warplngt",
@@ -217,7 +216,14 @@ list.datras.variables.all <- function(){
                                "SpecVal","Sex","TotalNo","CatIdentifier",
                                "NoMeas","SubFactor","SubWgt","CatCatchWgt",
                                "LngtCode","LngtClass","HLNoAtLngt","DevStage",
-                               "LenMeasType","DateofCalculation","Valid_Aphia")
+                               "LenMeasType","DateofCalculation","Valid_Aphia","LngtCm")
+    all.variables[["CA"]] <- c("RecordType","Survey","Quarter","Country","Ship",
+                               "Gear","SweepLngt","GearEx","DoorType","StNo",
+                               "HaulNo","Year","SpecCodeType","SpecCode","AreaType",
+                               "AreaCode","LngtCode","LngtClass","Sex","Maturity",
+                               "PlusGr","Age","CANoAtLngt","IndWgt","FishID",
+                               "GenSamp","StomSamp","AgeSource","AgePrepMet","OtGrading",
+                               "ParSamp","MaturityScale","DateofCalculation","AphiaID")
     return(all.variables)
 }
 
@@ -237,7 +243,7 @@ list.datras.variables.req <- function(swept.area.calculated = TRUE){
     all.variables <- list()
     all.variables[["HH"]] <- c("Survey","Year","Quarter","Country","Ship",
                                "Gear","StNo", "HaulNo","Month","Day","TimeShot",
-                               "HaulDur","ShootLat","ShootLong","StatRec",
+                               "HaulDur","lat","lon","StatRec",
                                "Depth","HaulVal", "StdSpecRecCode",
                                "BySpecRecCode","DataType", "SurTemp","BotTemp")
     if(swept.area.calculated){
@@ -252,45 +258,78 @@ list.datras.variables.req <- function(swept.area.calculated = TRUE){
     all.variables[["HL"]] <- c("Survey","Year","Quarter","Country","Ship",
                                "Gear","StNo", "HaulNo","SpecCodeType",
                                "SpecCode","SpecVal","TotalNo","CatIdentifier",
-                               "SubFactor","HLNoAtLngt","Valid_Aphia")
+                               "SubFactor","HLNoAtLngt","AphiaID")
+    all.variables[["CA"]] <- c("Survey","Year","Quarter","Country","Ship",
+                               "Gear","StNo", "HaulNo","SpecCodeType",
+                               "SpecCode","AreaType",
+                               "AreaCode","LngtCode","LngtClass","Sex","Maturity",
+                               "PlusGr","Age","CANoAtLngt","IndWgt","FishID",
+                               "GenSamp","StomSamp","AgeSource","AgePrepMet","OtGrading",
+                               "ParSamp","MaturityScale","AphiaID")
     return(all.variables)
 }
 
 
 
-#' @name predict.statrec
+#' @name pred.statrec
 #'
 #' @title Predict Statistical rectangle based on latitude and longitude
 #'
-#' @param data Data set that includes variables: StatRec, ShootLat, and ShootLong
+#' @param data Data set that includes variables: lat and lon
 #'
 #' @return Data set with predicted StatRec if NA.
 #'
 #' @export
-predict.statrec <- function(data){
+pred.statrec <- function(data, tol = 0.00001, verbose = TRUE, dbg = 0){
 
-    flag <- ifelse(all(c("StatRec","ShootLat","ShootLong") %in% colnames(data)), 0, 1)
+    datain <- data
 
-    if(flag) stop("Function requires variables StatRec, ShootLat, and ShootLong. Please check your data.")
+    if(!inherits(data,"data.frame")){
+        stop("Please provide a data.frame!")
+    }
+
+    if(!any(colnames(data) == "lat")) data$lat <- data$Lat
+    if(is.null(data$lat)) data$lat <- data$ShootLat
+    if(!any(colnames(data) == "lon")) data$lon <- data$Lon
+    if(is.null(data$lon)) data$lon <- data$ShootLong
+    if(is.null(data$lon) || is.null(data$lat)){
+        stop("No lat and lon columns found in data set!")
+    }
 
     data("ices.rectangles")
 
-    StatRecNew <- rep(NA, length(data$StatRec))
-    ind <- which(is.na(data$StatRec))
-    if(length(ind) > 0){
-        for(i in 1:length(ind)){
-            tmp2 <- ices.rectangles$ICESNAME[
-                                        which(data$ShootLat[ind[i]] >= ices.rectangles$SOUTH &
-                                              data$ShootLat[ind[i]] < ices.rectangles$NORTH &
-                                              data$ShootLong[ind[i]] >= ices.rectangles$WEST &
-                                              data$ShootLong[ind[i]] < ices.rectangles$EAST)]
-            if(length(tmp2) == 1) StatRecNew[ind[i]] <- tmp2
-        }
-        ind <- which(!is.na(StatRecNew) & is.na(data$StatRec))
-        data$StatRec[ind] <- StatRecNew[ind]
+    if(!any(colnames(datain) == "StatRec")) datain$StatRec <- NA
+    if(!any(colnames(datain) == "SubStatRec")) datain$SubStatRec <- NA
+    if(!any(colnames(datain) == "Area_27")) datain$Area_27 <- NA
+    if(!any(colnames(datain) == "Ecoregion")) datain$Ecoregion <- NA
+    if(!any(colnames(datain) == "SubStatRec_area")) datain$SubStatRec_area <- NA
+    if(dbg > 0){
+        datain$sub_lon <- NA
+        datain$sub_lat <- NA
     }
 
-    return(data)
+    ind.na <- which(is.na(datain$StatRec))
+    if(verbose) writeLines("Filling missing StatRec!")
+    if(length(ind.na) > 0){
+        for(i in 1:length(ind.na)){
+            ind <- which(ices.rectangles$sub_south - data$lat[ind.na[i]] < tol &
+                         ices.rectangles$sub_north - data$lat[ind.na[i]] > tol &
+                         ices.rectangles$sub_west - data$lon[ind.na[i]]  < tol &
+                         ices.rectangles$sub_east - data$lon[ind.na[i]]  > tol )
+            if(length(ind) > 0){
+                datain$StatRec[ind.na[i]] <- ices.rectangles$ICESNAME[ind]
+                datain$SubStatRec[ind.na[i]] <- ices.rectangles$sub_code[ind]
+                datain$Area_27[ind.na[i]] <- ices.rectangles$Area_27[ind]
+                datain$Ecoregion[ind.na[i]] <- ices.rectangles$Ecoregion[ind]
+                datain$SubStatRec_area[ind.na[i]] <- ices.rectangles$sub_area[ind]
+                if(dbg > 0){
+                    datain$sub_lon[ind.na[i]] <- ices.rectangles$sub_x[ind]
+                    datain$sub_lat[ind.na[i]] <- ices.rectangles$sub_y[ind]
+                }
+            }
+        }
+    }
+    return(datain)
 }
 
 
@@ -309,13 +348,67 @@ predict.statrec <- function(data){
 #' @export
 add.gear.categories <- function(data){
 
-    flag <- ifelse(all(c("Survey","Gear") %in% colnames(data)), 0, 1)
-    if(flag) stop("Function requires variables Survey and Gear. Please check your data.")
+    flag <- ifelse(all(c("Survey","Gear","Area_27") %in% colnames(data)), 0, 1)
+    if(flag) stop("Function requires variables Survey, Gear, Area_27. Please check your data.")
 
     data("gear.categories")
 
     ## data <- merge(data, gear.categories, by=c('Survey','Gear'), all.x = TRUE) ## 104s
     data <- plyr::join(data, gear.categories, by=c('Survey','Gear')) ## 30s
+
+    ## Manual gear corrections
+    ## 1. 27.7g and 27.7a
+    unique(data$Area_27)
+    ind <- which(data$Survey == "IE-IGFS" & data$Gear == "GOV" &
+                 data$Area_27 %in% c("7.g","7.a"))
+    if(length(ind) > 0) data$GearCat[ind] <- "GOV_CL"
+    ## 2.
+    ind <- which(data$Survey == "SWC-IBTS" & data$Gear == "GOV" &
+                 data$lat < 57.5)
+    if(length(ind) > 0) data$GearCat[ind] <- "GOV_CL"
+
+    return(data)
+}
+
+
+#' @name correct.surveys
+#'
+#' @title Correct surveys
+#'
+#' @param data Data set that includes variables: Species and BySpecRecCode
+#'
+#' @return Data set with corrected Species column
+#'
+#' @export
+correct.surveys <- function(data){
+
+    flag <- ifelse(any(c("Survey","Year","Quarter","Gear") %in% colnames(data)), 0, 1)
+    if(flag) stop("Function requires variables Survey, Year, Quarter, Gear. Please check your data.")
+
+    ## Rename some surveys
+    ## -------------
+    data$Survey[which(data$Survey == "SCOWCGFS")] <- "SWC-IBTS"
+    data$Survey[which(data$Survey == "SCOROC")] <- "ROCKALL"
+    data$Survey[which(data$Survey == "BTS-VIII")] <- "BTS"
+
+
+    ## Remove other gears than TVL and TVS from BITS
+    ## -------------
+    data <- subset(data, Survey != "BITS" |
+                             (Survey == "BITS" & Gear %in% c("TVS","TVL")))
+
+    ## Remove surveys with issues
+    ## -------
+    ## Remove NS-IBTS quarter 2 and 4
+    ind <- which(data$Survey == "NS-IBTS" & data$Quarter %in% c(2,4))
+    if(length(ind) > 0) data <- data[-ind,]
+    ## IGFS survey only sampled at depths greater than 200m from 2005 to present
+    ind <- which(data$Survey == "NIGFS" & data$Year < 2005)
+    if(length(ind) > 0) data <- data[-ind,]
+
+    ## CHECK: With survey experts
+    ## length(which(data$Survey=='SWC-IBTS' & data$Quarter %in% c(2,3))) ## 3300
+    ## length(which(data$Survey=='BTS' & data$Year<1987))    ## 7618
 
     return(data)
 }
@@ -488,27 +581,64 @@ subset.fdist.datras <- function(x, subset){
 
     hh <- x$HH
     hl <- x$HL
+    ca <- x$CA
     e <- substitute(subset)
 
-    ## AphiaID only in survey
+    ## AphiaID only in hl and ca
     ind <- grepl("AphiaID", e, fixed = TRUE)
     if(any(ind)){
-        e1 <- e[!ind]
-        ind1 <- which(grepl("&", e1, fixed = TRUE))
-        if(ind1 == 1 || ind1 == length(e1)) e1 <- e1[-ind1]
-        if(length(e1) == 1) e1 <- e1[[1]]
+        if(length(e) > 2){
+            e[[which(ind)]][[grep("AphiaID",e[[which(ind)]])]] <- substitute(Valid_Aphia)
+        }else{
+            e[[grep("AphiaID",e)]] <- substitute(Valid_Aphia)
+        }
+        if(any(grepl("&", e, fixed = TRUE))){
+            ind1 <- which(grepl("&", e, fixed = TRUE))
+            e1 <- e[!ind]
+            if(ind1 == 1 || ind1 == length(e1)) e1 <- e1[-ind1]
+            if(length(e1) == 1) e1 <- e1[[1]]
+        }else if(any(grepl("|", e, fixed = TRUE))){
+            ind1 <- which(grepl("|", e, fixed = TRUE))
+            e1 <- e[!ind]
+            if(ind1 == 1 || ind1 == length(e1)) e1 <- e1[-ind1]
+            if(length(e1) == 1) e1 <- e1[[1]]
+        }else{
+            e1 <- NULL
+        }
     }else{
         e1 <- e
     }
 
-    hh <- base::subset.data.frame(hh, eval(e1))
+
+    ## TODO: Find better solution
+    ## LngtCm only in hl and ca
+    ## ind <- grepl("LngtCm", e, fixed = TRUE)
+    ## if(any(ind)){
+    ##     if(any(grepl("&", e, fixed = TRUE))){
+    ##         ind1 <- which(grepl("&", e, fixed = TRUE))
+    ##         e1 <- e[!ind]
+    ##         if(ind1 == 1 || ind1 == length(e1)) e1 <- e1[-ind1]
+    ##         if(length(e1) == 1) e1 <- e1[[1]]
+    ##     }else if(any(grepl("|", e, fixed = TRUE))){
+    ##         ind1 <- which(grepl("|", e, fixed = TRUE))
+    ##         e1 <- e[!ind]
+    ##         if(ind1 == 1 || ind1 == length(e1)) e1 <- e1[-ind1]
+    ##         if(length(e1) == 1) e1 <- e1[[1]]
+    ##     }else{
+    ##         e1 <- NULL
+    ##     }
+    ## }else{
+    ##     e1 <- e
+    ## }
+
+
+    if(!is.null(e1)) hh <- base::subset.data.frame(hh, eval(e1))
     hl <- base::subset.data.frame(hl, eval(e))
-
-
+    if(!is.null(ca)) ca <- base::subset.data.frame(ca, eval(e))
 
     ## Return
     ## -----------
-    res <- list(HH = hh, HL = hl)
+    res <- list(HH = hh, HL = hl, CA = ca)
     class(res) <- c("fdist.datras","list")
     return(res)
 }

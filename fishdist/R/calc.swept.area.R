@@ -24,7 +24,7 @@ calc.swept.area <- function(data, plot = FALSE, verbose = TRUE){
     if(flagSA && verbose) writeLines("Swept area was already calculated for this data set. Note that the columns SweptAreaWSKM2, SweptAreaDSKM2, and SweptAreaBWKM2 will be overwritten.")
 
     ## Check if all required variables included
-    flag <- all(list.datras.variables.req()$HH %in% colnames(hh))
+    flag <- all(list.datras.variables.req(swept.area.calculated = FALSE)$HH %in% colnames(hh))
     if(!flag && flagSA){ stop("Some variables required for the calculation of the swept area are missing in the HH data set. Run list.datras.variables.req() to see the required variables. However, note that swept area index is already included in the data set!")
     }else if(!flag) stop("Some variables required for the calculation of the swept area are missing in the HH data set. Run list.datras.variables.req() to see the required variables.")
 
@@ -42,16 +42,16 @@ calc.swept.area <- function(data, plot = FALSE, verbose = TRUE){
     hh$SweepLngt[hh$SweepLngt < 0]     <- NA
     hh$Warplngt[hh$Warplngt < 0]       <- NA
 
-    hh$ShootLong[hh$ShootLong == -9]   <- NA
-    hh$ShootLat[hh$ShootLat == -9]     <- NA
+    hh$lon[hh$lon == -9]   <- NA
+    hh$lat[hh$lat == -9]     <- NA
     hh$HaulLong[hh$HaulLong == -9]     <- NA
     hh$HaulLat[hh$HaulLat == -9]       <- NA
 
     # add missing depth information based on tow midpoints (if available, otherwise use shoot position)
-    hh$meanLong <- (hh$ShootLong + hh$HaulLong)/2
-    hh$meanLat  <- (hh$ShootLat + hh$HaulLat)/2
-    hh$meanLong[is.na(hh$meanLong)] <- hh$ShootLong[is.na(hh$meanLong)]
-    hh$meanLat[is.na(hh$meanLat)] <- hh$ShootLat[is.na(hh$meanLat)]
+    hh$meanLong <- (hh$lon + hh$HaulLong)/2
+    hh$meanLat  <- (hh$lat + hh$HaulLat)/2
+    hh$meanLong[is.na(hh$meanLong)] <- hh$lon[is.na(hh$meanLong)]
+    hh$meanLat[is.na(hh$meanLat)] <- hh$lat[is.na(hh$meanLat)]
 
 
     # for improvement => could make use of EMODNet or NOAA bathymetric data to get depth data
@@ -536,8 +536,8 @@ calc.swept.area <- function(data, plot = FALSE, verbose = TRUE){
     # ------------------------------------------------------------------------------
 
     # if positions shoot / haul positions are the same and haulduration is 0 => remove
-    idx <- which((hh$ShootLat == hh$HaulLat) &
-                 (hh$ShootLong == hh$HaulLong) &
+    idx <- which((hh$lat == hh$HaulLat) &
+                 (hh$lon == hh$HaulLong) &
                  (hh$HaulDur == 0))
     if(length(idx) > 0) hh <- hh[-idx,]
 
@@ -561,8 +561,8 @@ calc.swept.area <- function(data, plot = FALSE, verbose = TRUE){
 
     ## check shoot and haul positions
     if(any(is.na(hh$Distance))){
-        idx <- is.na(hh$Distance) & !is.na(hh$ShootLong) & !is.na(hh$ShootLat) & !is.na(hh$HaulLong) & !is.na(hh$HaulLat)
-        hh$Distance[idx] <- 1000 * apply(cbind(hh$ShootLong[idx],hh$ShootLat[idx],hh$HaulLong[idx],hh$HaulLat[idx]),1,
+        idx <- is.na(hh$Distance) & !is.na(hh$lon) & !is.na(hh$lat) & !is.na(hh$HaulLong) & !is.na(hh$HaulLat)
+        hh$Distance[idx] <- 1000 * apply(cbind(hh$lon[idx],hh$lat[idx],hh$HaulLong[idx],hh$HaulLat[idx]),1,
                                          function(x)sp::spDistsN1(matrix(x[1:2], ncol = 2),matrix(x[3:4], ncol = 2), longlat = T))
         hist(hh$Distance[hh$Distance>10000], xlim = c(10000, max(hh$Distance, na.rm = T)))
         hh$Distance[hh$Distance>10000] <- NA
@@ -1425,13 +1425,14 @@ calc.swept.area <- function(data, plot = FALSE, verbose = TRUE){
     hh$SweptAreaWSKM2[is.na(hh$SweptAreaWSKM2)] <- hh$WingSpread[is.na(hh$SweptAreaWSKM2)] * hh$Distance[is.na(hh$SweptAreaWSKM2)]/1000000
     hh$SweptAreaDSKM2[is.na(hh$SweptAreaDSKM2)] <- hh$DoorSpread[is.na(hh$SweptAreaDSKM2)] * hh$Distance[is.na(hh$SweptAreaDSKM2)]/1000000
 
-    if(verbose) table((is.na(hh$SweptAreaWSKM2) | is.na(hh$SweptAreaDSKM2)) & is.na(hh$SweptAreaBWKM2))
+    if(verbose) print(table((is.na(hh$SweptAreaWSKM2) | is.na(hh$SweptAreaDSKM2)) & is.na(hh$SweptAreaBWKM2)))
 
 
     ## check for missing observations
     if(verbose){
-        table(hh$Year,(is.na(hh$SweptAreaWSKM2) | is.na(hh$SweptAreaDSKM2)) & is.na(hh$SweptAreaBWKM2))
-        table(hh$Survey,(is.na(hh$SweptAreaWSKM2) | is.na(hh$SweptAreaDSKM2)) & is.na(hh$SweptAreaBWKM2))
+        print(table(hh$Year,(is.na(hh$SweptAreaWSKM2) | is.na(hh$SweptAreaDSKM2)) & is.na(hh$SweptAreaBWKM2)))
+        print(table(hh$Survey,(is.na(hh$SweptAreaWSKM2) | is.na(hh$SweptAreaDSKM2)) & is.na(hh$SweptAreaBWKM2)))
+        print(table(hh$Gear,(is.na(hh$SweptAreaWSKM2) | is.na(hh$SweptAreaDSKM2)) & is.na(hh$SweptAreaBWKM2)))
     }
 
     ## remove some columns

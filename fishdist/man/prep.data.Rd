@@ -8,6 +8,9 @@ prep.data(
   data,
   AphiaID = NULL,
   datras.variables = list.datras.variables.req(),
+  est.n = TRUE,
+  est.bio = FALSE,
+  split.juv.adults = FALSE,
   verbose = TRUE
 )
 }

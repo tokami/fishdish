@@ -8,8 +8,9 @@ list.recom.models(
   specdata,
   use.toy = TRUE,
   use.swept.area = TRUE,
-  dim.lat.lon = 128,
-  dim.ctime.lat.lon = c(12, 32),
+  dim.lat.lon = 256,
+  dim.ctime = "nyears",
+  dim.ctime.lat.lon = c("nyears", 10),
   dim.timeOfYear.lat.lon = c(6, 30)
 )
 }
@@ -20,14 +21,14 @@ list.recom.models(
 
 \item{use.swept.area}{Use swept area? (Might not be available)}
 
-\item{dim.lat.lon}{Dimensions of the basis for the Lat - Lon smooth term (1
+\item{dim.lat.lon}{Dimensions of the basis for the lat - lon smooth term (1
 number)}
 
-\item{dim.ctime.lat.lon}{Dimensions of the basis for the ctime - Lat - Lon
+\item{dim.ctime.lat.lon}{Dimensions of the basis for the ctime - lat - lon
 smooth term (2 numbers)}
 
 \item{dim.timeOfYear.lat.lon}{Dimensions of the basis for the timeOfYear -
-Lat - Lon smooth term (2 numbers)}
+lat - lon smooth term (2 numbers)}
 }
 \value{
 List with all model structures

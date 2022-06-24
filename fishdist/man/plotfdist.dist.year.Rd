@@ -10,7 +10,10 @@ plotfdist.dist.year(
   var.lim = FALSE,
   all.years = TRUE,
   sandeel_areas = NULL,
-  tobisbanker_wgs84 = NULL
+  tobisbanker_wgs84 = NULL,
+  xlim = NULL,
+  ylim = NULL,
+  cex = 1
 )
 }
 \arguments{

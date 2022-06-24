@@ -6,7 +6,7 @@
 \usage{
 prep.species(
   data,
-  aphiaID,
+  aphiaID = NULL,
   use.gear.cat = TRUE,
   remove.fragmented.years = TRUE,
   min.gears = 1,

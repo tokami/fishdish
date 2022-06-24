@@ -70,7 +70,7 @@ download.data <- function(first.year = 1967,
     }
 
     ## Haul info from Datras
-    hl <- hh <- NULL
+    hl <- hh <- ca <- NULL
     for(dt in 1:length(datasets)){
         dat.type <- datasets[dt]
         dat <- vector("list",ns)
@@ -89,7 +89,16 @@ download.data <- function(first.year = 1967,
                 ##                   paste0(aphiaID, collapse = ", ")))
                 dat[[i]] <- subset(dat[[i]], Valid_Aphia %in% aphiaID)
             }
-
+            ## Rename some variables
+            if(dat.type == "HH"){
+                colnames(dat[[i]])[which(colnames(dat[[i]]) == "ShootLong")] <- "lon"
+                colnames(dat[[i]])[which(colnames(dat[[i]]) == "ShootLat")] <- "lat"
+            }
+            if(dat.type %in% c("HL","CA")){
+                colnames(dat[[i]])[which(colnames(dat[[i]]) == "Valid_Aphia")] <- "AphiaID"
+                lngt2cm <- c(. = 0.1, `0` = 0.5, `1` = 1, `2` = 2, `5` = 5)[as.character(dat[[i]]$LngtCode)]
+                dat[[i]]$LngtCm <- lngt2cm * dat[[i]]$LngtClass
+            }
             ## Subset required variables
             if(reduce.file.size){
                 ind <- datras.variables[[dat.type]]
@@ -113,12 +122,17 @@ download.data <- function(first.year = 1967,
             if(inherits(hl, "try-error")){
                 stop(paste0("Cannot merge data sets. Please contact the package maintainer. This might be due to a misfit in DATRAS variables: ",lapply(dat, colnames)))
             }
+        }else if(dat.type == "CA"){
+            ca <- try(do.call(rbind, dat), silent = TRUE)
+            if(inherits(ca, "try-error")){
+                stop(paste0("Cannot merge data sets. Please contact the package maintainer. This might be due to a misfit in DATRAS variables: ",lapply(dat, colnames)))
+            }
         }
     }
 
     ## Return
     ## -----------
-    res <- list(HH = hh, HL = hl)
+    res <- list(HH = hh, HL = hl, CA = ca)
     class(res) <- c("fdist.datras","list")
     return(res)
 }
