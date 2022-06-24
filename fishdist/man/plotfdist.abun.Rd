@@ -4,7 +4,7 @@
 \alias{plotfdist.abun}
 \title{plot fit}
 \usage{
-plotfdist.abun(fit, by.area = FALSE)
+plotfdist.abun(fit, by.area = FALSE, ylab = "Abundance index", y.scale = 1)
 }
 \arguments{
 \item{fit}{fit}

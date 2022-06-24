@@ -151,7 +151,7 @@ list.recom.models <- function(specdata,
     timeOfYearLatLon <- paste0("te(timeOfYear, lon, lat, d=c(1,2), bs=c('cc','ds'), k=c(",
                                dim.timeOfYear.lat.lon[1],",",
                                dim.timeOfYear.lat.lon[2],"), m=list(c(1,0), c(1,0.5)))")
-    depth <- "s(Depth, bs='ds', k=5, m=c(1,0))"
+    depth <- "s(sqrt(Depth), bs='ds', k=5, m=c(1,0))"
     ship <- "s(ShipG, bs='re')" ## might be dangerous to include, omitted for now! TEST:
     gear <- "Gear"
     offset.var <- ifelse(use.swept.area, "SweptArea", "HaulDur")
