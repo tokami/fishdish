@@ -118,20 +118,18 @@ plotdist <- function(data, plot.survey.dist = TRUE){
 #'
 #' @return Nothing
 #'
+#' @importFrom RColorBrewer brewer.pal
+#'
 #' @export
 plotfdist.abun <- function(fit, by.area = FALSE,
                            ylab = "Abundance index",
                            y.scale = 1){
     if(by.area){
 
-        browser()
-
-        nareas
-        length(fit)
-
-        cols <- color
+        cols <- c(RColorBrewer::brewer.pal(n = 8, "Dark2"), RColorBrewer::brewer.pal(n = 8, "Accent"))
 
         areas <- sapply(fit, function(x) unique(x$grid[[1]]$Area_27))
+        ## tail needed because some ices areas spread over multiple ecoregions (e.g. 4a = Faroe, NS, Celtic)
         ecoregions <- sapply(fit, function(x) tail(unique(x$grid[[1]]$Ecoregion),1))
         ecoregions.uni <- unique(ecoregions)
         nareas <- length(areas)
@@ -147,43 +145,61 @@ plotfdist.abun <- function(fit, by.area = FALSE,
             mfrow = c(1,neco)
         }
         if(neco > 1){
-            par(mfrow = mfrow, mar = c(0.5,0.5,0.5,0.5), oma = c(4,3,2,1))
+            ## par(mfrow = mfrow, mar = c(0.5,0.5,0.5,0.5), oma = c(4,3,2,1))
+            par(mfrow = mfrow, mar = c(2,2,1,1), oma = c(3,3,2,1))
         }
+        ## par(mfrow = c(neco,1), mar = c(2,2,1,1), oma = c(2,3,2,1))
 
-        ylim <- range(unlist(lapply(fit, function(x){
-            if(!inherits(x$fits[[1]],"try-error")){
-                x$fits[[1]]$idx
-            }else{
-                NA
-            }})), na.rm = TRUE) / y.scale
+
         xlim <- range(as.numeric(unlist(lapply(fit, function(x){
             if(!inherits(x$fits[[1]],"try-error")){
                 rownames(x$fits[[1]]$idx)
             }else{
                 NA
             }}))), na.rm = TRUE)
-        xaxt.ind <- (prod(mfrow) - mfrow[2] + 1):prod(mfrow)
+        xaxt.ind <- c((prod(mfrow) - mfrow[2] + 1):prod(mfrow), ((mfrow[1] - 1) * mfrow[2]):((mfrow[1] - 1) * mfrow[2] - (prod(mfrow) - neco) + 1))
         yaxt.ind <- seq(1, prod(mfrow), mfrow[2])
         for(i in 1:neco){
-            xaxt <- ifelse(i %in% xaxt.ind, "s", "n")
-            yaxt <- ifelse(i %in% yaxt.ind, "s", "n")
-            plot(xlim, c(1,1), ty = "n",
-                 xaxt = xaxt, yaxt = yaxt,
-                 ylim = ylim, xlim = xlim,
-                 xlab = "", ylab = "")
             ias <- which(ecoregions %in% ecoregions.uni[i])
             nia <- length(ias)
+            xaxt <- ifelse(i %in% xaxt.ind, "s", "n")
+##            yaxt <- ifelse(i %in% yaxt.ind, "s", "n")
+            ylim <- range(unlist(lapply(fit[ias], function(x){
+                if(!inherits(x$fits[[1]],"try-error")){
+                    c(x$fits[[1]]$idx, x$fits[[1]]$lo, x$fits[[1]]$up)
+                }else{
+                    NA
+                }})), na.rm = TRUE) / y.scale
+            plot(xlim, c(1,1), ty = "n",
+                 xaxt = xaxt, yaxt = "s",
+                 ylim = ylim, xlim = xlim,
+                 xlab = "", ylab = "")
             for(j in 1:nia){
-                years <- rownames(fit[[ias[j]]]$fits[[1]]$idx)
-                idx <- fit[[ias[j]]]$fits[[1]]$idx
-                lines(years, idx, col = cols[j])
+                if(!inherits(fit[[ias[j]]]$fits[[1]], "try-error")){
+                    years <- rownames(fit[[ias[j]]]$fits[[1]]$idx)
+                    idx <- fit[[ias[j]]]$fits[[1]]$idx / y.scale
+                    lo <- fit[[ias[j]]]$fits[[1]]$lo / y.scale
+                    up <- fit[[ias[j]]]$fits[[1]]$up / y.scale
+                    polygon(c(years,rev(years)), c(lo, rev(up)), border = NA,
+                            col = rgb(t(col2rgb(cols[j]))/255, alpha = 0.2))
+                    lines(years, idx, col = cols[j], lwd = 2)
+                }
             }
-            legend("topleft",
-                   legend = areas[i],
-                   pch = NA,
-                   x.intersp = 0.1,
+            mtext(ecoregions.uni[i], 3, 0.5, font = 2, cex = 0.9)
+            ## legend("topleft",
+            ##        legend = ecoregions.uni[i],
+            ##        pch = NA,
+            ##        x.intersp = 0.1,
+            ##        bg = "white")
+            legend("topright",
+                   legend = areas[ias],
+                   lwd = 2,
+                   col = cols[1:nia],
                    bg = "white")
+            box(lwd=1.5)
         }
+        mtext("Year", 1, 1, outer = TRUE)
+        mtext(ylab, 2, 1, outer = TRUE)
 
 
     }else{
@@ -568,4 +584,164 @@ plotfdist.dist.year <- function(fit, mod = NULL, var.lim = FALSE, all.years = TR
                col = colors, bg = "white")
     }
 
+}
+
+
+
+#' @name plotfdist.gam.effects
+#'
+#' @title plot gam effects
+#'
+#' @param fit fit
+#' @param mod Select one of the models. Default: 1
+#'
+#' @importFrom mgcv plot.gam
+#'
+#' @return Nothing
+#'
+#' @export
+plotfdist.gam.effects <- function(fit, mod = 1, xlim = NULL, ylim = NULL){
+
+    plotInfo <- mgcv::plot.gam(fit$fits[[mod]]$pModels[[1]], select = 0, residuals = TRUE)
+
+    gamTerms <- unlist(lapply(plotInfo, function(x) ifelse(!is.null(x$xlab), x$xlab, NA)))
+
+    cols <- c("dodgerblue", "goldenrod3")
+    par(mfrow = c(1,3))
+
+    ind <- which(gamTerms == "lon")
+    if(length(ind) > 0){
+        tmp <- plotInfo[[ind]]
+        tmp$lo <- tmp$fit - 1.95 * tmp$se
+        tmp$up <- tmp$fit + 1.95 * tmp$se
+        fitmat <- matrix(tmp$fit, nrow = length(tmp$x), ncol = length(tmp$y))
+        if(is.null(xlim)) xlim <- range(tmp$x)
+        if(is.null(ylim)) ylim <- range(tmp$y)
+        image(tmp$x, tmp$y, fitmat,
+              xlab = tmp$xlab, ylab = tmp$ylab,
+              xlim = xlim, ylim = ylim)
+        contour(tmp$x, tmp$y, fitmat, add = TRUE)
+        maps::map('world',xlim=xlim,ylim=ylim,
+                  fill=TRUE,plot=TRUE,add=TRUE,
+                  col=rgb(t(col2rgb("grey70"))/255, alpha = 0.3),
+                  border=rgb(t(col2rgb("white"))/255, alpha = 0.3))
+        ## points(tmp$raw$x, tmp$raw$y, pch = 16, cex = 0.1,
+        ##        col = rgb(t(col2rgb("grey80"))/255, alpha = 0.6))
+        box(lwd=1.5)
+    }
+
+    ind <- which(gamTerms == "ctime")
+    if(length(ind) > 0){
+        tmp <- plotInfo[[2]]
+        tmp$lo <- tmp$fit - 1.95 * tmp$se
+        tmp$up <- tmp$fit + 1.95 * tmp$se
+        plot(tmp$x, tmp$fit, ty = "n",
+             ylim = range(tmp$fit, tmp$lo, tmp$up), ## tmp$p.resid
+             xlab = tmp$xlab, ylab = tmp$ylab)
+        polygon(c(tmp$x, rev(tmp$x)), c(tmp$lo, rev(tmp$up)),
+                border = NA, col = rgb(t(col2rgb(cols[1]))/255, alpha = 0.3))
+        ## points(tmp$raw, tmp$p.resid, pch = 16, cex = 0.1,
+        ##        col = rgb(t(col2rgb("grey80"))/255, alpha = 0.6))
+        lines(tmp$x, tmp$fit, col = cols[1], lwd = 2)
+        rug(tmp$raw)
+        box(lwd=1.5)
+    }
+
+    ind <- which(gamTerms == "Depth")
+    if(length(ind) > 0){
+        tmp <- plotInfo[[5]]
+        tmp$lo <- tmp$fit - 1.95 * tmp$se
+        tmp$up <- tmp$fit + 1.95 * tmp$se
+        plot(tmp$x, tmp$fit, ty = "n",
+             ylim = range(tmp$fit, tmp$lo, tmp$up), ## tmp$p.resid
+             xlab = tmp$xlab, ylab = tmp$ylab)
+        polygon(c(tmp$x, rev(tmp$x)), c(tmp$lo, rev(tmp$up)),
+                border = NA, col = rgb(t(col2rgb(cols[2]))/255, alpha = 0.3))
+        ## points(tmp$raw, tmp$p.resid, pch = 16, cex = 0.1,
+        ##        col = rgb(t(col2rgb("grey80"))/255, alpha = 0.6))
+        lines(tmp$x, tmp$fit, col = cols[2], lwd = 2)
+        rug(tmp$raw)
+        box(lwd=1.5)
+    }
+}
+
+
+#' @name plotfdist.diag
+#'
+#' @title plot diagnostics
+#'
+#' @param fit fit
+#' @param mod Select one of the models. Default: 1
+#'
+#' @importFrom mgcv plot.gam
+#'
+#' @return Nothing
+#'
+#' @export
+plotfdist.diag <- function(fit, mod = 1){
+    opar <- par()
+    par(mfrow = c(2,3), mar = c(5,5,4,2), oma = c(0,0,0,0))
+    on.exit(par(opar))
+    surveyIndex::surveyIdxPlots(fit$fits[[mod]],
+                                fit$data,
+                                select = "residuals",
+                                par = NULL,
+                                main = "Residuals")
+    surveyIndex::surveyIdxPlots(fit$fits[[mod]],
+                                fit$data,
+                                select = "fitVsRes",
+                                par = NULL,
+                                main = "Residuals vs. Fitted")
+    surveyIndex::surveyIdxPlots(fit$fits[[mod]],
+                                fit$data,
+                                select = "resVsYear",
+                                par = NULL,
+                                main = "Residuals vs. year")
+    surveyIndex::surveyIdxPlots(fit$fits[[mod]],
+                                fit$data,
+                                select = "resVsShip",
+                                par = NULL,
+                                main = "Residuals vs. Ship")
+    surveyIndex::surveyIdxPlots(fit$fits[[mod]],
+                                fit$data,
+                                select = "resVsGear",
+                                par = NULL,
+                                main = "Residuals vs. Gear")
+    surveyIndex::surveyIdxPlots(fit$fits[[mod]],
+                                fit$data,
+                                select = "resVsDepth",
+                                par = NULL,
+                                main = "Residuals vs. Depth")
+    return(NULL)
+}
+
+
+#' @name plotfdist.diag.spatial
+#'
+#' @title plot spatial diagnostics
+#'
+#' @param fit fit
+#' @param mod Select one of the models. Default: 1
+#'
+#' @importFrom mgcv plot.gam
+#'
+#' @return Nothing
+#'
+#' @export
+plotfdist.diag.spatial <- function(fit, mod = 1, year = NULL){
+    mfrow <- par$mfrow
+    xaxt.ind <- (prod(mfrow) - mfrow[2] + 1):prod(mfrow)
+    yaxt.ind <- seq(1, prod(mfrow), mfrow[2])
+    for(y in 1:length(year)){
+        xaxt <- ifelse(y %in% xaxt.ind, "s", "n")
+        yaxt <- ifelse(y %in% yaxt.ind, "s", "n")
+        surveyIndex::surveyIdxPlots(fit$fits[[mod]],
+                                    fit$data,
+                                    select = "spatialResiduals",
+                                    year = year[y],
+                                    par = NULL,
+                                    xaxt = xaxt, yaxt = yaxt,
+                                    main = year[y])
+    }
+    return(NULL)
 }
