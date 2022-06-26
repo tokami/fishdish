@@ -351,7 +351,10 @@ pred.dist.one <- function(fit,
                           grid = NULL,
                           use.obs.for.pred = TRUE,
                           predfix = NULL,
-                          verbose = TRUE, ...){
+                          verbose = TRUE,
+                          save.grid = FALSE,
+                          save.data = FALSE,
+                          ...){
 
     if(!inherits(fit, "fdist.fit")) stop("fit has to be an object fitted with 'est.dist.one'")
 
@@ -474,8 +477,13 @@ pred.dist.one <- function(fit,
     ## -----------------
     ret <- list()
     ret$id <- paste(unique(specdata$AphiaID), collapse = ", ")
-    ret$data <- specdata
-    ret$grid <- grid
+    if(save.data){
+        ret$data <- specdata
+    }
+    if(save.grid){
+        ret$grid <- grid
+    }
+    ret$predfix <- predfix
     ret$fits <- resList
     ret$pred.by.haul <- fit$pred.by.haul
     class(ret) <- c("fdist.fit","list")

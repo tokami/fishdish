@@ -11,6 +11,8 @@ pred.dist.one(
   use.obs.for.pred = TRUE,
   predfix = NULL,
   verbose = TRUE,
+  save.grid = FALSE,
+  save.data = FALSE,
   ...
 )
 }
