@@ -1014,11 +1014,14 @@ plotfdist.dist.year <- function(fit, mod = NULL, var.lim = FALSE, all.years = TR
 #' @export
 plotfdist.gam.effects <- function(fit, mod = 1, xlim = NULL, ylim = NULL){
 
-    plotInfo <- mgcv::plot.gam(fit$fits[[mod]]$pModels[[1]], select = 0, residuals = TRUE)
+    cols <- c(RColorBrewer::brewer.pal(n = 8, "Dark2"),
+              RColorBrewer::brewer.pal(n = 8, "Accent"))
 
-    gamTerms <- unlist(lapply(plotInfo, function(x) ifelse(!is.null(x$xlab), x$xlab, NA)))
 
-    cols <- c("dodgerblue", "goldenrod3")
+    ## plotInfo <- mgcv::plot.gam(fit$fits[[mod]]$pModels[[1]], select = 0, residuals = TRUE)
+
+    ## gamTerms <- unlist(lapply(plotInfo, function(x) ifelse(!is.null(x$xlab), x$xlab, NA)))
+
     par(mfrow = c(1,2))
 
     ## ind <- which(gamTerms == "lon")
@@ -1042,18 +1045,24 @@ plotfdist.gam.effects <- function(fit, mod = 1, xlim = NULL, ylim = NULL){
     ##     box(lwd=1.5)
     ## }
 
-    fe <- data.frame(summary(fit$fits[[1]]$pModels[[1]])$p.table)
-    colnames(fe) =  c('value', 'se', 't', 'p')
+    browser()
+
+    ## TODO: effect of missing gear is 0
+    ## TODO: take exp! (or even better account for link function)
+
+    fe <- exp(data.frame(summary(fit$fits[[1]]$pModels[[1]])$p.table)[,c(1,2)])
+    colnames(fe) =  c('value', 'se')
+    fe[1,] <- c(0,0)
     fe$lo <- fe$value - 1.96 * fe$se
     fe$up <- fe$value + 1.96 * fe$se
 
-    par(mfrow = c(1,1), mar = c(5,5,4,2))
+    ## par(mfrow = c(1,1), mar = c(5,5,4,2))
     labs <- sapply(strsplit(rownames(fe)[-1],"Gear"),"[[",2)
-    all.gears <- unique(specfit$data$Gear)
+    all.gears <- unique(fit$data$Gear)
     labs <- c(as.character(all.gears[!all.gears %in% labs]), labs)
-    ylim <- range(fe$lo, fe$up)
+    ylim <- range(0,fe$lo, fe$up)
     if(ylim[1] < 0) ylim <- c(1.1,1.1) * ylim else ylim <- c(0.9,1.1) * ylim
-    bp <- barplot(fe$value, ylim = ylim)
+    bp <- barplot(fe$value, ylim = ylim, col = cols[1:length(fe$value)])
     arrows(bp,fe$lo, bp, fe$up , angle=90, code=3, lengt = 0.1)
     axis(1, at = bp, labels = labs)
     mtext("Gears", 1, 3)

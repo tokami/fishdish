@@ -132,7 +132,7 @@ prep.data <- function(data, AphiaID = NULL,
                                      sep="\t\t\t\t\t\t\t\t"))
 
 
-        ## Subset HL, only keep hauls with a length composition
+        ## Subset HL, only keep hauls that can be matched to HH later
         ## ------------------
         hl <- subset(hl, hl$HaulID %in% hh$HaulID)
         if(verbose) writeLines(paste("All hauls in HL included in HH: ",

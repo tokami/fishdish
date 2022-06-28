@@ -87,8 +87,8 @@ get.info.surveys <- function(survey=NULL, statrec = FALSE, plot = TRUE){
             tmp <- ices.rectangles[ind,]
             for(j in 1:nrow(tmp)){
                 tmpj <- tmp[j,]
-                polygon(c(tmpj$WEST, tmpj$EAST, tmpj$EAST, tmpj$WEST),
-                        c(tmpj$SOUTH, tmpj$SOUTH, tmpj$NORTH, tmpj$NORTH),
+                polygon(c(tmpj$stat_west, tmpj$stat_east, tmpj$stat_east, tmpj$stat_west),
+                        c(tmpj$stat_south, tmpj$stat_south, tmpj$stat_north, tmpj$stat_north),
                         border = "goldenrod2", col = "goldenrod3")
                 ## text((tmpj$WEST + tmpj$EAST)/2, (tmpj$SOUTH + tmpj$NORTH)/2,
                 ##      labels = tmpj$ICESNAME)
@@ -306,7 +306,9 @@ list.datras.variables.req <- function(swept.area.calculated = TRUE){
 #' @return Data set with predicted StatRec if NA.
 #'
 #' @export
-pred.statrec <- function(data, tol = 0.00001, verbose = TRUE, dbg = 0){
+pred.statrec <- function(data, tol = 0.00001, only.missing = TRUE,
+                         fast.approach = TRUE,
+                         verbose = TRUE, dbg = 0){
 
     datain <- data
 
@@ -324,41 +326,71 @@ pred.statrec <- function(data, tol = 0.00001, verbose = TRUE, dbg = 0){
 
     data("ices.rectangles")
 
-    if(!any(colnames(datain) == "StatRec")) datain$StatRec <- NA
-    if(!any(colnames(datain) == "SubStatRec")) datain$SubStatRec <- NA
-    if(!any(colnames(datain) == "Area_27")) datain$Area_27 <- NA
-    if(!any(colnames(datain) == "Ecoregion")) datain$Ecoregion <- NA
-    if(!any(colnames(datain) == "SubStatRec_area")) datain$SubStatRec_area <- NA
-    if(dbg > 0){
-        datain$sub_lon <- NA
-        datain$sub_lat <- NA
-        datain$stat_lon <- NA
-        datain$stat_lat <- NA
-    }
+    if(fast.approach){
+        lon.cuts <- sort(unique(round(c(ices.rectangles$sub_west,
+                                        ices.rectangles$sub_east),5)))
+        lat.cuts <- sort(unique(round(c(ices.rectangles$sub_south,
+                                        ices.rectangles$sub_north),5)))
+        ices.rectangles$lon_fac <- cut(ices.rectangles$sub_x, lon.cuts)
+        ices.rectangles$lat_fac <- cut(ices.rectangles$sub_y, lat.cuts)
+        data$lon_fac <- cut(data$lon, lon.cuts)
+        data$lat_fac <- cut(data$lat, lat.cuts)
+        cols.merge <- c("ICESNAME","sub_code","Area_27","Ecoregion","sub_area")
+        if(dbg > 0) cols.merge <- c(cols.merge, "sub_x","sub_y","stat_x","stat_y")
+        data <- plyr::join(x = data, y = ices.rectangles[,c("lon_fac","lat_fac",cols.merge)],
+                           by = c("lon_fac","lat_fac"))
+        datain <- cbind(datain, data[,cols.merge])
+        colnames(datain)[colnames(datain) == "ICESNAME"] <- "StatRec"
+        colnames(datain)[colnames(datain) == "sub_code"] <- "SubStatRec"
+        colnames(datain)[colnames(datain) == "sub_area"] <- "SubStatRec_area"
+        if(dbg > 0){
+            colnames(datain)[colnames(datain) == "sub_x"] <- "sub_lon"
+            colnames(datain)[colnames(datain) == "sub_y"] <- "sub_lat"
+            colnames(datain)[colnames(datain) == "stat_x"] <- "stat_lon"
+            colnames(datain)[colnames(datain) == "stat_y"] <- "stat_lat"
+        }
+    }else{
+        if(!any(colnames(datain) == "StatRec")) datain$StatRec <- NA
+        if(!any(colnames(datain) == "SubStatRec")) datain$SubStatRec <- NA
+        if(!any(colnames(datain) == "Area_27")) datain$Area_27 <- NA
+        if(!any(colnames(datain) == "Ecoregion")) datain$Ecoregion <- NA
+        if(!any(colnames(datain) == "SubStatRec_area")) datain$SubStatRec_area <- NA
+        if(dbg > 0){
+            datain$sub_lon <- NA
+            datain$sub_lat <- NA
+            datain$stat_lon <- NA
+            datain$stat_lat <- NA
+        }
 
-    ind.na <- which(is.na(datain$StatRec))
-    if(verbose) writeLines("Filling missing StatRec!")
-    if(length(ind.na) > 0){
-        for(i in 1:length(ind.na)){
-            ind <- which(ices.rectangles$sub_south - data$lat[ind.na[i]] < tol &
-                         ices.rectangles$sub_north - data$lat[ind.na[i]] > tol &
-                         ices.rectangles$sub_west - data$lon[ind.na[i]]  < tol &
-                         ices.rectangles$sub_east - data$lon[ind.na[i]]  > tol )
-            if(length(ind) > 0){
-                datain$StatRec[ind.na[i]] <- ices.rectangles$ICESNAME[ind]
-                datain$SubStatRec[ind.na[i]] <- ices.rectangles$sub_code[ind]
-                datain$Area_27[ind.na[i]] <- ices.rectangles$Area_27[ind]
-                datain$Ecoregion[ind.na[i]] <- ices.rectangles$Ecoregion[ind]
-                datain$SubStatRec_area[ind.na[i]] <- ices.rectangles$sub_area[ind]
-                if(dbg > 0){
-                    datain$sub_lon[ind.na[i]] <- ices.rectangles$sub_x[ind]
-                    datain$sub_lat[ind.na[i]] <- ices.rectangles$sub_y[ind]
-                    datain$stat_lon[ind.na[i]] <- ices.rectangles$stat_x[ind]
-                    datain$stat_lat[ind.na[i]] <- ices.rectangles$stat_y[ind]
+        if(only.missing){
+            ind.na <- which(is.na(datain$StatRec))
+        }else{
+            ind.na <- 1:nrow(datain)
+        }
+        if(verbose) writeLines("Filling missing StatRec!")
+        if(length(ind.na) > 0){
+            for(i in 1:length(ind.na)){
+                ind <- which(ices.rectangles$sub_south - data$lat[ind.na[i]] < tol &
+                             ices.rectangles$sub_north - data$lat[ind.na[i]] > tol &
+                             ices.rectangles$sub_west - data$lon[ind.na[i]]  < tol &
+                             ices.rectangles$sub_east - data$lon[ind.na[i]]  > tol )
+                if(length(ind) > 0){
+                    datain$StatRec[ind.na[i]] <- ices.rectangles$ICESNAME[ind]
+                    datain$SubStatRec[ind.na[i]] <- ices.rectangles$sub_code[ind]
+                    datain$Area_27[ind.na[i]] <- ices.rectangles$Area_27[ind]
+                    datain$Ecoregion[ind.na[i]] <- ices.rectangles$Ecoregion[ind]
+                    datain$SubStatRec_area[ind.na[i]] <- ices.rectangles$sub_area[ind]
+                    if(dbg > 0){
+                        datain$sub_lon[ind.na[i]] <- ices.rectangles$sub_x[ind]
+                        datain$sub_lat[ind.na[i]] <- ices.rectangles$sub_y[ind]
+                        datain$stat_lon[ind.na[i]] <- ices.rectangles$stat_x[ind]
+                        datain$stat_lat[ind.na[i]] <- ices.rectangles$stat_y[ind]
+                    }
                 }
             }
         }
     }
+
     return(datain)
 }
 
@@ -425,7 +457,7 @@ correct.surveys <- function(data){
     ## Remove other gears than TVL and TVS from BITS
     ## -------------
     data <- subset(data, Survey != "BITS" |
-                             (Survey == "BITS" & Gear %in% c("TVS","TVL")))
+                         (Survey == "BITS" & Gear %in% c("TVS","TVL")))
 
     ## Remove surveys with issues
     ## -------

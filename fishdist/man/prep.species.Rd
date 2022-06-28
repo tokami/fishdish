@@ -9,10 +9,10 @@ prep.species(
   aphiaID = NULL,
   use.gear.cat = TRUE,
   remove.fragmented.years = TRUE,
-  min.gears = 1,
-  min.surveys = 1,
-  min.hauls = 1,
-  min.ship.gear = 1,
+  min.gears = 0,
+  min.surveys = 0,
+  min.hauls = 0,
+  min.ship.gear = 0,
   verbose = TRUE
 )
 }

@@ -4,7 +4,14 @@
 \alias{pred.statrec}
 \title{Predict Statistical rectangle based on latitude and longitude}
 \usage{
-pred.statrec(data, tol = 1e-05, verbose = TRUE, dbg = 0)
+pred.statrec(
+  data,
+  tol = 1e-05,
+  only.missing = TRUE,
+  fast.approach = TRUE,
+  verbose = TRUE,
+  dbg = 0
+)
 }
 \arguments{
 \item{data}{Data set that includes variables: lat and lon}
