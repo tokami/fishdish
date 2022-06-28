@@ -121,13 +121,83 @@ plotdist <- function(data, plot.survey.dist = TRUE){
 #' @importFrom RColorBrewer brewer.pal
 #'
 #' @export
-plotfdist.abun <- function(fit, by.area = FALSE,
+plotfdist.abun <- function(fit, by.area = FALSE, by.eco = FALSE,
                            ylab = "Abundance index",
-                           y.scale = 1){
-    if(by.area){
+                           y.scale = 1, fixed.scale = FALSE){
+    if(by.area && by.eco){
 
-        cols <- c(RColorBrewer::brewer.pal(n = 8, "Dark2"), RColorBrewer::brewer.pal(n = 8, "Accent"))
+        cols <- c(RColorBrewer::brewer.pal(n = 8, "Dark2"),
+                  RColorBrewer::brewer.pal(n = 8, "Accent"))
 
+        if(inherits(fit, "data.frame")){
+
+            fit$year <- as.numeric(as.character(fit$year))
+            fit$idx <- as.numeric(as.character(fit$idx))
+            fit$lo <- as.numeric(as.character(fit$lo))
+            fit$up <- as.numeric(as.character(fit$up))
+
+            ecoregions <- fit$ecoregion
+            ecoregions.uni <- unique(ecoregions)
+            neco <- length(ecoregions.uni)
+
+            if(neco >= 19){
+                mfrow = c(4,ceiling(neco/4))
+            }else if(neco >= 9){
+                mfrow = c(3,ceiling(neco/3))
+            }else if(neco < 9 & neco >= 4){
+                mfrow = c(2,ceiling(neco/2))
+            }else if(neco < 4){
+                mfrow = c(1,neco)
+            }
+            if(neco > 1){
+                ## par(mfrow = mfrow, mar = c(0.5,0.5,0.5,0.5), oma = c(4,3,2,1))
+                par(mfrow = mfrow, mar = c(2,2,1,1), oma = c(3,3,2,1))
+            }
+            ## par(mfrow = c(neco,1), mar = c(2,2,1,1), oma = c(2,3,2,1))
+
+            xlim <- range(fit$year)
+            if(fixed.scale) ylim <- c(0.9,1.1) * range(c(fit$idx, fit$lo, fit$up)) / y.scale
+            xaxt.ind <- c((prod(mfrow) - mfrow[2] + 1):prod(mfrow), ((mfrow[1] - 1) * mfrow[2]):((mfrow[1] - 1) * mfrow[2] - (prod(mfrow) - neco) + 1))
+            yaxt.ind <- seq(1, prod(mfrow), mfrow[2])
+            for(i in 1:neco){
+                eco.ind <- which(ecoregions %in% ecoregions.uni[i])
+                areas <- fit$ices.area[eco.ind]
+                areas.uni <- unique(areas)
+                nia <- length(areas.uni)
+                xaxt <- ifelse(i %in% xaxt.ind, "s", "n")
+                ##            yaxt <- ifelse(i %in% yaxt.ind, "s", "n")
+                if(!fixed.scale) ylim <- c(0.9,1.1) * range(c(fit$idx[eco.ind], fit$lo[eco.ind], fit$up[eco.ind])) / y.scale
+                plot(xlim, c(1,1), ty = "n",
+                     xaxt = xaxt, yaxt = "s",
+                     ylim = ylim, xlim = xlim,
+                     xlab = "", ylab = "")
+                for(j in 1:nia){
+                    ia.ind <- which(areas %in% areas.uni[j])
+                    years <- fit$year[eco.ind][ia.ind]
+                    idx <- fit$idx[eco.ind][ia.ind] / y.scale
+                    lo <- fit$lo[eco.ind][ia.ind] / y.scale
+                    up <- fit$up[eco.ind][ia.ind] / y.scale
+                    polygon(c(years,rev(years)), c(lo, rev(up)), border = NA,
+                            col = rgb(t(col2rgb(cols[j]))/255, alpha = 0.2))
+                    lines(years, idx, col = cols[j], lwd = 2)
+                }
+                mtext(ecoregions.uni[i], 3, 0.5, font = 2, cex = 0.9)
+                ## legend("topleft",
+                ##        legend = ecoregions.uni[i],
+                ##        pch = NA,
+                ##        x.intersp = 0.1,
+                ##        bg = "white")
+                legend("topright",
+                       legend = areas.uni,
+                       lwd = 2,
+                       col = cols[1:nia],
+                       bg = "white")
+                box(lwd=1.5)
+            }
+            mtext("Year", 1, 1, outer = TRUE)
+            mtext(ylab, 2, 1, outer = TRUE)
+
+        }else{
         areas <- sapply(fit, function(x) unique(x$grid[[1]]$Area_27))
         ## tail needed because some ices areas spread over multiple ecoregions (e.g. 4a = Faroe, NS, Celtic)
         ecoregions <- sapply(fit, function(x) tail(unique(x$grid[[1]]$Ecoregion),1))
@@ -201,6 +271,144 @@ plotfdist.abun <- function(fit, by.area = FALSE,
         mtext("Year", 1, 1, outer = TRUE)
         mtext(ylab, 2, 1, outer = TRUE)
 
+        }
+
+        }else if(by.area){
+
+        cols <- c(RColorBrewer::brewer.pal(n = 8, "Dark2"),
+                  RColorBrewer::brewer.pal(n = 8, "Accent"))
+
+        if(inherits(fit, "data.frame")){
+
+            fit$year <- as.numeric(as.character(fit$year))
+            fit$idx <- as.numeric(as.character(fit$idx))
+            fit$lo <- as.numeric(as.character(fit$lo))
+            fit$up <- as.numeric(as.character(fit$up))
+
+            areas <- fit$ices.area
+            areas.uni <- unique(areas)
+            nareas <- length(areas.uni)
+
+            if(nareas >= 19){
+                mfrow = c(4,ceiling(nareas/4))
+            }else if(nareas >= 9){
+                mfrow = c(3,ceiling(nareas/3))
+            }else if(nareas < 9 & nareas >= 4){
+                mfrow = c(2,ceiling(nareas/2))
+            }else if(nareas < 4){
+                mfrow = c(1,nareas)
+            }
+            if(nareas > 1){
+                ## par(mfrow = mfrow, mar = c(0.5,0.5,0.5,0.5), oma = c(4,3,2,1))
+                par(mfrow = mfrow, mar = c(2,2,1,1), oma = c(3,3,2,1))
+            }
+            ## par(mfrow = c(nareas,1), mar = c(2,2,1,1), oma = c(2,3,2,1))
+
+            xlim <- range(fit$year)
+            if(fixed.scale) ylim <- c(0.9,1.1) * range(c(fit$idx, fit$lo, fit$up)) / y.scale
+            xaxt.ind <- c((prod(mfrow) - mfrow[2] + 1):prod(mfrow), ((mfrow[1] - 1) * mfrow[2]):((mfrow[1] - 1) * mfrow[2] - (prod(mfrow) - nareas) + 1))
+            yaxt.ind <- seq(1, prod(mfrow), mfrow[2])
+            for(i in 1:nareas){
+                ia.ind <- which(areas %in% areas.uni[i])
+                print(ia.ind)
+                xaxt <- ifelse(i %in% xaxt.ind, "s", "n")
+                ##            yaxt <- ifelse(i %in% yaxt.ind, "s", "n")
+                if(!fixed.scale) ylim <- c(0.9,1.1) * range(c(fit$idx[ia.ind], fit$lo[ia.ind], fit$up[ia.ind])) / y.scale
+                plot(xlim, c(1,1), ty = "n",
+                     xaxt = xaxt, yaxt = "s",
+                     ylim = ylim, xlim = xlim,
+                     xlab = "", ylab = "")
+                years <- fit$year[ia.ind]
+                idx <- fit$idx[ia.ind] / y.scale
+                lo <- fit$lo[ia.ind] / y.scale
+                up <- fit$up[ia.ind] / y.scale
+                polygon(c(years,rev(years)), c(lo, rev(up)), border = NA,
+                        col = rgb(t(col2rgb(cols[i]))/255, alpha = 0.2))
+                lines(years, idx, col = cols[i], lwd = 2)
+                box(lwd=1.5)
+                mtext(areas.uni[i], 3, 0.5, font = 2, cex = 0.9)
+            }
+
+            mtext("Year", 1, 1, outer = TRUE)
+            mtext(ylab, 2, 1, outer = TRUE)
+
+        }else{
+        areas <- sapply(fit, function(x) unique(x$grid[[1]]$Area_27))
+        ## tail needed because some ices areas spread over multiple ecoregions (e.g. 4a = Faroe, NS, Celtic)
+        ecoregions <- sapply(fit, function(x) tail(unique(x$grid[[1]]$Ecoregion),1))
+        ecoregions.uni <- unique(ecoregions)
+        nareas <- length(areas)
+        neco <- length(ecoregions.uni)
+
+        if(neco >= 19){
+            mfrow = c(4,ceiling(neco/4))
+        }else if(neco >= 9){
+            mfrow = c(3,ceiling(neco/3))
+        }else if(neco < 9 & neco >= 4){
+            mfrow = c(2,ceiling(neco/2))
+        }else if(neco < 4){
+            mfrow = c(1,neco)
+        }
+        if(neco > 1){
+            ## par(mfrow = mfrow, mar = c(0.5,0.5,0.5,0.5), oma = c(4,3,2,1))
+            par(mfrow = mfrow, mar = c(2,2,1,1), oma = c(3,3,2,1))
+        }
+        ## par(mfrow = c(neco,1), mar = c(2,2,1,1), oma = c(2,3,2,1))
+
+
+        xlim <- range(as.numeric(unlist(lapply(fit, function(x){
+            if(!inherits(x$fits[[1]],"try-error")){
+                rownames(x$fits[[1]]$idx)
+            }else{
+                NA
+            }}))), na.rm = TRUE)
+        xaxt.ind <- c((prod(mfrow) - mfrow[2] + 1):prod(mfrow), ((mfrow[1] - 1) * mfrow[2]):((mfrow[1] - 1) * mfrow[2] - (prod(mfrow) - neco) + 1))
+        yaxt.ind <- seq(1, prod(mfrow), mfrow[2])
+        for(i in 1:neco){
+            ias <- which(ecoregions %in% ecoregions.uni[i])
+            nia <- length(ias)
+            xaxt <- ifelse(i %in% xaxt.ind, "s", "n")
+##            yaxt <- ifelse(i %in% yaxt.ind, "s", "n")
+            ylim <- range(unlist(lapply(fit[ias], function(x){
+                if(!inherits(x$fits[[1]],"try-error")){
+                    c(x$fits[[1]]$idx, x$fits[[1]]$lo, x$fits[[1]]$up)
+                }else{
+                    NA
+                }})), na.rm = TRUE) / y.scale
+            plot(xlim, c(1,1), ty = "n",
+                 xaxt = xaxt, yaxt = "s",
+                 ylim = ylim, xlim = xlim,
+                 xlab = "", ylab = "")
+            for(j in 1:nia){
+                if(!inherits(fit[[ias[j]]]$fits[[1]], "try-error")){
+                    years <- rownames(fit[[ias[j]]]$fits[[1]]$idx)
+                    idx <- fit[[ias[j]]]$fits[[1]]$idx / y.scale
+                    lo <- fit[[ias[j]]]$fits[[1]]$lo / y.scale
+                    up <- fit[[ias[j]]]$fits[[1]]$up / y.scale
+                    polygon(c(years,rev(years)), c(lo, rev(up)), border = NA,
+                            col = rgb(t(col2rgb(cols[j]))/255, alpha = 0.2))
+                    lines(years, idx, col = cols[j], lwd = 2)
+                }
+            }
+            mtext(ecoregions.uni[i], 3, 0.5, font = 2, cex = 0.9)
+            ## legend("topleft",
+            ##        legend = ecoregions.uni[i],
+            ##        pch = NA,
+            ##        x.intersp = 0.1,
+            ##        bg = "white")
+            legend("topright",
+                   legend = areas[ias],
+                   lwd = 2,
+                   col = cols[1:nia],
+                   bg = "white")
+            box(lwd=1.5)
+        }
+        mtext("Year", 1, 1, outer = TRUE)
+        mtext(ylab, 2, 1, outer = TRUE)
+
+        }
+
+
 
     }else{
 
@@ -250,7 +458,94 @@ plotfdist.abun <- function(fit, by.area = FALSE,
 #' @return Nothing
 #'
 #' @export
-plotfdist.dist <- function(fit, mod = NULL, cex = 1){
+plotfdist.dist <- function(fit, mod = NULL, year = NULL,
+                           xlim = NULL, ylim = NULL,
+                           legend = TRUE, fixed.scale = TRUE, cols = rev(heat.colors(8))){
+
+    pred <- fit$fits[[mod]]$gPreds2[[1]][as.character(year)]
+    grid <- fit$grid[as.character(year)]
+    ny <- length(year)
+
+    if(ny >= 19){
+        mfrow = c(4,ceiling(ny/4))
+    }else if(ny >= 9){
+        mfrow = c(3,ceiling(ny/3))
+    }else if(ny < 9 & ny >= 4){
+        mfrow = c(2,ceiling(ny/2))
+    }else if(ny < 4){
+        mfrow = c(1,ny)
+    }
+    if(ny > 1){
+        par(mfrow = mfrow, mar = c(0,0,2,0), oma = c(5,5,2,1))
+    }
+
+    xaxt.ind <- (prod(mfrow) - mfrow[2] + 1):prod(mfrow)
+    yaxt.ind <- seq(1, prod(mfrow), mfrow[2])
+
+    if(fixed.scale){
+        predi <- unlist(lapply(pred, function(x) x[,1]))
+        ind <- vector("list",length(pred))
+        for(i in 1:length(pred)){
+            if(i == 1){
+                starti <- 1
+            }else{
+                starti <- (max(ind[[i-1]]) + 1)
+            }
+            ind[[i]] <- starti:(starti + nrow(pred[[i]])-1)
+        }
+        concT <- surveyIndex:::concTransform(log(predi))
+        zFac <- cut(concT, 0:length(cols)/length(cols))
+        for(i in 1:length(grid)){
+            grid[[i]]$pred <- as.numeric(zFac[ind[[i]]])
+        }
+    }
+
+    for(i in 1:ny){
+        if(!fixed.scale){
+            predi <- pred[[i]][,1]
+            concT <- surveyIndex:::concTransform(log(predi))
+            zFac <- cut(concT, 0:length(cols)/length(cols))
+            grid[[i]]$pred <- as.numeric(zFac)
+        }
+        tmp <- reshape2::acast(grid[[i]], lon~lat, value.var = "pred")
+        range(as.numeric(zFac))
+        if(is.null(xlim)) xlimi <- range(as.numeric(rownames(tmp))) else xlimi <- xlim
+        if(is.null(ylim)) ylimi <- range(as.numeric(rownames(tmp))) else ylimi <- ylim
+        xaxt <- ifelse(i %in% xaxt.ind, "s", "n")
+        yaxt <- ifelse(i %in% yaxt.ind, "s", "n")
+        plot(1,1, xlim = xlimi, ylim = ylimi,
+             xaxt = xaxt, yaxt = yaxt,
+             ty = "n",
+             xlab = "", ylab = "")
+        image(as.numeric(rownames(tmp)), as.numeric(colnames(tmp)), tmp,
+              add = TRUE,
+              xlab = "", ylab = "", col = cols,
+              breaks = seq(0.5,length(cols)+0.5,1))
+        maps::map("world", xlim = xlimi,
+                  ylim = ylimi,
+                  fill = TRUE, plot = TRUE, add = TRUE,
+                  col = grey(0.95), border = grey(0.8))
+        mtext(year[i], 3, 0.3, font = 2)
+        if ((legend && fixed.scale && i == ny) || legend && !fixed.scale){
+            maxcuts = aggregate(predi ~ zFac, FUN=max)
+            mincuts = aggregate(predi ~ zFac, FUN=min)
+            mm = mean(predi)
+            ml = signif(mincuts[,2]/mm,3)
+            ml[1] = 0
+            leg = paste0("[",ml,",",signif(maxcuts[,2]/mm,3),"]")
+            legend("bottomright", legend = leg, pch = 16, col = cols, bg = "white")
+        }
+        box(lwd = 1.5)
+    }
+
+    mtext("Longitude", 1, 3, outer = TRUE)
+    mtext("Latitude", 2, 3, outer = TRUE)
+
+
+
+    ## OLD: pre-wkfishdis II
+    if(FALSE){
+        cex <- 1
 
     nmods <- length(fit$fit)
     if(is.null(mod)){
@@ -371,7 +666,124 @@ plotfdist.dist <- function(fit, mod = NULL, cex = 1){
     ##                             par=NULL,legend=FALSE,
     ##                             map.cex = 1.5, main = paste0("Model ",i),
     ##                             colors=rev(heat.colors(8)),
-    ##                             select="map",plotByAge=FALSE)
+        ##                             select="map",plotByAge=FALSE)
+
+        }
+
+    return(NULL)
+}
+
+#' @name plotfdist.dist.cv
+#'
+#' @title plot cv of fit
+#'
+#' @param fit fit
+#' @param mod Select one of the models. Default: NULL
+#'
+#' @importFrom maps map
+#'
+#' @return Nothing
+#'
+#' @export
+plotfdist.dist.cv <- function(fit, mod = NULL, year = NULL,
+                           xlim = NULL, ylim = NULL,
+                           legend = TRUE, fixed.scale = TRUE,
+                           cols = cm.colors(7)[-1], breaks = NULL,
+                           plot.obs = TRUE){
+
+
+
+    pred <- fit$fits[[mod]]$gPreds2.CV[[1]][as.character(year)]
+    grid <- fit$grid[as.character(year)]
+    ny <- length(year)
+
+    if(ny >= 19){
+        mfrow = c(4,ceiling(ny/4))
+    }else if(ny >= 9){
+        mfrow = c(3,ceiling(ny/3))
+    }else if(ny < 9 & ny >= 4){
+        mfrow = c(2,ceiling(ny/2))
+    }else if(ny < 4){
+        mfrow = c(1,ny)
+    }
+    if(ny > 1){
+        par(mfrow = mfrow, mar = c(0,0,2,0), oma = c(5,5,2,1))
+    }
+
+    xaxt.ind <- (prod(mfrow) - mfrow[2] + 1):prod(mfrow)
+    yaxt.ind <- seq(1, prod(mfrow), mfrow[2])
+
+    if(fixed.scale){
+        predi <- unlist(lapply(pred, function(x) x[,1]))
+        ind <- vector("list",length(pred))
+        for(i in 1:length(pred)){
+            if(i == 1){
+                starti <- 1
+            }else{
+                starti <- max(ind[[i-1]])
+            }
+            ind[[i]] <- starti:(starti + nrow(pred[[i]])-1)
+        }
+        concT <- surveyIndex:::concTransform(log(predi))
+        if(is.null(breaks)){
+            zFac <- cut(concT, 0:length(cols)/length(cols))
+        }else{
+            zFac <- cut(predi, breaks)
+        }
+        for(i in 1:length(grid)){
+            grid[[i]]$pred <- as.numeric(zFac[ind[[i]]])
+        }
+    }
+
+    for(i in 1:ny){
+        if(!fixed.scale){
+            predi <- pred[[i]][,1]
+            concT <- surveyIndex:::concTransform(log(predi))
+            if(is.null(breaks)){
+                zFac <- cut(concT, 0:length(cols)/length(cols))
+            }else{
+                zFac <- cut(predi, breaks)
+            }
+            grid[[i]]$pred <- as.numeric(zFac)
+        }
+        tmp <- reshape2::acast(grid[[i]], lon~lat, value.var = "pred")
+        if(is.null(xlim)) xlimi <- range(as.numeric(rownames(tmp))) else xlimi <- xlim
+        if(is.null(ylim)) ylimi <- range(as.numeric(rownames(tmp))) else ylimi <- ylim
+        xaxt <- ifelse(i %in% xaxt.ind, "s", "n")
+        yaxt <- ifelse(i %in% yaxt.ind, "s", "n")
+        plot(1,1, xlim = xlimi, ylim = ylimi,
+             xaxt = xaxt, yaxt = yaxt,
+             ty = "n",
+             xlab = "", ylab = "")
+        image(as.numeric(rownames(tmp)), as.numeric(colnames(tmp)), tmp,
+              add = TRUE,
+              xlab = "", ylab = "", col = cols, breaks = seq(0.5,length(cols)+0.5,1))
+        maps::map("world", xlim = xlimi,
+                  ylim = ylimi,
+                  fill = TRUE, plot = TRUE, add = TRUE,
+                  col = grey(0.95), border = grey(0.8))
+        ind <- which(as.character(fit$data$Year) == year[i])
+        if(plot.obs) points(fit$data$lon[ind], fit$data$lat[ind], col = 1, cex = 0.3, pch = 16)
+        mtext(year[i], 3, 0.3, font = 2)
+        if (is.null(breaks) && ((legend && fixed.scale && i == ny) || legend && !fixed.scale)){
+            maxcuts = aggregate(predi ~ zFac, FUN=max)
+            mincuts = aggregate(predi ~ zFac, FUN=min)
+            mm = mean(predi)
+            ml = signif(mincuts[,2]/mm,3)
+            ml[1] = 0
+            leg = paste0("[",ml,",",signif(maxcuts[,2]/mm,3),"]")
+            legend("bottomright", legend = leg, pch = 16, col = cols, bg = "white")
+        }
+        if (!is.null(breaks) && ((legend && fixed.scale && i == ny) || legend && !fixed.scale)){
+            legend("bottomright", legend = levels(zFac), pch = 16, col = cols, bg = "white")
+        }
+        box(lwd = 1.5)
+    }
+
+    mtext("Longitude", 1, 3, outer = TRUE)
+    mtext("Latitude", 2, 3, outer = TRUE)
+
+    return(NULL)
 
 }
 
@@ -607,49 +1019,66 @@ plotfdist.gam.effects <- function(fit, mod = 1, xlim = NULL, ylim = NULL){
     gamTerms <- unlist(lapply(plotInfo, function(x) ifelse(!is.null(x$xlab), x$xlab, NA)))
 
     cols <- c("dodgerblue", "goldenrod3")
-    par(mfrow = c(1,3))
+    par(mfrow = c(1,2))
 
-    ind <- which(gamTerms == "lon")
+    ## ind <- which(gamTerms == "lon")
+    ## if(length(ind) > 0){
+    ##     tmp <- plotInfo[[ind]]
+    ##     tmp$lo <- tmp$fit - 1.95 * tmp$se
+    ##     tmp$up <- tmp$fit + 1.95 * tmp$se
+    ##     fitmat <- matrix(tmp$fit, nrow = length(tmp$x), ncol = length(tmp$y))
+    ##     if(is.null(xlim)) xlim <- range(tmp$x)
+    ##     if(is.null(ylim)) ylim <- range(tmp$y)
+    ##     image(tmp$x, tmp$y, fitmat,
+    ##           xlab = tmp$xlab, ylab = tmp$ylab,
+    ##           xlim = xlim, ylim = ylim)
+    ##     contour(tmp$x, tmp$y, fitmat, add = TRUE)
+    ##     maps::map('world',xlim=xlim,ylim=ylim,
+    ##               fill=TRUE,plot=TRUE,add=TRUE,
+    ##               col=rgb(t(col2rgb("grey70"))/255, alpha = 0.3),
+    ##               border=rgb(t(col2rgb("white"))/255, alpha = 0.3))
+    ##     ## points(tmp$raw$x, tmp$raw$y, pch = 16, cex = 0.1,
+    ##     ##        col = rgb(t(col2rgb("grey80"))/255, alpha = 0.6))
+    ##     box(lwd=1.5)
+    ## }
+
+    fe <- data.frame(summary(fit$fits[[1]]$pModels[[1]])$p.table)
+    colnames(fe) =  c('value', 'se', 't', 'p')
+    fe$lo <- fe$value - 1.96 * fe$se
+    fe$up <- fe$value + 1.96 * fe$se
+
+    par(mfrow = c(1,1), mar = c(5,5,4,2))
+    labs <- sapply(strsplit(rownames(fe)[-1],"Gear"),"[[",2)
+    all.gears <- unique(specfit$data$Gear)
+    labs <- c(as.character(all.gears[!all.gears %in% labs]), labs)
+    ylim <- range(fe$lo, fe$up)
+    if(ylim[1] < 0) ylim <- c(1.1,1.1) * ylim else ylim <- c(0.9,1.1) * ylim
+    bp <- barplot(fe$value, ylim = ylim)
+    arrows(bp,fe$lo, bp, fe$up , angle=90, code=3, lengt = 0.1)
+    axis(1, at = bp, labels = labs)
+    mtext("Gears", 1, 3)
+    mtext("Effect", 2, 3)
+
+    ## ind <- which(gamTerms == "ctime")
+    ## if(length(ind) > 0){
+    ##     tmp <- plotInfo[[ind]]
+    ##     tmp$lo <- tmp$fit - 1.95 * tmp$se
+    ##     tmp$up <- tmp$fit + 1.95 * tmp$se
+    ##     plot(tmp$x, tmp$fit, ty = "n",
+    ##          ylim = range(tmp$fit, tmp$lo, tmp$up), ## tmp$p.resid
+    ##          xlab = tmp$xlab, ylab = tmp$ylab)
+    ##     polygon(c(tmp$x, rev(tmp$x)), c(tmp$lo, rev(tmp$up)),
+    ##             border = NA, col = rgb(t(col2rgb(cols[1]))/255, alpha = 0.3))
+    ##     ## points(tmp$raw, tmp$p.resid, pch = 16, cex = 0.1,
+    ##     ##        col = rgb(t(col2rgb("grey80"))/255, alpha = 0.6))
+    ##     lines(tmp$x, tmp$fit, col = cols[1], lwd = 2)
+    ##     rug(tmp$raw)
+    ##     box(lwd=1.5)
+    ## }
+
+    ind <- which(gamTerms == "Depth" | gamTerms == "sqrt(Depth)")
     if(length(ind) > 0){
         tmp <- plotInfo[[ind]]
-        tmp$lo <- tmp$fit - 1.95 * tmp$se
-        tmp$up <- tmp$fit + 1.95 * tmp$se
-        fitmat <- matrix(tmp$fit, nrow = length(tmp$x), ncol = length(tmp$y))
-        if(is.null(xlim)) xlim <- range(tmp$x)
-        if(is.null(ylim)) ylim <- range(tmp$y)
-        image(tmp$x, tmp$y, fitmat,
-              xlab = tmp$xlab, ylab = tmp$ylab,
-              xlim = xlim, ylim = ylim)
-        contour(tmp$x, tmp$y, fitmat, add = TRUE)
-        maps::map('world',xlim=xlim,ylim=ylim,
-                  fill=TRUE,plot=TRUE,add=TRUE,
-                  col=rgb(t(col2rgb("grey70"))/255, alpha = 0.3),
-                  border=rgb(t(col2rgb("white"))/255, alpha = 0.3))
-        ## points(tmp$raw$x, tmp$raw$y, pch = 16, cex = 0.1,
-        ##        col = rgb(t(col2rgb("grey80"))/255, alpha = 0.6))
-        box(lwd=1.5)
-    }
-
-    ind <- which(gamTerms == "ctime")
-    if(length(ind) > 0){
-        tmp <- plotInfo[[2]]
-        tmp$lo <- tmp$fit - 1.95 * tmp$se
-        tmp$up <- tmp$fit + 1.95 * tmp$se
-        plot(tmp$x, tmp$fit, ty = "n",
-             ylim = range(tmp$fit, tmp$lo, tmp$up), ## tmp$p.resid
-             xlab = tmp$xlab, ylab = tmp$ylab)
-        polygon(c(tmp$x, rev(tmp$x)), c(tmp$lo, rev(tmp$up)),
-                border = NA, col = rgb(t(col2rgb(cols[1]))/255, alpha = 0.3))
-        ## points(tmp$raw, tmp$p.resid, pch = 16, cex = 0.1,
-        ##        col = rgb(t(col2rgb("grey80"))/255, alpha = 0.6))
-        lines(tmp$x, tmp$fit, col = cols[1], lwd = 2)
-        rug(tmp$raw)
-        box(lwd=1.5)
-    }
-
-    ind <- which(gamTerms == "Depth")
-    if(length(ind) > 0){
-        tmp <- plotInfo[[5]]
         tmp$lo <- tmp$fit - 1.95 * tmp$se
         tmp$up <- tmp$fit + 1.95 * tmp$se
         plot(tmp$x, tmp$fit, ty = "n",

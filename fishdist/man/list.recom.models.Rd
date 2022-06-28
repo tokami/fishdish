@@ -8,6 +8,7 @@ list.recom.models(
   specdata,
   use.toy = TRUE,
   use.swept.area = TRUE,
+  use.sqrt.depth = FALSE,
   dim.lat.lon = 256,
   dim.ctime = "nyears",
   dim.ctime.lat.lon = c("nyears", 10),

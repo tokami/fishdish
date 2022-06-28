@@ -130,6 +130,7 @@ get.info.surveys <- function(survey=NULL, statrec = FALSE, plot = TRUE){
 list.recom.models <- function(specdata,
                               use.toy = TRUE,
                               use.swept.area = TRUE,
+                              use.sqrt.depth = FALSE,
                               dim.lat.lon = 256,
                               dim.ctime = "nyears",
                               dim.ctime.lat.lon = c("nyears",10),
@@ -151,7 +152,11 @@ list.recom.models <- function(specdata,
     timeOfYearLatLon <- paste0("te(timeOfYear, lon, lat, d=c(1,2), bs=c('cc','ds'), k=c(",
                                dim.timeOfYear.lat.lon[1],",",
                                dim.timeOfYear.lat.lon[2],"), m=list(c(1,0), c(1,0.5)))")
-    depth <- "s(sqrt(Depth), bs='ds', k=5, m=c(1,0))"
+    if(use.sqrt.depth){
+        depth <- "s(sqrt(Depth), bs='ds', k=5, m=c(1,0))"
+    }else{
+        depth <- "s(Depth, bs='ds', k=5, m=c(1,0))"
+    }
     ship <- "s(ShipG, bs='re')" ## might be dangerous to include, omitted for now! TEST:
     gear <- "Gear"
     offset.var <- ifelse(use.swept.area, "SweptArea", "HaulDur")
@@ -166,7 +171,7 @@ list.recom.models <- function(specdata,
 
 
     ## all
-    mps <- list(paste(mm,collapse=' + '))
+    mps <- list(paste(mm[mSel],collapse=' + '))
     ## keep all terms, reduce k
     if(mSel[3]){
         ctimeLatLon <- paste0("ti(ctime, lon, lat, d=c(1,2), bs=c('ds','ds'), k=c(",
@@ -179,6 +184,27 @@ list.recom.models <- function(specdata,
         mps <- append(mps,paste(c(latLon, ctime, ctimeLatLon, timeOfYearLatLon, gear, depth, offset)[mSel],
                                 collapse=' + '))
     }
+
+    ## ## no ship, if exist
+    ## if(mSel[6]){
+    ##     mSel[6] <- FALSE
+    ##     mps <- append(mps,paste(mm[mSel],collapse=' + '))
+    ## }
+    ## ## no gear, if exist
+    ## if(mSel[5]){
+    ##     mSel[5] <- FALSE
+    ##     mps <- append(mps,paste(mm[mSel],collapse=' + '))
+    ## }
+    ## ## no timeOfYear, if exist
+    ## if(mSel[3]){
+    ##     mSel[3] <- FALSE
+    ##     mps <- append(mps,paste(mm[mSel],collapse=' + '))
+    ## }
+    ## no toy, if exists
+    ## if(mSel[4]){
+    ##     mSel[4] <- FALSE
+    ##     mps <- append(mps,paste(mm[mSel],collapse=' + '))
+    ## }
 
     return(mps)
 }
@@ -306,6 +332,8 @@ pred.statrec <- function(data, tol = 0.00001, verbose = TRUE, dbg = 0){
     if(dbg > 0){
         datain$sub_lon <- NA
         datain$sub_lat <- NA
+        datain$stat_lon <- NA
+        datain$stat_lat <- NA
     }
 
     ind.na <- which(is.na(datain$StatRec))
@@ -325,6 +353,8 @@ pred.statrec <- function(data, tol = 0.00001, verbose = TRUE, dbg = 0){
                 if(dbg > 0){
                     datain$sub_lon[ind.na[i]] <- ices.rectangles$sub_x[ind]
                     datain$sub_lat[ind.na[i]] <- ices.rectangles$sub_y[ind]
+                    datain$stat_lon[ind.na[i]] <- ices.rectangles$stat_x[ind]
+                    datain$stat_lat[ind.na[i]] <- ices.rectangles$stat_y[ind]
                 }
             }
         }

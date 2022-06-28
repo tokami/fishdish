@@ -138,8 +138,8 @@ prep.species <- function(data, aphiaID = NULL,
             tmp$obs[is.na(tmp$obs)] <- tmp$all[is.na(tmp$obs)]
             tmp2 <- rle(tmp$obs)
             if(nrow(tmp) > 1 &&
-               (tmp2$lengths[1] == 1 && tmp2$lengths[2] >= 1) ||
-               (tmp2$lengths[1] == 2 && tmp2$lengths[2] == 1)){
+               (tmp2$lengths[1] == 1 && tmp2$lengths[2] >= 1)){## ||
+               ## (tmp2$lengths[1] == 2 && tmp2$lengths[2] == 1)){  ## this for removing: 2years + next missing
                 rmYears <- c(rmYears, min(tmp$Year))
                 keepYears <- tmp$Year[min(which(tmp$obs == 1)[-1])]
                 survey.spp <- subset(survey.spp, Year >= keepYears)
