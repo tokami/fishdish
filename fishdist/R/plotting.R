@@ -1041,7 +1041,6 @@ plotfdist.gam.effects <- function(fit, mod = 1, xlim = NULL, ylim = NULL){
     cols <- c(RColorBrewer::brewer.pal(n = 8, "Dark2"),
               RColorBrewer::brewer.pal(n = 8, "Accent"))
 
-
     plotInfo <- mgcv::plot.gam(fit$fits[[mod]]$pModels[[1]], select = 0, residuals = TRUE)
 
     gamTerms <- unlist(lapply(plotInfo, function(x) ifelse(!is.null(x$xlab), x$xlab, NA)))
@@ -1069,22 +1068,22 @@ plotfdist.gam.effects <- function(fit, mod = 1, xlim = NULL, ylim = NULL){
     ##     box(lwd=1.5)
     ## }
 
-    ind <- which(gamTerms == "ctime")
-    if(length(ind) > 0){
-        tmp <- plotInfo[[ind]]
-        tmp$lo <- tmp$fit - 1.95 * tmp$se
-        tmp$up <- tmp$fit + 1.95 * tmp$se
-        plot(tmp$x, tmp$fit, ty = "n",
-             ylim = range(tmp$fit, tmp$lo, tmp$up), ## tmp$p.resid
-             xlab = tmp$xlab, ylab = tmp$ylab)
-        polygon(c(tmp$x, rev(tmp$x)), c(tmp$lo, rev(tmp$up)),
-                border = NA, col = rgb(t(col2rgb(cols[1]))/255, alpha = 0.3))
-        ## points(tmp$raw, tmp$p.resid, pch = 16, cex = 0.1,
-        ##        col = rgb(t(col2rgb("grey80"))/255, alpha = 0.6))
-        lines(tmp$x, tmp$fit, col = cols[1], lwd = 2)
-        rug(tmp$raw)
-        box(lwd=1.5)
-    }
+    ## ind <- which(gamTerms == "ctime")
+    ## if(length(ind) > 0){
+    ##     tmp <- plotInfo[[ind]]
+    ##     tmp$lo <- tmp$fit - 1.95 * tmp$se
+    ##     tmp$up <- tmp$fit + 1.95 * tmp$se
+    ##     plot(tmp$x, tmp$fit, ty = "n",
+    ##          ylim = range(tmp$fit, tmp$lo, tmp$up), ## tmp$p.resid
+    ##          xlab = tmp$xlab, ylab = tmp$ylab)
+    ##     polygon(c(tmp$x, rev(tmp$x)), c(tmp$lo, rev(tmp$up)),
+    ##             border = NA, col = rgb(t(col2rgb(cols[1]))/255, alpha = 0.3))
+    ##     ## points(tmp$raw, tmp$p.resid, pch = 16, cex = 0.1,
+    ##     ##        col = rgb(t(col2rgb("grey80"))/255, alpha = 0.6))
+    ##     lines(tmp$x, tmp$fit, col = cols[1], lwd = 2)
+    ##     rug(tmp$raw)
+    ##     box(lwd=1.5)
+    ## }
 
     ind <- which(gamTerms == "Depth" | gamTerms == "sqrt(Depth)")
     if(length(ind) > 0){
@@ -1123,26 +1122,48 @@ plotfdist.gam.effects.gear <- function(fit, mod = 1, xlim = NULL, ylim = NULL,
     cols <- rep(c(RColorBrewer::brewer.pal(n = 8, "Dark2"),
               RColorBrewer::brewer.pal(n = 8, "Accent")),50)
 
+    sel <- grep("Gear",names(coef(fit$fits[[1]]$pModels[[1]])))
+    vals <- exp(coef(fit$fits[[1]]$pModels[[1]])[sel])
+    if(length(levels(fit$data[,"Gear"])) > length(vals)){
+        vals <- c(1, vals)
+    }
+    names(vals) <- levels(fit$data[,"Gear"])
 
-    zscore <- qnorm(CI + (1 - CI)/2)
-    fe <- data.frame(summary(fit$fits[[1]]$pModels[[1]])$p.table)[,c(1,2)]
-    colnames(fe) =  c('value', 'se')
-    fe[1,] <- c(0,0)
-    fe$lo <- fe$value - fe$se
-    fe$up <- fe$value + fe$se
-    fe <- exp(fe)
 
     ## par(mfrow = c(1,1), mar = c(5,5,4,2))
-    labs <- sapply(strsplit(rownames(fe)[-1],"Gear"),"[[",2)
-    all.gears <- unique(fit$data$Gear)
-    labs <- c(as.character(all.gears[!all.gears %in% labs]), labs)
-    ylim <- range(0,fe)
-    if(ylim[1] < 0) ylim <- c(1.1,1.1) * ylim else ylim <- c(0.9,1.1) * ylim
-    bp <- barplot(fe$value, ylim = ylim, col = cols[1:nrow(fe)])
-    arrows(bp,fe$lo, bp, fe$up , angle=90, code=3, lengt = 0.1)
-    axis(1, at = bp, labels = labs, las = 2)
+    ylim <- c(0.95,1.05) * range(vals)
+    plot(1:length(vals), vals, ty = "n",
+         xlab = "", ylab = "",
+         xaxt="n",ylim=ylim)
+    abline(h=1, lty=2, lwd = 1.5, col="grey50")
+    points(1:length(vals), vals, pch = 16,
+           cex = 1.2,
+           col = cols[1:length(vals)])
+    axis(1, at = 1:length(vals), labels = names(vals), las = 2)
     mtext("Gears", 3, 0.5, font = 2)
     mtext("Effect", 2, 3)
+    box(lwd=1.5)
+
+    ## This only works for fixed gear effect (not random)
+    ## zscore <- qnorm(CI + (1 - CI)/2)
+    ## fe <- data.frame(summary(fit$fits[[1]]$pModels[[1]])$p.table)[,c(1,2)]
+    ## colnames(fe) =  c('value', 'se')
+    ## fe[1,] <- c(0,0)
+    ## fe$lo <- fe$value - fe$se
+    ## fe$up <- fe$value + fe$se
+    ## fe <- exp(fe)
+
+    ## ## par(mfrow = c(1,1), mar = c(5,5,4,2))
+    ## labs <- sapply(strsplit(rownames(fe)[-1],"Gear"),"[[",2)
+    ## all.gears <- unique(fit$data$Gear)
+    ## labs <- c(as.character(all.gears[!all.gears %in% labs]), labs)
+    ## ylim <- range(0,fe)
+    ## if(ylim[1] < 0) ylim <- c(1.1,1.1) * ylim else ylim <- c(0.9,1.1) * ylim
+    ## bp <- barplot(fe$value, ylim = ylim, col = cols[1:nrow(fe)])
+    ## arrows(bp,fe$lo, bp, fe$up , angle=90, code=3, lengt = 0.1)
+    ## axis(1, at = bp, labels = labs, las = 2)
+    ## mtext("Gears", 3, 0.5, font = 2)
+    ## mtext("Effect", 2, 3)
 
 
     return(NULL)
@@ -1181,21 +1202,25 @@ plotfdist.diag <- function(fit, mod = 1){
                                 select = "resVsYear",
                                 par = NULL,
                                 main = "Residuals vs. year")
+        abline(h=0, lty=1, col = "grey30")
     surveyIndex::surveyIdxPlots(fit$fits[[mod]],
                                 fit$data,
                                 select = "resVsShip",
                                 par = NULL,
                                 main = "Residuals vs. Ship")
+        abline(h=0, lty=1, col = "grey30")
     surveyIndex::surveyIdxPlots(fit$fits[[mod]],
                                 fit$data,
                                 select = "resVsGear",
                                 par = NULL,
                                 main = "Residuals vs. Gear")
+        abline(h=0, lty=1, col = "grey30")
     surveyIndex::surveyIdxPlots(fit$fits[[mod]],
                                 fit$data,
                                 select = "resVsDepth",
                                 par = NULL,
                                 main = "Residuals vs. Depth")
+    abline(h=0, lty=1, col = "grey70")
     return(NULL)
 }
 

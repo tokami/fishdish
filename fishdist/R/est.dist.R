@@ -195,7 +195,7 @@ est.dist.one <- function(specdata, mods = NULL, n.lon = 20,
                              ages = 1,
                              myids = myids,
                              predD = predD,
-                             cutOff = 0.01,
+                             cutOff = 0,
                              modelP = mods[[j]],
                              fam = fam,
                              nBoot = nBoot,
@@ -203,7 +203,7 @@ est.dist.one <- function(specdata, mods = NULL, n.lon = 20,
                              mc.cores = 1, ## only parallel over ages
                              predfix = predfix,
                              control = list(trace = verbose,
-                                            maxit = 20),
+                                            maxit = 15),
                              ...
                          ),
             silent = TRUE

@@ -162,7 +162,7 @@ list.recom.models <- function(specdata,
     if(use.random.ship){
         ship <- "s(ShipG, bs='re')" ## might be dangerous to include, omitted for now! TEST:
     }else{
-        ship <- NULL
+        ship <- ""
     }
     if(use.gear.as.fixed){
         gear <- "Gear"
@@ -173,7 +173,7 @@ list.recom.models <- function(specdata,
     offset.var <- ifelse(use.swept.area, "SweptArea", "HaulDur")
     offset <- paste0("offset(log(",offset.var,"))")
 
-    ##        1        2        3               4           5     6      7
+    ##        1        2        3               4           5     6      7,    8
     mm <- c(latLon, ctime, ctimeLatLon, timeOfYearLatLon, gear, ship, depth, offset)
     mSel <- rep(TRUE, length(mm))
     if(!use.random.ship) mSel[6] <- FALSE
@@ -181,19 +181,18 @@ list.recom.models <- function(specdata,
     if(length(unique(specdata$Gear)) == 1)  mSel[5] <- FALSE
     ## if(length(unique(specdata$ShipG)) == 1) mSel[6] <- FALSE
 
-
     ## all
     mps <- list(paste(mm[mSel],collapse=' + '))
     ## keep all terms, reduce k
     if(mSel[3]){
         ctimeLatLon <- paste0("ti(ctime, lon, lat, d=c(1,2), bs=c('ds','ds'), k=c(",
                               dim.ctime.lat.lon[1], ",", 5, "), m=list(c(1,0), c(1,0.5)))")
-        mps <- append(mps,paste(c(latLon, ctime, ctimeLatLon, timeOfYearLatLon, gear, depth, offset)[mSel],
+        mps <- append(mps,paste(c(latLon, ctime, ctimeLatLon, timeOfYearLatLon, gear, ship, depth, offset)[mSel],
                                 collapse=' + '))
     }
     if(mSel[1]){
         latLon <- paste0("s(lon, lat, bs=c('ds'), k=",128,", m=c(1,0.5))")
-        mps <- append(mps,paste(c(latLon, ctime, ctimeLatLon, timeOfYearLatLon, gear, depth, offset)[mSel],
+        mps <- append(mps,paste(c(latLon, ctime, ctimeLatLon, timeOfYearLatLon, gear, ship, depth, offset)[mSel],
                                 collapse=' + '))
     }
 
@@ -784,4 +783,134 @@ get.gear.effect <- function(fit, mod = 1, CI = 0.95){
     fe <- exp(fe)
 
     return(fe)
+}
+
+
+
+#' @name remove.zeros
+#'
+#' @title Remove zeros from data based on presence-absence model with cutoff
+#'
+#' @param data data
+#' @param cutat default: -3
+#' @param plot default TRUE
+#' @param verbose default TRUE
+#' @param response default "bio"
+#'
+#' @author Casper W. Berg
+#'
+#' @export
+remove.zeros <- function(d, cutat=-3, plot=TRUE, verbose=TRUE, response="bio"){
+
+    if(verbose) cat("Doing ",d$AphiaID[1],"\n")
+    if(plot) par(mfrow=c(3,4))
+
+    ## Remove empty levels
+    d$Gear = factor(d$Gear,levels=unique(d$Gear))
+    d$ShipG = factor(d$ShipG,levels=unique(d$ShipG))
+
+
+    d$isPos = d[,response] > 0
+    d$dum = 1
+    system.time( m <- gam( isPos ~ s(Gear,bs='re',by=dum) + s(ShipG,bs='re',by=dum) + s(Depth,bs='ds',m=c(1,0),k=10) + s(lon,bs='ds',m=c(1,0),k=30) + s(lat,bs='ds',m=c(1,0),k=30),data=d,family=binomial) )
+
+
+    getLimits<-function(nam,cutat,plot){
+        lims = range(d[,nam])
+        pd = d[rep(1,200),]
+        pd$lon = median(d$lon)
+        pd$lat = median(d$lat)
+        pd$Depth = median(d$Depth)
+        pd$dum=0
+
+        pd[,nam] = seq(lims[1],lims[2],length.out=200)
+
+        ## Obs, vals includes mean -- need to centralize!
+        vals = predict(m,newdata=pd)
+        vals = vals - mean(vals)
+
+        idxMin = 1
+        while(vals[idxMin] < cutat) idxMin = idxMin +1
+
+        idxMax = 200
+        while(vals[idxMax] < cutat) idxMax = idxMax - 1
+
+        if(plot){
+            plot(pd[,nam],vals,type="l",xlab=nam)
+            abline(v=pd[idxMin,nam],col=2)
+            abline(v=pd[idxMax,nam],col=2)
+            rug(d[,nam])
+        }
+        return(c(min=pd[idxMin,nam],max=pd[idxMax,nam]))
+
+    }
+
+    depthLim = getLimits("Depth",cutat=cutat,plot=plot)
+    lonLim = getLimits("lon",cutat=cutat,plot=plot)
+    latLim = getLimits("lat",cutat=cutat,plot=plot)
+
+    getBadLevels<-function(nam,cutat=cutat,plot){
+
+        sel = grep(nam,names(coef(m)))
+        vals = coef(m)[sel]
+        names(vals) <- levels(d[,nam])
+
+        if(plot){
+            plot(vals)
+            axis(1,at=1:length(vals),labels=names(vals))
+            abline(h=cutat,col=2)
+        }
+        return(names(vals[vals<cutat]))
+    }
+
+    badGears = getBadLevels("Gear",cutat=cutat,plot=plot)
+    badShips = getBadLevels("ShipG",cutat=cutat,plot=plot)
+
+    cat("Bad levels of gear: ",badGears,"\n")
+    cat("Bad levels of ShipG: ",badShips,"\n")
+
+    dsub = d
+    dsub = dsub[ dsub$Depth > depthLim[1],]
+    dsub = dsub[ dsub$Depth < depthLim[2],]
+    dsub = dsub[ dsub$lon > lonLim[1],]
+    dsub = dsub[ dsub$lon < lonLim[2],]
+    dsub = dsub[ dsub$lat > latLim[1],]
+    dsub = dsub[ dsub$lat < latLim[2],]
+    dsub = dsub[ !dsub$Gear %in% badGears, ]
+    dsub = dsub[ !dsub$ShipG %in% badShips, ]
+
+    if(plot){
+        if(length(badGears)>0){
+            sel = which(d$Gear %in% badGears)
+            plot(d$lon[sel],d$lat[sel],pch=16,main="Bad gears",xlim=range(d$lon),ylim=range(d$lat))
+            maps::map("worldHires", fill = TRUE, plot = TRUE,
+                      add = TRUE, col = grey(0.8))
+        }
+
+
+        if(length(badShips)>0){
+            sel = which(d$ShipG %in% badShips)
+            plot(d$lon[sel],d$lat[sel],pch=16,main="Bad ships",xlim=range(d$lon),ylim=range(d$lat))
+            maps::map("worldHires", fill = TRUE, plot = TRUE,
+                      add = TRUE, col = grey(0.8))
+        }
+    }
+
+    cat("Before:",nrow(d), " After:",nrow(dsub),"\n")
+
+    if(plot){
+        avgb = max(sqrt(d$bio/d$SweptArea))
+        plot(d$lon,d$lat,cex=sqrt(d$bio/d$SweptArea)/(avgb/10),main=paste("Before",nrow(d)))
+        points(d$lon[!d$isPos],d$lat[!d$isPos],pch=".",col=2)
+        maps::map("worldHires", fill = TRUE, plot = TRUE,
+                  add = TRUE, col = grey(0.8))
+
+        plot(dsub$lon,dsub$lat,cex=sqrt(dsub$bio/dsub$SweptArea)/(avgb/10),main=paste("After",nrow(dsub)))
+        points(dsub$lon[!dsub$isPos],dsub$lat[!dsub$isPos],pch=".",col=2)
+        maps::map("worldHires", fill = TRUE, plot = TRUE,
+                  add = TRUE, col = grey(0.8))
+
+        title(paste(d$genus[1],d$family[1]),outer=TRUE)
+    }
+    return(dsub)
 }
