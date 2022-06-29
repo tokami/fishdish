@@ -124,10 +124,11 @@ plotdist <- function(data, plot.survey.dist = TRUE){
 plotfdist.abun <- function(fit, by.area = FALSE, by.eco = FALSE,
                            ylab = "Abundance index",
                            y.scale = 1, fixed.scale = FALSE){
-    if(by.area && by.eco){
 
-        cols <- c(RColorBrewer::brewer.pal(n = 8, "Dark2"),
-                  RColorBrewer::brewer.pal(n = 8, "Accent"))
+    cols <- rep(c(RColorBrewer::brewer.pal(n = 8, "Dark2"),
+                  RColorBrewer::brewer.pal(n = 8, "Accent")),50)
+
+    if(by.area && by.eco){
 
         if(inherits(fit, "data.frame")){
 
@@ -156,8 +157,9 @@ plotfdist.abun <- function(fit, by.area = FALSE, by.eco = FALSE,
             ## par(mfrow = c(neco,1), mar = c(2,2,1,1), oma = c(2,3,2,1))
 
             xlim <- range(fit$year)
-            if(fixed.scale) ylim <- c(0.9,1.1) * range(c(fit$idx, fit$lo, fit$up)) / y.scale
-            xaxt.ind <- c((prod(mfrow) - mfrow[2] + 1):prod(mfrow), ((mfrow[1] - 1) * mfrow[2]):((mfrow[1] - 1) * mfrow[2] - (prod(mfrow) - neco) + 1))
+            if(fixed.scale) ylim <- c(0.99,1.01) * range(c(fit$idx, fit$lo, fit$up)) / y.scale
+            xaxt.ind <- (prod(mfrow) - mfrow[2] + 1):prod(mfrow)
+            if(prod(mfrow) - neco > 0) xaxt.ind <- (min(xaxt.ind) - (prod(mfrow) - neco)):max(xaxt.ind)
             yaxt.ind <- seq(1, prod(mfrow), mfrow[2])
             for(i in 1:neco){
                 eco.ind <- which(ecoregions %in% ecoregions.uni[i])
@@ -166,7 +168,7 @@ plotfdist.abun <- function(fit, by.area = FALSE, by.eco = FALSE,
                 nia <- length(areas.uni)
                 xaxt <- ifelse(i %in% xaxt.ind, "s", "n")
                 ##            yaxt <- ifelse(i %in% yaxt.ind, "s", "n")
-                if(!fixed.scale) ylim <- c(0.9,1.1) * range(c(fit$idx[eco.ind], fit$lo[eco.ind], fit$up[eco.ind])) / y.scale
+                if(!fixed.scale) ylim <- c(0.99,1.01) * range(c(fit$idx[eco.ind], fit$lo[eco.ind], fit$up[eco.ind])) / y.scale
                 plot(xlim, c(1,1), ty = "n",
                      xaxt = xaxt, yaxt = "s",
                      ylim = ylim, xlim = xlim,
@@ -198,6 +200,7 @@ plotfdist.abun <- function(fit, by.area = FALSE, by.eco = FALSE,
             mtext(ylab, 2, 1, outer = TRUE)
 
         }else{
+
         areas <- sapply(fit, function(x) unique(x$grid[[1]]$Area_27))
         ## tail needed because some ices areas spread over multiple ecoregions (e.g. 4a = Faroe, NS, Celtic)
         ecoregions <- sapply(fit, function(x) tail(unique(x$grid[[1]]$Ecoregion),1))
@@ -227,7 +230,8 @@ plotfdist.abun <- function(fit, by.area = FALSE, by.eco = FALSE,
             }else{
                 NA
             }}))), na.rm = TRUE)
-        xaxt.ind <- c((prod(mfrow) - mfrow[2] + 1):prod(mfrow), ((mfrow[1] - 1) * mfrow[2]):((mfrow[1] - 1) * mfrow[2] - (prod(mfrow) - neco) + 1))
+            xaxt.ind <- (prod(mfrow) - mfrow[2] + 1):prod(mfrow)
+            if(prod(mfrow) - neco > 0) xaxt.ind <- (min(xaxt.ind) - (prod(mfrow) - neco)):max(xaxt.ind)
         yaxt.ind <- seq(1, prod(mfrow), mfrow[2])
         for(i in 1:neco){
             ias <- which(ecoregions %in% ecoregions.uni[i])
@@ -275,9 +279,6 @@ plotfdist.abun <- function(fit, by.area = FALSE, by.eco = FALSE,
 
         }else if(by.area){
 
-        cols <- c(RColorBrewer::brewer.pal(n = 8, "Dark2"),
-                  RColorBrewer::brewer.pal(n = 8, "Accent"))
-
         if(inherits(fit, "data.frame")){
 
             fit$year <- as.numeric(as.character(fit$year))
@@ -289,7 +290,11 @@ plotfdist.abun <- function(fit, by.area = FALSE, by.eco = FALSE,
             areas.uni <- unique(areas)
             nareas <- length(areas.uni)
 
-            if(nareas >= 19){
+            if(nareas >= 42){
+                mfrow = c(6,ceiling(nareas/6))
+            }else if(nareas >= 30){
+                mfrow = c(5,ceiling(nareas/5))
+            }else if(nareas >= 19){
                 mfrow = c(4,ceiling(nareas/4))
             }else if(nareas >= 9){
                 mfrow = c(3,ceiling(nareas/3))
@@ -306,11 +311,11 @@ plotfdist.abun <- function(fit, by.area = FALSE, by.eco = FALSE,
 
             xlim <- range(fit$year)
             if(fixed.scale) ylim <- c(0.9,1.1) * range(c(fit$idx, fit$lo, fit$up)) / y.scale
-            xaxt.ind <- c((prod(mfrow) - mfrow[2] + 1):prod(mfrow), ((mfrow[1] - 1) * mfrow[2]):((mfrow[1] - 1) * mfrow[2] - (prod(mfrow) - nareas) + 1))
+            xaxt.ind <- (prod(mfrow) - mfrow[2] + 1):prod(mfrow)
+            if(prod(mfrow) - nareas > 0) xaxt.ind <- (min(xaxt.ind) - (prod(mfrow) - nareas)):max(xaxt.ind)
             yaxt.ind <- seq(1, prod(mfrow), mfrow[2])
             for(i in 1:nareas){
                 ia.ind <- which(areas %in% areas.uni[i])
-                print(ia.ind)
                 xaxt <- ifelse(i %in% xaxt.ind, "s", "n")
                 ##            yaxt <- ifelse(i %in% yaxt.ind, "s", "n")
                 if(!fixed.scale) ylim <- c(0.9,1.1) * range(c(fit$idx[ia.ind], fit$lo[ia.ind], fit$up[ia.ind])) / y.scale
@@ -362,7 +367,8 @@ plotfdist.abun <- function(fit, by.area = FALSE, by.eco = FALSE,
             }else{
                 NA
             }}))), na.rm = TRUE)
-        xaxt.ind <- c((prod(mfrow) - mfrow[2] + 1):prod(mfrow), ((mfrow[1] - 1) * mfrow[2]):((mfrow[1] - 1) * mfrow[2] - (prod(mfrow) - neco) + 1))
+            xaxt.ind <- (prod(mfrow) - mfrow[2] + 1):prod(mfrow)
+            if(prod(mfrow) - neco > 0) xaxt.ind <- (min(xaxt.ind) - (prod(mfrow) - neco)):max(xaxt.ind)
         yaxt.ind <- seq(1, prod(mfrow), mfrow[2])
         for(i in 1:neco){
             ias <- which(ecoregions %in% ecoregions.uni[i])
@@ -466,7 +472,11 @@ plotfdist.dist <- function(fit, mod = NULL, year = NULL,
     grid <- fit$grid[as.character(year)]
     ny <- length(year)
 
-    if(ny >= 19){
+    if(ny >= 42){
+        mfrow = c(6,ceiling(ny/6))
+    }else if(ny >= 30){
+        mfrow = c(5,ceiling(ny/5))
+    }else if(ny >= 19){
         mfrow = c(4,ceiling(ny/4))
     }else if(ny >= 9){
         mfrow = c(3,ceiling(ny/3))
@@ -525,7 +535,7 @@ plotfdist.dist <- function(fit, mod = NULL, year = NULL,
                   ylim = ylimi,
                   fill = TRUE, plot = TRUE, add = TRUE,
                   col = grey(0.95), border = grey(0.8))
-        mtext(year[i], 3, 0.3, font = 2)
+        mtext(year[i], 3, 0.3, font = 2, cex = 0.8)
         if ((legend && fixed.scale && i == ny) || legend && !fixed.scale){
             maxcuts = aggregate(predi ~ zFac, FUN=max)
             mincuts = aggregate(predi ~ zFac, FUN=min)
@@ -689,7 +699,8 @@ plotfdist.dist.cv <- function(fit, mod = NULL, year = NULL,
                            xlim = NULL, ylim = NULL,
                            legend = TRUE, fixed.scale = TRUE,
                            cols = cm.colors(7)[-1], breaks = NULL,
-                           plot.obs = TRUE){
+                           plot.obs = 2   ## 0 = no hauls, 1 = all hauls, 2 = all pos hauls
+                           ){
 
 
 
@@ -697,7 +708,11 @@ plotfdist.dist.cv <- function(fit, mod = NULL, year = NULL,
     grid <- fit$grid[as.character(year)]
     ny <- length(year)
 
-    if(ny >= 19){
+    if(ny >= 42){
+        mfrow = c(6,ceiling(ny/6))
+    }else if(ny >= 30){
+        mfrow = c(5,ceiling(ny/5))
+    }else if(ny >= 19){
         mfrow = c(4,ceiling(ny/4))
     }else if(ny >= 9){
         mfrow = c(3,ceiling(ny/3))
@@ -735,6 +750,11 @@ plotfdist.dist.cv <- function(fit, mod = NULL, year = NULL,
         }
     }
 
+    if(plot.obs == 2){
+        obs <- fit$data[which(fit$data$bio > 0),]
+    }else{
+        obs <- fit$data
+    }
     for(i in 1:ny){
         if(!fixed.scale){
             predi <- pred[[i]][,1]
@@ -762,8 +782,9 @@ plotfdist.dist.cv <- function(fit, mod = NULL, year = NULL,
                   ylim = ylimi,
                   fill = TRUE, plot = TRUE, add = TRUE,
                   col = grey(0.95), border = grey(0.8))
-        ind <- which(as.character(fit$data$Year) == year[i])
-        if(plot.obs) points(fit$data$lon[ind], fit$data$lat[ind], col = 1, cex = 0.3, pch = 16)
+        ind <- which(as.character(obs$Year) == year[i])
+        if(plot.obs %in% c(1,2)) points(obs$lon[ind], obs$lat[ind], col = rgb(t(col2rgb("black"))/255,alpha = 1),
+                            cex = 0.3, pch = 16)
         mtext(year[i], 3, 0.3, font = 2)
         if (is.null(breaks) && ((legend && fixed.scale && i == ny) || legend && !fixed.scale)){
             maxcuts = aggregate(predi ~ zFac, FUN=max)
@@ -834,7 +855,10 @@ plotfdist.dist.year <- function(fit, mod = NULL, var.lim = FALSE, all.years = TR
         years <- years0
         ny <- length(years)
         ny1 <- ny + 1
-        if(ny1 >= 19){
+        print(ny1)
+        if(ny1 >= 30){
+            mfrow = c(5,ceiling(ny1/5))
+        }else if(ny1 >= 19){
             mfrow = c(4,ceiling(ny1/4))
         }else if(ny1 >= 9){
             mfrow = c(3,ceiling(ny1/3))
@@ -1018,11 +1042,11 @@ plotfdist.gam.effects <- function(fit, mod = 1, xlim = NULL, ylim = NULL){
               RColorBrewer::brewer.pal(n = 8, "Accent"))
 
 
-    ## plotInfo <- mgcv::plot.gam(fit$fits[[mod]]$pModels[[1]], select = 0, residuals = TRUE)
+    plotInfo <- mgcv::plot.gam(fit$fits[[mod]]$pModels[[1]], select = 0, residuals = TRUE)
 
-    ## gamTerms <- unlist(lapply(plotInfo, function(x) ifelse(!is.null(x$xlab), x$xlab, NA)))
+    gamTerms <- unlist(lapply(plotInfo, function(x) ifelse(!is.null(x$xlab), x$xlab, NA)))
 
-    par(mfrow = c(1,2))
+    par(mfrow = c(1,1))  ## HERE:
 
     ## ind <- which(gamTerms == "lon")
     ## if(length(ind) > 0){
@@ -1045,45 +1069,22 @@ plotfdist.gam.effects <- function(fit, mod = 1, xlim = NULL, ylim = NULL){
     ##     box(lwd=1.5)
     ## }
 
-    browser()
-
-    ## TODO: effect of missing gear is 0
-    ## TODO: take exp! (or even better account for link function)
-
-    fe <- exp(data.frame(summary(fit$fits[[1]]$pModels[[1]])$p.table)[,c(1,2)])
-    colnames(fe) =  c('value', 'se')
-    fe[1,] <- c(0,0)
-    fe$lo <- fe$value - 1.96 * fe$se
-    fe$up <- fe$value + 1.96 * fe$se
-
-    ## par(mfrow = c(1,1), mar = c(5,5,4,2))
-    labs <- sapply(strsplit(rownames(fe)[-1],"Gear"),"[[",2)
-    all.gears <- unique(fit$data$Gear)
-    labs <- c(as.character(all.gears[!all.gears %in% labs]), labs)
-    ylim <- range(0,fe$lo, fe$up)
-    if(ylim[1] < 0) ylim <- c(1.1,1.1) * ylim else ylim <- c(0.9,1.1) * ylim
-    bp <- barplot(fe$value, ylim = ylim, col = cols[1:length(fe$value)])
-    arrows(bp,fe$lo, bp, fe$up , angle=90, code=3, lengt = 0.1)
-    axis(1, at = bp, labels = labs)
-    mtext("Gears", 1, 3)
-    mtext("Effect", 2, 3)
-
-    ## ind <- which(gamTerms == "ctime")
-    ## if(length(ind) > 0){
-    ##     tmp <- plotInfo[[ind]]
-    ##     tmp$lo <- tmp$fit - 1.95 * tmp$se
-    ##     tmp$up <- tmp$fit + 1.95 * tmp$se
-    ##     plot(tmp$x, tmp$fit, ty = "n",
-    ##          ylim = range(tmp$fit, tmp$lo, tmp$up), ## tmp$p.resid
-    ##          xlab = tmp$xlab, ylab = tmp$ylab)
-    ##     polygon(c(tmp$x, rev(tmp$x)), c(tmp$lo, rev(tmp$up)),
-    ##             border = NA, col = rgb(t(col2rgb(cols[1]))/255, alpha = 0.3))
-    ##     ## points(tmp$raw, tmp$p.resid, pch = 16, cex = 0.1,
-    ##     ##        col = rgb(t(col2rgb("grey80"))/255, alpha = 0.6))
-    ##     lines(tmp$x, tmp$fit, col = cols[1], lwd = 2)
-    ##     rug(tmp$raw)
-    ##     box(lwd=1.5)
-    ## }
+    ind <- which(gamTerms == "ctime")
+    if(length(ind) > 0){
+        tmp <- plotInfo[[ind]]
+        tmp$lo <- tmp$fit - 1.95 * tmp$se
+        tmp$up <- tmp$fit + 1.95 * tmp$se
+        plot(tmp$x, tmp$fit, ty = "n",
+             ylim = range(tmp$fit, tmp$lo, tmp$up), ## tmp$p.resid
+             xlab = tmp$xlab, ylab = tmp$ylab)
+        polygon(c(tmp$x, rev(tmp$x)), c(tmp$lo, rev(tmp$up)),
+                border = NA, col = rgb(t(col2rgb(cols[1]))/255, alpha = 0.3))
+        ## points(tmp$raw, tmp$p.resid, pch = 16, cex = 0.1,
+        ##        col = rgb(t(col2rgb("grey80"))/255, alpha = 0.6))
+        lines(tmp$x, tmp$fit, col = cols[1], lwd = 2)
+        rug(tmp$raw)
+        box(lwd=1.5)
+    }
 
     ind <- which(gamTerms == "Depth" | gamTerms == "sqrt(Depth)")
     if(length(ind) > 0){
@@ -1102,6 +1103,51 @@ plotfdist.gam.effects <- function(fit, mod = 1, xlim = NULL, ylim = NULL){
         box(lwd=1.5)
     }
 }
+
+
+#' @name plotfdist.gam.effects.gear
+#'
+#' @title plot gam effects
+#'
+#' @param fit fit
+#' @param mod Select one of the models. Default: 1
+#'
+#' @importFrom mgcv plot.gam
+#'
+#' @return Nothing
+#'
+#' @export
+plotfdist.gam.effects.gear <- function(fit, mod = 1, xlim = NULL, ylim = NULL,
+                                       CI = 0.95){
+
+    cols <- rep(c(RColorBrewer::brewer.pal(n = 8, "Dark2"),
+              RColorBrewer::brewer.pal(n = 8, "Accent")),50)
+
+
+    zscore <- qnorm(CI + (1 - CI)/2)
+    fe <- data.frame(summary(fit$fits[[1]]$pModels[[1]])$p.table)[,c(1,2)]
+    colnames(fe) =  c('value', 'se')
+    fe[1,] <- c(0,0)
+    fe$lo <- fe$value - fe$se
+    fe$up <- fe$value + fe$se
+    fe <- exp(fe)
+
+    ## par(mfrow = c(1,1), mar = c(5,5,4,2))
+    labs <- sapply(strsplit(rownames(fe)[-1],"Gear"),"[[",2)
+    all.gears <- unique(fit$data$Gear)
+    labs <- c(as.character(all.gears[!all.gears %in% labs]), labs)
+    ylim <- range(0,fe)
+    if(ylim[1] < 0) ylim <- c(1.1,1.1) * ylim else ylim <- c(0.9,1.1) * ylim
+    bp <- barplot(fe$value, ylim = ylim, col = cols[1:nrow(fe)])
+    arrows(bp,fe$lo, bp, fe$up , angle=90, code=3, lengt = 0.1)
+    axis(1, at = bp, labels = labs, las = 2)
+    mtext("Gears", 3, 0.5, font = 2)
+    mtext("Effect", 2, 3)
+
+
+    return(NULL)
+}
+
 
 
 #' @name plotfdist.diag

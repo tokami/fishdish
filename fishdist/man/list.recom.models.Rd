@@ -9,6 +9,8 @@ list.recom.models(
   use.toy = TRUE,
   use.swept.area = TRUE,
   use.sqrt.depth = FALSE,
+  use.gear.as.fixed = FALSE,
+  use.random.ship = FALSE,
   dim.lat.lon = 256,
   dim.ctime = "nyears",
   dim.ctime.lat.lon = c("nyears", 10),

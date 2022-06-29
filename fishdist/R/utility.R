@@ -131,6 +131,8 @@ list.recom.models <- function(specdata,
                               use.toy = TRUE,
                               use.swept.area = TRUE,
                               use.sqrt.depth = FALSE,
+                              use.gear.as.fixed = FALSE,
+                              use.random.ship = FALSE,
                               dim.lat.lon = 256,
                               dim.ctime = "nyears",
                               dim.ctime.lat.lon = c("nyears",10),
@@ -157,14 +159,24 @@ list.recom.models <- function(specdata,
     }else{
         depth <- "s(Depth, bs='ds', k=5, m=c(1,0))"
     }
-    ship <- "s(ShipG, bs='re')" ## might be dangerous to include, omitted for now! TEST:
-    gear <- "Gear"
+    if(use.random.ship){
+        ship <- "s(ShipG, bs='re')" ## might be dangerous to include, omitted for now! TEST:
+    }else{
+        ship <- NULL
+    }
+    if(use.gear.as.fixed){
+        gear <- "Gear"
+    }else{
+        gear <- "s(Gear, bs='re')"
+    }
+
     offset.var <- ifelse(use.swept.area, "SweptArea", "HaulDur")
     offset <- paste0("offset(log(",offset.var,"))")
 
     ##        1        2        3               4           5     6      7
-    mm <- c(latLon, ctime, ctimeLatLon, timeOfYearLatLon, gear, depth, offset)
+    mm <- c(latLon, ctime, ctimeLatLon, timeOfYearLatLon, gear, ship, depth, offset)
     mSel <- rep(TRUE, length(mm))
+    if(!use.random.ship) mSel[6] <- FALSE
     if (!use.toy) mSel[4] <- FALSE
     if(length(unique(specdata$Gear)) == 1)  mSel[5] <- FALSE
     ## if(length(unique(specdata$ShipG)) == 1) mSel[6] <- FALSE
@@ -747,4 +759,29 @@ subset.fdist.prepped <- function(x, subset){
     res <- list(survey0 = survey0, survey = survey)
     class(res) <- c("fdist.prepped","list")
     return(res)
+}
+
+
+
+
+#' @name get.gear.effect
+#'
+#' @title Subset
+#'
+#' @param fit fit
+#' @param mod 1
+#' @param CI 0.95
+#'
+#' @export
+get.gear.effect <- function(fit, mod = 1, CI = 0.95){
+
+    zscore <- qnorm(CI + (1 - CI)/2)
+    fe <- data.frame(summary(fit$fits[[1]]$pModels[[1]])$p.table)[,c(1,2)]
+    colnames(fe) =  c('value', 'se')
+    fe[1,] <- c(0,0)
+    fe$lo <- fe$value - fe$se
+    fe$up <- fe$value + fe$se
+    fe <- exp(fe)
+
+    return(fe)
 }

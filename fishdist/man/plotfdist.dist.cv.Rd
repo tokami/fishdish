@@ -14,7 +14,7 @@ plotfdist.dist.cv(
   fixed.scale = TRUE,
   cols = cm.colors(7)[-1],
   breaks = NULL,
-  plot.obs = TRUE
+  plot.obs = 2
 )
 }
 \arguments{
