@@ -6,6 +6,7 @@
 #' @param aphiaID required (single species or vector of species)
 #' @param use.gear.cat = TRUE
 #' @param remove.fragmented.years = TRUE
+#' @param max.depth Maximum depth to inclde (default 1000m)
 #' @param min.gears = 1
 #' @param min.surveys = 1
 #' @param min.hauls = 1
@@ -18,9 +19,9 @@
 prep.species <- function(data, aphiaID = NULL,
                          use.gear.cat = TRUE,
                          remove.fragmented.years = TRUE,
+                         max.depth = 1000,
                          min.gears = 0, min.surveys = 0, min.hauls = 0, min.ship.gear = 0,
                          verbose = TRUE){
-
     ## Check validity of data
     ## ------------------
     if(!inherits(data,"fdist.prepped") || !all(c("survey0","survey") %in% names(data)))
@@ -53,8 +54,10 @@ prep.species <- function(data, aphiaID = NULL,
     ## --------------------------------------
     ## Use Gear category rather than many individual gears
     if(use.gear.cat){
-        survey.spp$Gear <- as.factor(survey.spp$GearCat)
-        survey0$Gear <- as.factor(survey0$GearCat)
+        survey.spp$GearOri <- factor(survey.spp$Gear)
+        survey0$GearOri <- factor(survey0$Gear)
+        survey.spp$Gear <- factor(survey.spp$GearCat)
+        survey0$Gear <- factor(survey0$GearCat)
         survey.spp$ShipG <- factor(paste0(survey.spp$Ship,":",survey.spp$GearCat))
         survey0$ShipG <- factor(paste0(survey0$Ship,":",survey0$GearCat))
     }
@@ -72,6 +75,9 @@ prep.species <- function(data, aphiaID = NULL,
                      by = list(Gear = survey.spp$Gear[survey.spp$N > 0]),
                      function(x) length(unique(x)))
     gears.keep <- as.character(tmp$Gear[tmp$haul.id >= min.gears])
+    colnames(tmp) <- c("Gear","#hauls")
+    if(verbose) print(tmp)
+
     ## Surveys
     ## --------------
     if(verbose){
@@ -85,16 +91,26 @@ prep.species <- function(data, aphiaID = NULL,
                      by = list(Survey = survey.spp$Survey[survey.spp$N > 0]),
                      function(x) length(unique(x)))
     surveys.keep <- as.character(tmp$Survey[tmp$haul.id >= min.surveys])
-    ## Check Ship-Gear
+    colnames(tmp) <- c("Gear","#surveys")
+    if(verbose) print(tmp)
+
+    ## Ship-Gear
     ## --------------
     tmp <- aggregate(list(haul.id = survey.spp$haul.id[survey.spp$N > 0]),
                      by = list(ShipG = survey.spp$ShipG[survey.spp$N > 0]),
                      function(x) length(unique(x)))
     shipgear.keep <- as.character(tmp$ShipG[tmp$haul.id >= min.ship.gear])
+    colnames(tmp) <- c("Gear","#shipG")
+    if(verbose) print(tmp)
+
+    ## Depth
+    ## --------------
+    if(is.null(max.depth) || is.na(max.depth)) max.depth <- max(c(survey0$Depth,survey.spp$Depth), na.rm = TRUE)
 
     ## Realized habitat of species category
     ## --------------------------------------
     ## only keep ices squares where species category is present
+    ## TODO: make this an arugment or separate function that can be called to plot and select
     ices.keep <- sort(unique(survey.spp$StatRec))  ## CHECK: that no StatRec with N=0 are in survey.spp
     ## NEW: make argument or only use this?
     ## TODO: make check that Area_27 is included!!
@@ -103,14 +119,18 @@ prep.species <- function(data, aphiaID = NULL,
 
     ## Apply selections to both data sets
     ## --------------------------------------
-    survey.spp <- subset(survey.spp, Area_27 %in% ices.keep &
-                                     Gear %in% gears.keep &
-                                     ShipG %in% shipgear.keep &
-                                     Survey %in% surveys.keep)
-    survey0 <- subset(survey0, Area_27 %in% ices.keep &
-                               Gear %in% gears.keep &
-                               ShipG %in% shipgear.keep &
-                               Survey %in% surveys.keep)
+    survey.spp <- subset(survey.spp,
+                         Area_27 %in% ices.keep &
+                         Gear %in% gears.keep &
+                         ShipG %in% shipgear.keep &
+                         Survey %in% surveys.keep &
+                         Depth <= max.depth)
+    survey0 <- subset(survey0,
+                      Area_27 %in% ices.keep &
+                      Gear %in% gears.keep &
+                      ShipG %in% shipgear.keep &
+                      Survey %in% surveys.keep &
+                      Depth <= max.depth)
 
 
     ## Remove years before first occurrence
@@ -235,14 +255,18 @@ prep.species <- function(data, aphiaID = NULL,
     ices.keep <- sort(unique(survey.spp$Area_27))
     ## Apply selections to both data sets
     ## -------------
-    survey.spp <- subset(survey.spp, Area_27 %in% ices.keep &
-                                     Gear %in% gears.keep &
-                                     ShipG %in% shipgear.keep &
-                                     Survey %in% surveys.keep)
-    survey0 <- subset(survey0, Area_27 %in% ices.keep &
-                               Gear %in% gears.keep &
-                               ShipG %in% shipgear.keep &
-                               Survey %in% surveys.keep)
+    survey.spp <- subset(survey.spp,
+                         Area_27 %in% ices.keep &
+                         Gear %in% gears.keep &
+                         ShipG %in% shipgear.keep &
+                         Survey %in% surveys.keep &
+                         Depth <= max.depth)
+    survey0 <- subset(survey0,
+                      Area_27 %in% ices.keep &
+                      Gear %in% gears.keep &
+                      ShipG %in% shipgear.keep &
+                      Survey %in% surveys.keep &
+                      Depth <= max.depth)
 
     ## print(cbind(aggregate(list(StatRec = survey.spp$StatRec),
     ##                       by = list(year = survey.spp$Year),
@@ -269,7 +293,7 @@ prep.species <- function(data, aphiaID = NULL,
         aphiaID <- unique(survey.spp$AphiaID)
     }
     survey.spp2$AphiaID <- paste0(aphiaID, collapse = ",")
-    survey.spp2$scientificname <- paste0(unique(survey.spp$sceintificname), collapse = ",")
+    survey.spp2$scientificname <- paste0(unique(survey.spp$scientificname), collapse = ",")
     survey.spp2$genus <- paste0(unique(survey.spp$genus), collapse = ",")
     survey.spp2$family <- paste0(unique(survey.spp$family), collapse = ",")
     survey.spp2$order <- paste0(unique(survey.spp$order), collapse = ",")
@@ -349,8 +373,17 @@ prep.species <- function(data, aphiaID = NULL,
     nHaulsTot <- length(unique(survey.spp$haul.id))
     if(verbose) writeLines(paste("Number of hauls total: ", nHaulsTot, sep = "\t\t\t\t\t\t\t\t\t\t\t"))
 
+    ## Check variables
     if(any(colnames(survey.spp) != "haul.id")) colnames(survey.spp)[colnames(survey.spp) == "HaulID"] <- "haul.id"
     if(!inherits(survey.spp$Year, "factor")) survey.spp$Year <- as.factor(survey.spp$Year)
+
+    ## Drop levels for all factors
+    ind <- which(sapply(survey.spp, is.factor))
+    if(length(ind) > 0){
+        for(i in 1:length(ind)){
+            survey.spp[,ind[i]] <- droplevels(survey.spp[,ind[i]])
+        }
+    }
 
     ## Return
     ## --------------------------------------

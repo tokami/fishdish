@@ -280,7 +280,7 @@ list.datras.variables.req <- function(swept.area.calculated = TRUE){
     all.variables <- list()
     all.variables[["HH"]] <- c("Survey","Year","Quarter","Country","Ship",
                                "Gear","StNo", "HaulNo","Month","Day","TimeShot",
-                               "HaulDur","lat","lon","StatRec",
+                               "HaulDur","lat","lon","StatRec","DayNight",
                                "Depth","HaulVal", "StdSpecRecCode",
                                "BySpecRecCode","DataType", "SurTemp","BotTemp")
     if(swept.area.calculated){
@@ -772,17 +772,30 @@ subset.fdist.prepped <- function(x, subset){
 #' @param CI 0.95
 #'
 #' @export
-get.gear.effect <- function(fit, mod = 1, CI = 0.95){
+get.gear.effect <- function(fit, mod = 1, CI = 0.95, var = "Gear", exp = TRUE){
 
-    zscore <- qnorm(CI + (1 - CI)/2)
-    fe <- data.frame(summary(fit$fits[[1]]$pModels[[1]])$p.table)[,c(1,2)]
-    colnames(fe) =  c('value', 'se')
-    fe[1,] <- c(0,0)
-    fe$lo <- fe$value - fe$se
-    fe$up <- fe$value + fe$se
-    fe <- exp(fe)
+    ## zscore <- qnorm(CI + (1 - CI)/2)
+    ## fe <- data.frame(summary(fit$fits[[1]]$pModels[[1]])$p.table)[,c(1,2)]
+    ## colnames(fe) =  c('value', 'se')
+    ## fe[1,] <- c(0,0)
+    ## fe$lo <- fe$value - fe$se
+    ## fe$up <- fe$value + fe$se
+    ## fe <- exp(fe)
 
-    return(fe)
+    sel <- grep(var,names(coef(fit$fits[[1]]$pModels[[1]])))
+    vals <- coef(fit$fits[[1]]$pModels[[1]])[sel]
+    if(exp) vals <- exp(vals)
+    sds <- sqrt(diag(vcov(fit$fits[[1]]$pModels[[1]])[sel,sel]))
+    ## HERE:
+    if(length(levels(droplevels(fit$data[,var]))) > length(vals)){
+        vals <- c(1, vals)
+        sds <- c(NA, sds)
+    }
+    res <- as.data.frame(cbind(vals, sds))
+    colnames(res) <- c("mean", "sd")
+    rownames(res) <- levels(droplevels(fit$data[,var]))
+
+    return(res)
 }
 
 

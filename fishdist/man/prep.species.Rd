@@ -9,6 +9,7 @@ prep.species(
   aphiaID = NULL,
   use.gear.cat = TRUE,
   remove.fragmented.years = TRUE,
+  max.depth = 1000,
   min.gears = 0,
   min.surveys = 0,
   min.hauls = 0,
@@ -24,6 +25,8 @@ prep.species(
 \item{use.gear.cat}{= TRUE}
 
 \item{remove.fragmented.years}{= TRUE}
+
+\item{max.depth}{Maximum depth to inclde (default 1000m)}
 
 \item{min.gears}{= 1}
 

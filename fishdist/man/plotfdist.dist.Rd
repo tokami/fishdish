@@ -12,7 +12,8 @@ plotfdist.dist(
   ylim = NULL,
   legend = TRUE,
   fixed.scale = TRUE,
-  cols = rev(heat.colors(8))
+  cols = rev(heat.colors(8)),
+  cut.cv = NULL
 )
 }
 \arguments{

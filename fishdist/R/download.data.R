@@ -96,7 +96,7 @@ download.data <- function(first.year = 1967,
             }
             if(dat.type %in% c("HL","CA")){
                 colnames(dat[[i]])[which(colnames(dat[[i]]) == "Valid_Aphia")] <- "AphiaID"
-                lngt2cm <- c(. = 0.1, `0` = 0.5, `1` = 1, `2` = 2, `5` = 5)[as.character(dat[[i]]$LngtCode)]
+                lngt2cm <- c("." = 0.1, "0" = 0.1, "1" = 1, "2" = 1, "5" = 1)[as.character(dat[[i]]$LngtCode)]
                 dat[[i]]$LngtCm <- lngt2cm * dat[[i]]$LngtClass
             }
             ## Subset required variables

@@ -4,7 +4,15 @@
 \alias{plotfdist.gam.effects.gear}
 \title{plot gam effects}
 \usage{
-plotfdist.gam.effects.gear(fit, mod = 1, xlim = NULL, ylim = NULL, CI = 0.95)
+plotfdist.gam.effects.gear(
+  fit,
+  mod = 1,
+  xlim = NULL,
+  ylim = NULL,
+  CI = 0.95,
+  var = "Gear",
+  exp = TRUE
+)
 }
 \arguments{
 \item{fit}{fit}

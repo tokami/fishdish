@@ -466,9 +466,12 @@ plotfdist.abun <- function(fit, by.area = FALSE, by.eco = FALSE,
 #' @export
 plotfdist.dist <- function(fit, mod = NULL, year = NULL,
                            xlim = NULL, ylim = NULL,
-                           legend = TRUE, fixed.scale = TRUE, cols = rev(heat.colors(8))){
+                           legend = TRUE, fixed.scale = TRUE,
+                           cols = rev(heat.colors(8)),
+                           cut.cv = NULL){
 
     pred <- fit$fits[[mod]]$gPreds2[[1]][as.character(year)]
+    cv <- fit$fits[[mod]]$gPreds2.CV[[1]][as.character(year)]
     grid <- fit$grid[as.character(year)]
     ny <- length(year)
 
@@ -516,6 +519,9 @@ plotfdist.dist <- function(fit, mod = NULL, year = NULL,
             concT <- surveyIndex:::concTransform(log(predi))
             zFac <- cut(concT, 0:length(cols)/length(cols))
             grid[[i]]$pred <- as.numeric(zFac)
+        }
+        if(!is.null(cut.cv)){
+            grid[[i]]$pred[which(cv[[i]] > cut.cv)] <- NA
         }
         tmp <- reshape2::acast(grid[[i]], lon~lat, value.var = "pred")
         range(as.numeric(zFac))
@@ -785,7 +791,7 @@ plotfdist.dist.cv <- function(fit, mod = NULL, year = NULL,
         ind <- which(as.character(obs$Year) == year[i])
         if(plot.obs %in% c(1,2)) points(obs$lon[ind], obs$lat[ind], col = rgb(t(col2rgb("black"))/255,alpha = 1),
                             cex = 0.3, pch = 16)
-        mtext(year[i], 3, 0.3, font = 2)
+        mtext(year[i], 3, 0.3, font = 2, cex = 0.8)
         if (is.null(breaks) && ((legend && fixed.scale && i == ny) || legend && !fixed.scale)){
             maxcuts = aggregate(predi ~ zFac, FUN=max)
             mincuts = aggregate(predi ~ zFac, FUN=min)
@@ -1117,31 +1123,67 @@ plotfdist.gam.effects <- function(fit, mod = 1, xlim = NULL, ylim = NULL){
 #'
 #' @export
 plotfdist.gam.effects.gear <- function(fit, mod = 1, xlim = NULL, ylim = NULL,
-                                       CI = 0.95){
+                                       CI = 0.95, var = "Gear", exp = TRUE){
 
     cols <- rep(c(RColorBrewer::brewer.pal(n = 8, "Dark2"),
-              RColorBrewer::brewer.pal(n = 8, "Accent")),50)
+                  RColorBrewer::brewer.pal(n = 8, "Accent")),50)
 
-    sel <- grep("Gear",names(coef(fit$fits[[1]]$pModels[[1]])))
-    vals <- exp(coef(fit$fits[[1]]$pModels[[1]])[sel])
-    if(length(levels(fit$data[,"Gear"])) > length(vals)){
-        vals <- c(1, vals)
+
+    gear.effs <- get.gear.effect(fit, mod = mod, CI = CI, var = var, exp = exp)
+    vals <- gear.effs[,1]
+    sds <- gear.effs[,2]
+    labs <- rownames(gear.effs)
+    if(var == "ShipG"){
+        ships <- sapply(strsplit(labs,":"),"[[",1)
+        gears <- sapply(strsplit(labs,":"),"[[",2)
+        ## get original gear (not category)
+        tmp <- as.data.frame(cbind(country = as.character(fit$data$Country),
+                                   ship = sapply(strsplit(fit$data$haul.id, ":"), "[[", 5),
+                                   gearcat = as.character(fit$data$GearCat),
+                                   gear = as.character(fit$data$GearOri)))
+        tmp <- tmp[!duplicated(tmp),]
+        ## group by gears
+        gears.ori <- countries <- rep(NA, length(ships))
+        all.info <- vector("list", length(ships))
+        for(i in 1:length(ships)){
+            ind <- which(tmp$ship == ships[i] & tmp$gearcat == gears[i])
+            all.info[[i]]  <- tmp[ind,]
+            gears.ori[i] <- paste(unique(tmp$gear[ind]), collapse = "&")
+            countries[i] <- paste(unique(tmp$country[ind]), collapse = "&")
+        }
+        print(all.info[vals > 2])
+        ordi <- order(factor(gears))
+        gears <- gears[ordi]
+        ships <- ships[ordi]
+        gears.ori <- gears.ori[ordi]
+        labs <- paste0(countries,":",gears.ori, ":", ships)
+        vals <- vals[ordi]
+        sds <- sds[ordi]
+        cols <- cols[factor(gears)]
+    }else{
+        cols <- cols
     }
-    names(vals) <- levels(fit$data[,"Gear"])
 
 
-    ## par(mfrow = c(1,1), mar = c(5,5,4,2))
-    ylim <- c(0.95,1.05) * range(vals)
+    if(is.null(ylim)){
+    ylim <- range(vals, vals - sds, vals + sds, na.rm = TRUE)
+    if(ylim[1] < 0) ylim <- c(1.05,1.05) * ylim else ylim <- c(0.95,1.05) * ylim
+    }
     plot(1:length(vals), vals, ty = "n",
          xlab = "", ylab = "",
          xaxt="n",ylim=ylim)
-    abline(h=1, lty=2, lwd = 1.5, col="grey50")
+    if(exp) abline(h=1, lty=2, lwd = 1.5, col="grey50") else abline(h=0, lty=2, lwd = 1.5, col="grey50")
+    for(i in 1:length(vals)){
+        arrows(i, vals[i] - sds[i], i, vals[i] + sds[i], col = cols[i], angle=90, code=3, lengt = 0.1)
+    }
     points(1:length(vals), vals, pch = 16,
-           cex = 1.2,
+           cex = 1.5,
            col = cols[1:length(vals)])
-    axis(1, at = 1:length(vals), labels = names(vals), las = 2)
-    mtext("Gears", 3, 0.5, font = 2)
-    mtext("Effect", 2, 3)
+    axis(1, at = 1:length(vals), labels = labs, las = 2)
+    mtext(var, 3, 0.5, font = 2)
+    if(exp) ylab <- "Effect" else ylab <- "Effect (log)"
+    mtext(ylab, 2, 3)
+##    if(var == "ShipG") legend("topright", legend = unique(gears), col = unique(cols), pch = 16, ncol = 2)
     box(lwd=1.5)
 
     ## This only works for fixed gear effect (not random)

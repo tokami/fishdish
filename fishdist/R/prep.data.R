@@ -109,9 +109,9 @@ prep.data <- function(data, AphiaID = NULL,
             ## Only differences between duplicated HaulIDs in WindSpeed -> delete duplicates
             hh <- hh[-ind,]
         }
-        if(verbose) writeLines(paste("All haul IDs unique: ",
-                                     checkmark(nrow(hh) == length(unique(hh$HaulID))),
-                                     sep="\t\t\t\t\t\t\t\t\t\t\t\t\t\t"))
+        if(verbose) writeLines(paste(checkmark(nrow(hh) == length(unique(hh$HaulID))),
+                                     "All haul IDs unique",
+                                     sep="\t\t\t"))
 
 
         ## Remove HaulIDs that are NA
@@ -127,17 +127,17 @@ prep.data <- function(data, AphiaID = NULL,
                 ca <- ca[-is.na(ca$HaulID),]
             }
         }
-        if(verbose) writeLines(paste("All haul IDs meaningful (no NA): ",
-                                     checkmark(all(!is.na(hh$HaulID)) && all(!is.na(hl$HaulID))),
-                                     sep="\t\t\t\t\t\t\t\t"))
+        if(verbose) writeLines(paste(checkmark(all(!is.na(hh$HaulID)) && all(!is.na(hl$HaulID))),
+                                     "All haul IDs meaningful (no NA)",
+                                     sep="\t\t\t"))
 
 
         ## Subset HL, only keep hauls that can be matched to HH later
         ## ------------------
         hl <- subset(hl, hl$HaulID %in% hh$HaulID)
-        if(verbose) writeLines(paste("All hauls in HL included in HH: ",
-                                     checkmark(all(hl$HaulID %in% hh$HaulID)),
-                                     sep="\t\t\t\t\t\t\t\t"))
+        if(verbose) writeLines(paste(checkmark(all(hl$HaulID %in% hh$HaulID)),
+                                     "All hauls in HL included in HH",
+                                     sep="\t\t\t"))
         if(!is.null(ca)) ca <- subset(ca, ca$HaulID %in% hh$HaulID)
 
 
@@ -158,18 +158,17 @@ prep.data <- function(data, AphiaID = NULL,
 
         ## Add StatRec, SubStatRec, Ecoregion and Area_27 (before: add missing StatRec)
         ## -------------
-        ## CHECK:
         oldStatRec <- hh$StatRec
         hh$StatRec <- NULL
-        hh <- pred.statrec(hh, verbose = verbose) ## SLOW:
+        hh <- pred.statrec(hh, verbose = verbose)
         ind <- which(is.na(hh$StatRec))
         if(length(ind) > 0){
             if(verbose) writeLines("Removing entries that could not be matched to any statistical rectangle.")
             hh <- hh[-ind,]
         }
-        if(verbose) writeLines(paste("All StatRec meaningful (no NA): ",
-                                     checkmark(all(!is.na(hh$StatRec))),
-                                     sep="\t\t\t\t\t\t\t\t"))
+        if(verbose) writeLines(paste(checkmark(all(!is.na(hh$StatRec))),
+                                     "All StatRec meaningful (no NA)",
+                                     sep="\t\t\t"))
 
         ## REMOVE:
         if(FALSE){
@@ -208,10 +207,12 @@ prep.data <- function(data, AphiaID = NULL,
         ## -------------
         if(saflag){
             hh$SweptArea <- hh$SweptAreaBWKM2
-            hh$SweptArea[is.na(hh$SweptArea)] <- hh$SweptAreaWSKM2[is.na(hh$SweptArea)]
-            hh$SweptArea[is.na(hh$SweptArea)] <- hh$SweptAreaDSKM2[is.na(hh$SweptArea)]
-            if(verbose) writeLines(paste("All swept area entries meaningful (no NA): ",
-                                         checkmark(all(!is.na(hh$SweptArea))),
+            tmp <- apply(hh[,c("SweptAreaWSKM2","SweptAreaDSKM2")], 1, function(x) mean(x, na.rm = TRUE))
+            hh$SweptArea[is.na(hh$SweptArea)] <- tmp[is.na(hh$SweptArea)]
+            ## hh$SweptArea[is.na(hh$SweptArea)] <- hh$SweptAreaWSKM2[is.na(hh$SweptArea)]
+            ## hh$SweptArea[is.na(hh$SweptArea)] <- hh$SweptAreaDSKM2[is.na(hh$SweptArea)]
+            if(verbose) writeLines(paste(checkmark(all(!is.na(hh$SweptArea))),
+                                         "All swept area entries meaningful (no NA)",
                                          sep="\t\t\t"))
         }else{
             hh$SweptArea <- NA
@@ -230,16 +231,37 @@ prep.data <- function(data, AphiaID = NULL,
         hl <- minus9toNA(hl)
         if(!is.null(ca)) ca <- minus9toNA(ca)
 
-        ## DataType
+        ## TODO: CHECK:
+        ## Check SpecCodeType (hl)
+        ## T 	TSN code - should not be used for data submissions
+        ## W 	WoRMS AphiaID code
+
+
+        ## DataType (http://vocab.ices.dk/?ref=9)
         ## ---------
+        ## -9   Invalid hauls
+        ##  C 	Data calculated as CPUE (number per hour)
+        ##  P 	Pseudocategory sampling
+        ##  R 	Data by haul
+        ##  S 	Sub sampled data
+        ## ---------
+        ## Remove NA
         ind <- which(is.na(hh$DataType))
         if(length(ind) > 0) hh <- hh[-ind,]
         ## EVHOE datatype is entered as ‘C’ in 2018. This is a mistake it should be ‘R’.
         ind <- which(hh$Survey == "EVHOE" & hh$Year == 2018)
         if(length(ind) > 0) hh$DataType[ind] <- "R"
-        ## CHECK: this warning necessary?
-        ## if (any(hh$DataType == "S"))
-        ##     warning("DataType 'S' found in length data. These hauls will be interpreted as DataType 'R' wrt. total numbers caught.")
+        if(any(hh$DataType == "S")){
+            if(verbose) warning("DataType 'S' found in length data. These hauls will be interpreted as DataType 'R' wrt. total numbers caught.")
+        }
+        if(any(hh$DataType == "P")){
+            if(verbose) warning("DataType 'P' found in length data. These hauls will be interpreted as DataType 'R' wrt. total numbers caught.")
+        }
+        ## ind <- which(hh$DataType == "S")
+        ## ind2 <- which(hl$HaulID %in% hh$HaulID[ind])
+        ## all(aggregate(hl$TotalNo[ind2], by = list(hl$HaulID[ind2]), unique) == aggregate(hl$HLNoAtLngt[ind2], by = list(hl$HaulID[ind2]), sum))
+        ## Interpret all P and S as R! (write message)
+
 
         ## AphiaID
         ## ---------
@@ -281,12 +303,14 @@ prep.data <- function(data, AphiaID = NULL,
         ## -------------
         hh <- correct.surveys(hh)
 
+
         ## Gear Categories
         ## -------------
         hh <- add.gear.categories(hh)
         ## any gear categories NA?
-        if(verbose) writeLines(paste("Gear categories succesfully assigned (no NA): ",
-                                     checkmark(all(!is.na(hh$GearCat))), sep="\t"))
+        if(verbose) writeLines(paste(checkmark(all(!is.na(hh$GearCat))),
+                                     "Gear categories succesfully assigned (no NA)",
+                                     sep="\t\t\t"))
 
 
         ## Double-check key variables
@@ -297,16 +321,16 @@ prep.data <- function(data, AphiaID = NULL,
             all(!is.na(hh$timeOfYear)) &&
             all(!is.na(hh$Depth)) &&
             (!saflag || (all(!is.na(hh$SweptArea)) && all(hh$SweptArea > 0)))
-        if(verbose) writeLines(paste("Meaningful key variables (no NA): ",
-                                     checkmark(flag), sep=":\t\t\t\t\t\t\t"))
-
+        if(verbose) writeLines(paste(checkmark(flag),
+                                     "Meaningful key variables (no NA)",
+                                     sep="\t\t\t"))
 
 
         ## Zero data (includes all hauls independent of caught species)
         ## --------------------------------------------------------------
-        ## CHECK: if other variables in hh should be kept
         survey0 <- hh[,c("HaulID", "Survey", "Year", "Month", "Day", "Quarter",
-                         "StatRec", "lat", "lon", "HaulDur", "Ship", "Gear",
+                         "StatRec", "lat", "lon", "HaulDur", "Ship", "Gear","Country",
+                         "DayNight", "DataType",
                          "Depth", "SweptArea", "ShipG", "GearCat", "Ecoregion",
                          "Area_27", "BySpecRecCode", "abstime", "timeOfYear",
                          "ctime")]
@@ -321,6 +345,19 @@ prep.data <- function(data, AphiaID = NULL,
         ## Merge variables from hh needed in hl
         hl <- plyr::join(hl, hh[,c("HaulID","BySpecRecCode","HaulDur","DataType")], by="HaulID") ## 16s
         rm(hh)
+
+
+        ## Check DataType in hl
+        ## ---------
+        ind <- which(is.na(hl$DataType))
+        if(length(ind) > 0) hl <- hl[-ind,]
+
+
+        ## Check HaulDur in hl
+        ## ---------
+        ind <- which(is.na(hl$HaulDur))
+        if(length(ind) > 0) hl <- hl[-ind,]
+
 
 
         ## Merge species list
@@ -370,30 +407,42 @@ prep.data <- function(data, AphiaID = NULL,
         ## -------------
         ind <- which(is.na(hl$HLNoAtLngt))
 
+        ## NEW: DECISION: removing HLNoAtLngt = NA entries
+        hl <- hl[-ind,]
         ## CHECK:
         ## DECISION: Using TotalNo when HLNoAtLngt == NA and setting subFactor to 1.
-        if(length(ind) > 0){
-            hl$HLNoAtLngt[ind] <- hl$TotalNo[ind]
-            hl$SubFactor[ind] <- 1
-            ind2 <- which(!is.na(hl$TotalNo[ind]))
-            if(verbose){
-                writeLines(paste0(paste("Number of entries with missing HLNoAtLngt: ",
-                                        paste0(length(ind), " (",round(length(ind)/nrow(hl)*100,1),
-                                               "%)"), sep = "\t\t\t"),
-                                  " Using TotalNo (with SubFactor = 1) for these hauls."))
-                writeLines(paste("Number of meaningful TotalNo replacements: ",
-                                 paste0(length(ind2), " (",round(length(ind2)/length(ind)*100,1),
-                                        "%)"), sep = "\t\t\t"))
+        ## this might still work, but only on TotalNo by haul id should be used! totalNo is repeated!
+        if(FALSE){
+            if(length(ind) > 0){
+                tmp <- hl[ind,]
+                any(duplicated(tmp$HaulID))
+                tmp$DataType <- "R"
+                hl$HLNoAtLngt[ind] <- hl$TotalNo[ind]
+                hl$SubFactor[ind] <- 1
+                ind2 <- which(!is.na(hl$TotalNo[ind]))
+                if(verbose){
+                    writeLines(paste0(paste("Number of entries with missing HLNoAtLngt: ",
+                                            paste0(length(ind), " (",round(length(ind)/nrow(hl)*100,1),
+                                                   "%)"),
+                                            sep = "\t\t\t"),
+                                      " Using TotalNo (with SubFactor = 1) for these hauls."))
+                    writeLines(paste("Number of meaningful TotalNo replacements: ",
+                                     paste0(length(ind2), " (",round(length(ind2)/length(ind)*100,1),
+                                            "%)"),
+                                     sep = "\t\t\t"))
+                }
             }
         }
+
 
         ## Account for LngtCode (mm and cm)
         ## Remove LngtCode = NA (LngtClass also NA)
         ind <- which(is.na(hl$LngtCode))
         if(length(ind) > 0) hl <- hl[-ind,]
         ## DATRAS:::getAccuracyCM
-        lngt2cm <- c(. = 0.1, `0` = 0.5, `1` = 1, `2` = 2, `5` = 5)[as.character(hl$LngtCode)]
+        lngt2cm <- c("." = 0.1, "0" = 0.1, "1" = 1, "2" = 1, "5" = 1)[as.character(hl$LngtCode)]
         hl$LngtCm <- lngt2cm * hl$LngtClass
+        range(hl$LngtCm)
         ## DATRAS::addSpectrum
         ## https://www.ices.dk/data/Documents/DATRAS/DATRAS_FAQs.pdf:
         ## DataType R,S: TotalNo –report the total number of fish of one species, sex, and category in the given haul
@@ -401,8 +450,37 @@ prep.data <- function(data, AphiaID = NULL,
         hl$multiplier <- ifelse(hl$DataType=="C", hl$HaulDur/60, hl$SubFactor)  ## not using SubFactor if DataType == "C"
         hl$Counts <- as.numeric(hl$HLNoAtLngt * hl$multiplier)
 
+        ## Remove hauls where datatype = C and Subfactor != 1
+        ind <- which(hl$DataType == "C" & hl$SubFactor != 1)
+        if(length(ind) > 0){
+            if(verbose) writeLines(paste0(length(ind), " hauls are data type 'C' and SubFactor is not equal to 1. This is contrary to the DATRAS manual. Removing these hauls!"))
+            hl <- hl[-ind,]
+        }
+        ## HERE: send these to ICES
+
+
+        ## Potential dangerous to remove large hauls!
+        ## ## Considered outlier and removed!
+        ## ## NEW: DECISION: CHECK:
+        ## ## absolute number does not work, but quantile?
+        ## quant.cut <- round(quantile(hl$SubFactor, prob = c(0.9999), na.rm = TRUE),2)
+        ## ind <- which(hl$SubFactor > quant.cut)
+        ## if(length(ind) > 0){
+        ##     if(verbose) writeLines(paste0("Cutting SubFactor at 99.99% percentile which is equal to: ", quant.cut, ". This cuts ", length(ind)," data points."))
+        ##     hl <- hl[-ind,]
+        ## }
+
+        ## ##  hist(hl$LngtCm)
+        ## ## NEW: DECISION: CHECK:
+        ## quant.cut <- round(quantile(hl$Counts, prob = c(0.9999), na.rm = TRUE),2)
+        ## ind <- which(hl$Counts > quant.cut)
+        ## if(length(ind) > 0){
+        ##     if(verbose) writeLines(paste0("Cutting Counts at 99.99% percentile which is equal to: ", quant.cut, ". This cuts ", length(ind)," data points."))
+        ##     hl <- hl[-ind,]
+        ## }
+
         ## Remove columns that are not needed any longer
-        hl$LngtClass <- hl$multiplier <- hl$SubFactor <- hl$HLNoAtLngt <- hl$DataType <- NULL
+        hl$LngtClass <- hl$HLNoAtLngt <- hl$DataType <- NULL
 
         ## Estimate N & Bio (requires CA)
         ## -------------------
@@ -420,14 +498,14 @@ prep.data <- function(data, AphiaID = NULL,
                 unique(hlc$AphiaID)
 
                 ## DATRAS::addSpectrum
-                lngt2cm <- c(. = 0.1, `0` = 0.5, `1` = 1, `2` = 2, `5` = 5)[as.character(hlc$LngtCode)]
-                by <- max(lngt2cm, na.rm = TRUE)
+                by <- max(c("." = 0.1, "0" = 0.5, "1" = 1, "2" = 2, "5" = 5)[as.character(hlc$LngtCode)],
+                          na.rm = TRUE)
                 cm.breaks <- seq(min(hlc$LngtCm, na.rm = TRUE),
                                  max(hlc$LngtCm, na.rm = TRUE) + by,
                                  by = by)
                 midLengths <- cm.breaks[-1] - diff(cm.breaks)/2 ## TODO: make issue/PR for DATRAS (always assumes 1cm bins)
                 hlc$sizeGroup <- cut(hlc$LngtCm, breaks = cm.breaks, right = FALSE)
-                n.by.length <- round(xtabs(Counts ~ HaulID + sizeGroup, data = hlc))
+                n.by.length <- round(xtabs(Counts ~ HaulID + sizeGroup, data = hlc)) ## round after summing up?
 
                 if(split.juv.adults && any(bio.pars$AphiaID == specs$AphiaID[i])){
                     ind.juv <- which(midLengths < bio.pars$Lm[bio.pars$AphiaID == specs$AphiaID[i]])
@@ -448,7 +526,7 @@ prep.data <- function(data, AphiaID = NULL,
 
                         cac <- subset(ca, AphiaID == specs$AphiaID[i])
                         ## DATRAS::addWeightByHaul
-                        cac$LngtCm <- c(. = 0.1, `0` = 0.5, `1` = 1, `2` = 2, `5` = 5)[as.character(cac$LngtCode)] * cac$LngtClass
+                        cac$LngtCm <- c("." = 0.1, "0" = 0.5, "1" = 1, "2" = 2, "5" = 5)[as.character(cac$LngtCode)] * cac$LngtClass
                         mod <- lm(log(IndWgt) ~ log(LngtCm), data = subset(cac, IndWgt > 0))
                         LW <- exp(predict(mod, newdata = data.frame(LngtCm = midLengths)))
                         if(split.juv.adults && any(bio.pars$AphiaID == specs$AphiaID[i])){
@@ -500,6 +578,12 @@ prep.data <- function(data, AphiaID = NULL,
                 survey$n.juv[is.na(survey$n.juv)] <- 0
                 survey$n.adult[is.na(survey$n.adult)] <- 0
             }
+
+            ## HERE: just for checking! REMOVE:
+            ## colnames(hl)[colnames(hl) == "HaulID"] <- "haul.id"
+            ## survey <- plyr::join(survey, hl[,c("haul.id","multiplier","SubFactor")], by = "haul.id")
+
+
 
             ## Add species information
             if(specflag){
@@ -616,8 +700,8 @@ prep.data <- function(data, AphiaID = NULL,
                 unique(surveyc$AphiaID)
 
                 ## DATRAS::addSpectrum
-                lngt2cm <- c(. = 0.1, `0` = 0.5, `1` = 1, `2` = 2, `5` = 5)[as.character(surveyc$LngtCode)]
-                by <- max(lngt2cm, na.rm = TRUE)
+                by <- max(c(. = 0.1, `0` = 0.5, `1` = 1, `2` = 2, `5` = 5)[as.character(surveyc$LngtCode)],
+                          na.rm = TRUE)
                 cm.breaks <- seq(min(surveyc$LngtCm, na.rm = TRUE),
                                  max(surveyc$LngtCm, na.rm = TRUE) + by,
                                  by = by)
