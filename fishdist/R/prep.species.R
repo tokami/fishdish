@@ -375,7 +375,7 @@ prep.species <- function(data, aphiaID = NULL,
 
     ## Check variables
     if(any(colnames(survey.spp) != "haul.id")) colnames(survey.spp)[colnames(survey.spp) == "HaulID"] <- "haul.id"
-    if(!inherits(survey.spp$Year, "factor")) survey.spp$Year <- as.factor(survey.spp$Year)
+    ## if(!inherits(survey.spp$Year, "factor")) survey.spp$Year <- as.factor(survey.spp$Year)
 
     ## Drop levels for all factors
     ind <- which(sapply(survey.spp, is.factor))

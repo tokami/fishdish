@@ -37,7 +37,7 @@ est.dist.one <- function(specdata, mods = NULL, n.lon = 20,
     nmods <- length(mods)
 
     ## surveyIndex package requirements
-    if(!inherits(specdata$Year, "factor")) specdata$Year <- as.factor(specdata$Year)
+    ## if(!inherits(specdata$Year, "factor")) specdata$Year <- as.factor(specdata$Year)
     mods <- lapply(mods, function(x) gsub("Lat", "lat", x))
     mods <- lapply(mods, function(x) gsub("Lon", "lon", x))
     if(any(colnames(specdata) != "haul.id")) colnames(specdata)[colnames(specdata) == "HaulID"] <- "haul.id"
@@ -71,7 +71,8 @@ est.dist.one <- function(specdata, mods = NULL, n.lon = 20,
 
     ## Define grid if not provided
     ## --------------------------------------
-    years <- sort(unique(as.numeric(levels(droplevels(specdata$Year)))))
+    ## years <- sort(unique(as.numeric(levels(droplevels(specdata$Year)))))
+    years <- sort(unique(specdata$Year))
     ny <- length(years)
     if(is.null(grid) || is.na(grid)){
         gridflag <- FALSE
@@ -187,25 +188,33 @@ est.dist.one <- function(specdata, mods = NULL, n.lon = 20,
             }
         }
 
+
+        ## CHECK: find way to report original error messages from getSurveyIndex
         ## run gams
         if(!verbose) sink("/dev/null")  ## CHECK: this might be platform dependent? sink("NUL")
         resList[[j]] <- try(
             surveyIndex::getSurveyIdx(
-                             specdata,
-                             ages = 1,
-                             myids = myids,
-                             predD = predD,
-                             cutOff = 0,
-                             modelP = mods[[j]],
-                             fam = fam,
-                             nBoot = nBoot,
-                             CIlevel = 0.95,
-                             mc.cores = 1, ## only parallel over ages
-                             predfix = predfix,
-                             control = list(trace = verbose,
-                                            maxit = 15),
-                             ...
-                         ),
+                specdata,
+                ages = 1,
+                myids = myids,
+                predD = predD,
+                cutOff = 0,
+                modelP = mods[[j]],
+                knotsP = list(DoY = c(0.5,366.5), ToD = c(0.5,24.5)),  ## HERE:
+                fam = fam,
+                nBoot = nBoot,
+                CIlevel = 0.95,
+                mc.cores = 1, ## only parallel over ages
+                predfix = predfix,
+                control = list(trace = verbose,
+                               maxit = 15),
+                select = TRUE,
+                use.bam = TRUE,
+                method = "fREML",
+                discrete = TRUE,
+                nthreads = c(4,1),
+                ...
+            ),
             silent = TRUE
         )
         if(!verbose) sink()
@@ -247,7 +256,7 @@ est.dist.one <- function(specdata, mods = NULL, n.lon = 20,
     ## round(sumi$dev.expl * 100,2)
     ## sumi$s.table
 
-    if(!inherits(specdata$Year, "factor")) specdata$Year <- as.factor(specdata$Year)
+    ## if(!inherits(specdata$Year, "factor")) specdata$Year <- as.factor(specdata$Year)
 
     ## Return
     ## -----------------
@@ -360,12 +369,13 @@ pred.dist.one <- function(fit,
 
 
     specdata <- fit$data
-    if(!inherits(specdata$Year, "factor")) specdata$Year <- as.factor(specdata$Year)
+    ## if(!inherits(specdata$Year, "factor")) specdata$Year <- as.factor(specdata$Year)
     nmods <- length(fit$fits)
 
     ## Define grid if not provided
     ## --------------------------------------
-    years <- sort(unique(as.numeric(levels(droplevels(specdata$Year)))))
+    ## years <- sort(unique(as.numeric(levels(droplevels(specdata$Year)))))
+    years <- sort(unique(specdata$Year))
     ny <- length(years)
     if(is.null(grid) || is.na(grid)){
         grid <- fit$grid
