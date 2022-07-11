@@ -502,23 +502,36 @@ plotfdist.dist <- function(fit, mod = NULL, year = NULL,
             if(i == 1){
                 starti <- 1
             }else{
-                starti <- (max(ind[[i-1]]) + 1)
+                starti <- (lastmax + 1)
             }
-            ind[[i]] <- starti:(starti + nrow(pred[[i]])-1)
+            if(!is.null(pred[[i]])){
+                ind[[i]] <- starti:(starti + nrow(pred[[i]])-1)
+                lastmax <- max(ind[[i]])
+            }else{
+                ind[[i]] <- NULL
+            }
         }
         concT <- surveyIndex:::concTransform(log(predi))
         zFac <- cut(concT, 0:length(cols)/length(cols))
         for(i in 1:length(grid)){
-            grid[[i]]$pred <- as.numeric(zFac[ind[[i]]])
+            if(!is.null(ind[[i]])){
+                grid[[i]]$pred <- as.numeric(zFac[ind[[i]]])
+            }else{
+                grid[[i]]$pred <- NA
+            }
         }
     }
 
     for(i in 1:ny){
         if(!fixed.scale){
             predi <- pred[[i]][,1]
-            concT <- surveyIndex:::concTransform(log(predi))
-            zFac <- cut(concT, 0:length(cols)/length(cols))
-            grid[[i]]$pred <- as.numeric(zFac)
+            if(!is.null(predi)){
+                concT <- surveyIndex:::concTransform(log(predi))
+                zFac <- cut(concT, 0:length(cols)/length(cols))
+                grid[[i]]$pred <- as.numeric(zFac)
+            }else{
+                grid[[i]]$pred <- NA
+            }
         }
         if(!is.null(cut.cv)){
             grid[[i]]$pred[which(cv[[i]] > cut.cv)] <- NA
@@ -741,9 +754,14 @@ plotfdist.dist.cv <- function(fit, mod = NULL, year = NULL,
             if(i == 1){
                 starti <- 1
             }else{
-                starti <- max(ind[[i-1]])
+                starti <- (lastmax + 1) ## max(ind[[i-1]])
             }
-            ind[[i]] <- starti:(starti + nrow(pred[[i]])-1)
+            if(!is.null(pred[[i]])){
+                ind[[i]] <- starti:(starti + nrow(pred[[i]])-1)
+                lastmax <- max(ind[[i]])
+            }else{
+                ind[[i]] <- NULL
+            }
         }
         concT <- surveyIndex:::concTransform(log(predi))
         if(is.null(breaks)){
@@ -752,7 +770,11 @@ plotfdist.dist.cv <- function(fit, mod = NULL, year = NULL,
             zFac <- cut(predi, breaks)
         }
         for(i in 1:length(grid)){
-            grid[[i]]$pred <- as.numeric(zFac[ind[[i]]])
+            if(!is.null(ind[[i]])){
+                grid[[i]]$pred <- as.numeric(zFac[ind[[i]]])
+            }else{
+                grid[[i]]$pred <- NA
+            }
         }
     }
 
@@ -764,13 +786,17 @@ plotfdist.dist.cv <- function(fit, mod = NULL, year = NULL,
     for(i in 1:ny){
         if(!fixed.scale){
             predi <- pred[[i]][,1]
-            concT <- surveyIndex:::concTransform(log(predi))
-            if(is.null(breaks)){
-                zFac <- cut(concT, 0:length(cols)/length(cols))
+            if(!is.null(predi)){
+                concT <- surveyIndex:::concTransform(log(predi))
+                if(is.null(breaks)){
+                    zFac <- cut(concT, 0:length(cols)/length(cols))
+                }else{
+                    zFac <- cut(predi, breaks)
+                }
+                grid[[i]]$pred <- as.numeric(zFac)
             }else{
-                zFac <- cut(predi, breaks)
+                grid[[i]]$pred <- NA
             }
-            grid[[i]]$pred <- as.numeric(zFac)
         }
         tmp <- reshape2::acast(grid[[i]], lon~lat, value.var = "pred")
         if(is.null(xlim)) xlimi <- range(as.numeric(rownames(tmp))) else xlimi <- xlim
