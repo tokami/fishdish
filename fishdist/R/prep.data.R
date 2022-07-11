@@ -87,7 +87,6 @@ prep.data <- function(data, AphiaID = NULL,
                                ca$StNo, ca$HaulNo, sep = ":")
         }
 
-
         ## Remove duplicated haul IDs in hh
         ## ------------------
         tmp <- duplicated(hh$HaulID)
@@ -112,6 +111,7 @@ prep.data <- function(data, AphiaID = NULL,
         if(verbose) writeLines(paste(checkmark(nrow(hh) == length(unique(hh$HaulID))),
                                      "All haul IDs unique",
                                      sep="\t\t\t"))
+
 
 
         ## Remove HaulIDs that are NA
@@ -196,6 +196,72 @@ prep.data <- function(data, AphiaID = NULL,
         hh$Gear <- as.factor(hh$Gear)
         hh$ShipG <- factor(paste(hh$Ship, hh$Gear, sep=":"))
 
+        ## Convert TimeShot to time of day (ToD)
+        ## Remove hauls with incorrect time of day entry
+        ind <- which(nchar(hh$TimeShot) < 3)
+        if(length(ind) > 0){
+            hh <- hh[-ind,]
+        }
+        ## Assume that first character is 0 if missing
+        ind <- which(nchar(hh$TimeShot) == 3)
+        if(length(ind) > 0){
+            hh$TimeShot[ind] <- paste0(0, hh$TimeShot[ind])
+        }
+        ## Convert to time
+        hh$time <- strptime(hh$TimeShot, format = "%H%M")
+        ## check
+        head(cbind(hh$TimeShot, format(hh$time,"%H:%M")))
+        range(hh$time)
+
+        ## Create time of day (using local time zones)
+        hh$ToD <- as.numeric(format(hh$time, format = "%H")) +
+            (as.numeric(format(hh$time, format = "%M"))/60)
+
+        ## check
+        range(hh$ToD)
+
+        ## Add 0 to months with one digit
+        hh$Month_char <- hh$Month
+        ind <- which(nchar(hh$Month) == 1)
+        if(length(ind) > 0){
+            hh$Month_char[ind] <- paste0(0, hh$Month[ind])
+        }
+        ## Add 0 to days with one digit
+        hh$Day_char <- hh$Day
+        ind <- which(nchar(hh$Day) == 1)
+        if(length(ind) > 0){
+            hh$Day_char[ind] <- paste0(0, hh$Day[ind])
+        }
+
+        ## Add time zone
+        hh$timezone <- lutz::tz_lookup_coords(lat = hh$lat, lon = hh$lon, method = "accurate")
+
+        ## Date columns
+        hh$date <- paste0(hh$Year,"-",hh$Month_char,"-",hh$Day_char)
+        ## CHECK: account for the fact that area covers different time zones?
+        hh$datetime <- as.POSIXct(paste(hh$date, format(hh$time,"%H:%M")),
+                                  format = "%Y-%m-%d %H:%M")
+
+        ## day of year
+        hh$DoY <- as.numeric(format(hh$datetime, format = "%j"))
+        ## check
+        range(hh$DoY)
+
+
+        ## CHECK: necessary to account for time zones?
+        ## hh$datetime <- rep("", length(hh$timezone))
+        ## hh$timezone2 <- sapply(strsplit(hh$timezone, ";"), "[[", 1)
+        ## tzs <- unique(hh$timezone2)
+        ## for(i in 1:length(tzs)){
+        ##     ind <- which(hh$timezone2 == tzs[i])
+        ##     hh$datetime[ind] <- as.character(as.POSIXct(paste(hh$date[ind], format(hh$time[ind],"%H:%M")),
+        ##                           format = "%Y-%m-%d %H:%M", tz = tzs[i]))
+        ## }
+        ## test <- lubridate::with_tz(hh$datetime, hh$timezone2)
+        ## hh$datetimeOneTZ <- purrr::map2(.x = hh$datetime,
+        ##                                 .y = hh$timezone,
+        ##                                 .f = function(x, y) {lubridate::with_tz(time = x, tzone = y)})
+
 
         ## Overwrite depth
         ## -------------
@@ -207,9 +273,8 @@ prep.data <- function(data, AphiaID = NULL,
         ## -------------
         if(saflag){
             hh$SweptArea <- hh$SweptAreaBWKM2
-            tmp <- apply(hh[,c("SweptAreaWSKM2","SweptAreaDSKM2")], 1, function(x) mean(x, na.rm = TRUE))
-            hh$SweptArea[is.na(hh$SweptArea)] <- tmp[is.na(hh$SweptArea)]
-            ## hh$SweptArea[is.na(hh$SweptArea)] <- hh$SweptAreaWSKM2[is.na(hh$SweptArea)]
+            ## WKABSENS: use wing spread index! Don't use both!
+            hh$SweptArea[is.na(hh$SweptArea)] <- hh$SweptAreaWSKM2[is.na(hh$SweptArea)]
             ## hh$SweptArea[is.na(hh$SweptArea)] <- hh$SweptAreaDSKM2[is.na(hh$SweptArea)]
             if(verbose) writeLines(paste(checkmark(all(!is.na(hh$SweptArea))),
                                          "All swept area entries meaningful (no NA)",
@@ -331,6 +396,7 @@ prep.data <- function(data, AphiaID = NULL,
         survey0 <- hh[,c("HaulID", "Survey", "Year", "Month", "Day", "Quarter",
                          "StatRec", "lat", "lon", "HaulDur", "Ship", "Gear","Country",
                          "DayNight", "DataType",
+                         "ToD","DoY",
                          "Depth", "SweptArea", "ShipG", "GearCat", "Ecoregion",
                          "Area_27", "BySpecRecCode", "abstime", "timeOfYear",
                          "ctime")]
@@ -358,6 +424,14 @@ prep.data <- function(data, AphiaID = NULL,
         ind <- which(is.na(hl$HaulDur))
         if(length(ind) > 0) hl <- hl[-ind,]
 
+
+
+        ## CHECK: write to ICES about this:
+        if(FALSE){
+        xtabs( ~ DataType =="C" & SubFactor>1,hl)
+        ind <- which(hl$DataType == "C" & hl$SubFactor > 1)
+        hl[ind,]
+        }
 
 
         ## Merge species list

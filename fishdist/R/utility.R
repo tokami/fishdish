@@ -222,6 +222,84 @@ list.recom.models <- function(specdata,
 
 
 
+
+#' @name list.recom.models2
+#'
+#' @title List all model recommended structures
+#'
+#' @param specdata Species data
+#' @param use.toy Use time of year? (Caused problems for some species)
+#' @param use.swept.area Use swept area? (Might not be available)
+#' @param dim.lat.lon Dimensions of the basis for the lat - lon smooth term (1
+#'     number)
+#' @param dim.ctime.lat.lon Dimensions of the basis for the ctime - lat - lon
+#'     smooth term (2 numbers)
+#' @param dim.timeOfYear.lat.lon Dimensions of the basis for the timeOfYear -
+#'     lat - lon smooth term (2 numbers)
+#'
+#' @return List with all model structures
+#'
+#' @export
+list.recom.models2 <- function(specdata,
+                               dim.ToD = 5,
+                               dim.DoY = 10,
+                               dim.year = "nyears",
+                               dim.lat.lon = 256,
+                               dim.DoY.year = c(5, "nyears"),
+                               dim.lat.lon.ToD = c(30, 5),
+                               dim.lat.lon.DoY = c(30, 5),
+                               dim.lat.lon.year = c(30, "nyears")){
+
+    ## Checks
+    if(length(dim.lat.lon.year) != 2) stop("The variable dim.ctime.lat.lon has to have length equal to 2.")
+    if(length(dim.lat.lon.DoY) != 2) stop("The variable dim.timeOfYear.lat.lon has to have length equal to 2.")
+
+    if(dim.year == "nyears" && !is.null(specdata)) dim.year <- length(unique(specdata$Year))
+    if(dim.DoY.year[2] == "nyears" && !is.null(specdata))
+        dim.DoY.year[2] <- length(unique(specdata$Year))
+    if(dim.lat.lon.year[2] == "nyears" && !is.null(specdata))
+        dim.lat.lon.year[2] <- length(unique(specdata$Year))
+
+    ## simple model
+    tod <- paste0("s(ToD, bs='cc', k=",dim.ToD[1],")")
+    doy <- paste0("s(DoY, bs='cc', k=",dim.DoY[1],")")
+    year <- paste0("s(Year, bs='ds', k=",dim.year[1],", m=c(1,0))")
+    latLon <- paste0("s(lon, lat, bs='ds', k=",dim.lat.lon[1],", m=c(1,0.5))")
+    doy.year <- paste0("ti(DoY, Year, bs=c('cc','ds'), k=c(",dim.DoY.year[1],",",dim.DoY.year[2],"), m=list(NA, c(1,0)))")
+    depth <- "s(Depth, bs='ds', k=5, m=c(1,0))"
+    gear <- "Gear"
+    ship <- "s(ShipG, bs='re')" ## might be dangerous to include, omitted for now! TEST:
+
+    ## additional for full model
+    latLon.tod <- paste0("ti(lon, lat, ToD, d=c(2,1), bs=c('ds','cc'), k=c(",
+                          dim.lat.lon.ToD[1], ",",
+                         dim.lat.lon.ToD[2],"), m=list(c(1,0.5), NA))")
+    latLon.doy <- paste0("ti(lon, lat, DoY, d=c(2,1), bs=c('ds','cc'), k=c(",
+                          dim.lat.lon.DoY[1], ",",
+                         dim.lat.lon.DoY[2],"), m=list(c(1,0.5), NA))")
+    latLon.year <- paste0("ti(lon, lat, Year, d=c(2,1), bs=c('ds','tp'), k=c(",
+                          dim.lat.lon.year[1], ",",
+                          dim.lat.lon.year[2],"), m=list(c(1,0.5),NA))")
+
+    ## offset
+    offset.var <- "SweptArea"
+    offset <- paste0("offset(log(",offset.var,"))")
+
+    ##       1    2    3      4        5          6          7,           8,        9,    10,   11,     12
+    mm <- c(tod, doy, year, latLon, doy.year, latLon.tod, latLon.doy, latLon.year, gear, ship, depth, offset)
+    mSel <- rep(TRUE, length(mm))
+
+    ## full model
+    mps <- list(paste(mm[mSel],collapse=' + '))
+    ## simple model
+    mps <- c(full = mps,
+             simple = list(paste(mm[c(rep(TRUE,5),rep(FALSE,3),rep(TRUE,4))],collapse=' + ')))
+
+    return(mps)
+}
+
+
+
 #' @name list.datras.variables.req
 #' @title List all DATRAS variables
 #' @return List with all DATRAS variables for the HH and HL DATRAS data sets
