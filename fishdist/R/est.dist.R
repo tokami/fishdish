@@ -200,7 +200,7 @@ est.dist.one <- function(specdata, mods = NULL, n.lon = 20,
                 predD = predD,
                 cutOff = 0,
                 modelP = mods[[j]],
-                knotsP = list(DoY = c(0.5,366.5), ToD = c(0.5,24.5)),  ## HERE:
+                ## knotsP = list(DoY = c(0.5,366.5), ToD = c(0.5,24.5)),  ## HERE:
                 fam = fam,
                 nBoot = nBoot,
                 CIlevel = 0.95,
@@ -208,11 +208,11 @@ est.dist.one <- function(specdata, mods = NULL, n.lon = 20,
                 predfix = predfix,
                 control = list(trace = verbose,
                                maxit = 15),
-                select = TRUE,
-                use.bam = TRUE,
-                method = "fREML",
-                discrete = TRUE,
-                nthreads = c(4,1),
+                ## select = TRUE,
+                ## use.bam = TRUE, ## HERE:
+                ## method = "fREML", ## HERE:
+                ## discrete = TRUE,
+                ## nthreads = c(4,1),
                 ...
             ),
             silent = TRUE
@@ -221,7 +221,7 @@ est.dist.one <- function(specdata, mods = NULL, n.lon = 20,
     }
     names(resList) <- paste0("mod",1:nmods)
 
-    ## TODO: add stratmena to resList!
+    ## TODO: add stratmean to resList!
 
 
     ## ## Save info
