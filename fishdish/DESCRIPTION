@@ -1,4 +1,4 @@
-Package: fishdist
+Package: fishdish
 Type: Package
 Title: Estimate distribution maps of fish stocks
 Version: 0.1
@@ -26,8 +26,8 @@ Suggests:
     sp,
     rmarkdown
 Remotes:
-    tokami/icesDatras@fishdist,
-    tokami/surveyIndex/surveyIndex@fishdist
+    tokami/icesDatras@fishdish,
+    tokami/surveyIndex/surveyIndex@fishdish
 LazyData: false
 Encoding: UTF-8
 VignetteBuilder: knitr

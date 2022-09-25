@@ -1,10 +1,10 @@
 
-#' @name plotfdist.cog
+#' @name plotfishdish.cog
 #' @title plot cog
 #' @param cog cog
 #' @return Nothing
 #' @export
-plotfdist.cog <- function(cog){
+plotfishdish.cog <- function(cog){
     par(mfrow = c(2,1), mar = c(1,5,2,1), oma = c(4,0,1,1))
     plot(cog$year, cog$cog.lon, ty = 'b',
          ylab = "Longitude", xlab = "")
@@ -108,7 +108,7 @@ plotdist <- function(data, plot.survey.dist = TRUE){
 
 
 
-#' @name plotfdist.abun
+#' @name plotfishdish.abun
 #'
 #' @title plot fit
 #'
@@ -121,7 +121,7 @@ plotdist <- function(data, plot.survey.dist = TRUE){
 #' @importFrom RColorBrewer brewer.pal
 #'
 #' @export
-plotfdist.abun <- function(fit, by.area = FALSE, by.eco = FALSE,
+plotfishdish.abun <- function(fit, by.area = FALSE, by.eco = FALSE,
                            ylab = "Abundance index",
                            y.scale = 1, fixed.scale = FALSE){
 
@@ -452,7 +452,7 @@ plotfdist.abun <- function(fit, by.area = FALSE, by.eco = FALSE,
 
 
 
-#' @name plotfdist.dist
+#' @name plotfishdish.dist
 #'
 #' @title plot fit
 #'
@@ -464,7 +464,7 @@ plotfdist.abun <- function(fit, by.area = FALSE, by.eco = FALSE,
 #' @return Nothing
 #'
 #' @export
-plotfdist.dist <- function(fit, mod = NULL, year = NULL,
+plotfishdish.dist <- function(fit, mod = NULL, year = NULL,
                            xlim = NULL, ylim = NULL,
                            legend = TRUE, fixed.scale = TRUE,
                            cols = rev(heat.colors(8)),
@@ -693,7 +693,7 @@ plotfdist.dist <- function(fit, mod = NULL, year = NULL,
         }
 }
 
-#' @name plotfdist.dist.cv
+#' @name plotfishdish.dist.cv
 #'
 #' @title plot cv of fit
 #'
@@ -705,7 +705,7 @@ plotfdist.dist <- function(fit, mod = NULL, year = NULL,
 #' @return Nothing
 #'
 #' @export
-plotfdist.dist.cv <- function(fit, mod = NULL, year = NULL,
+plotfishdish.dist.cv <- function(fit, mod = NULL, year = NULL,
                            xlim = NULL, ylim = NULL,
                            legend = TRUE, fixed.scale = TRUE,
                            cols = cm.colors(7)[-1], breaks = NULL,
@@ -830,7 +830,7 @@ plotfdist.dist.cv <- function(fit, mod = NULL, year = NULL,
 
 
 
-#' @name plotfdist.dist.year
+#' @name plotfishdish.dist.year
 #'
 #' @title plot fit
 #'
@@ -845,7 +845,7 @@ plotfdist.dist.cv <- function(fit, mod = NULL, year = NULL,
 #' @return Nothing
 #'
 #' @export
-plotfdist.dist.year <- function(fit, mod = NULL, var.lim = FALSE, all.years = TRUE,
+plotfishdish.dist.year <- function(fit, mod = NULL, var.lim = FALSE, all.years = TRUE,
                                 sandeel_areas = NULL, tobisbanker_wgs84 = NULL,
                                 xlim = NULL, ylim = NULL, cex = 1){
 
@@ -1044,7 +1044,7 @@ plotfdist.dist.year <- function(fit, mod = NULL, var.lim = FALSE, all.years = TR
 
 
 
-#' @name plotfdist.gam.effects
+#' @name plotfishdish.gam.effects
 #'
 #' @title plot gam effects
 #'
@@ -1056,7 +1056,7 @@ plotfdist.dist.year <- function(fit, mod = NULL, var.lim = FALSE, all.years = TR
 #' @return Nothing
 #'
 #' @export
-plotfdist.gam.effects <- function(fit, mod = 1, xlim = NULL, ylim = NULL){
+plotfishdish.gam.effects <- function(fit, mod = 1, xlim = NULL, ylim = NULL){
 
     cols <- c(RColorBrewer::brewer.pal(n = 8, "Dark2"),
               RColorBrewer::brewer.pal(n = 8, "Accent"))
@@ -1124,7 +1124,7 @@ plotfdist.gam.effects <- function(fit, mod = 1, xlim = NULL, ylim = NULL){
 }
 
 
-#' @name plotfdist.gam.effects.gear
+#' @name plotfishdish.gam.effects.gear
 #'
 #' @title plot gam effects
 #'
@@ -1136,7 +1136,7 @@ plotfdist.gam.effects <- function(fit, mod = 1, xlim = NULL, ylim = NULL){
 #' @return Nothing
 #'
 #' @export
-plotfdist.gam.effects.gear <- function(fit, mod = 1, xlim = NULL, ylim = NULL,
+plotfishdish.gam.effects.gear <- function(fit, mod = 1, xlim = NULL, ylim = NULL,
                                        CI = 0.95, var = "Gear", exp = TRUE){
 
     cols <- rep(c(RColorBrewer::brewer.pal(n = 8, "Dark2"),
@@ -1225,7 +1225,7 @@ plotfdist.gam.effects.gear <- function(fit, mod = 1, xlim = NULL, ylim = NULL,
 
 
 
-#' @name plotfdist.diag
+#' @name plotfishdish.diag
 #'
 #' @title plot diagnostics
 #'
@@ -1237,7 +1237,7 @@ plotfdist.gam.effects.gear <- function(fit, mod = 1, xlim = NULL, ylim = NULL,
 #' @return Nothing
 #'
 #' @export
-plotfdist.diag <- function(fit, mod = 1){
+plotfishdish.diag <- function(fit, mod = 1){
     opar <- par()
     par(mfrow = c(2,3), mar = c(5,5,4,2), oma = c(0,0,0,0))
     on.exit(par(opar))
@@ -1278,7 +1278,7 @@ plotfdist.diag <- function(fit, mod = 1){
 }
 
 
-#' @name plotfdist.diag.spatial
+#' @name plotfishdish.diag.spatial
 #'
 #' @title plot spatial diagnostics
 #'
@@ -1290,7 +1290,7 @@ plotfdist.diag <- function(fit, mod = 1){
 #' @return Nothing
 #'
 #' @export
-plotfdist.diag.spatial <- function(fit, mod = 1, year = NULL){
+plotfishdish.diag.spatial <- function(fit, mod = 1, year = NULL){
     mfrow <- par$mfrow
     xaxt.ind <- (prod(mfrow) - mfrow[2] + 1):prod(mfrow)
     yaxt.ind <- seq(1, prod(mfrow), mfrow[2])

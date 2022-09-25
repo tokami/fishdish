@@ -32,13 +32,13 @@ The R package is hosted on GitHub and can be installed using the function
 `install_github` from the `remotes` R package with:
 
 ```{r, eval = FALSE}
-remotes::install_github("tokami/fishdist/fishdist")
+remotes::install_github("tokami/fishdish/fishdish")
 ```
 
 After the successful installation, the package can be loaded into R with:
 
 ```{r, eval = FALSE}
-library(fishdist)
+library(fishdish)
 ```
 
 
@@ -72,7 +72,7 @@ bathymetric map. This could be done with the function `getNOAA.bathy` in the
 interest and adjust the grid size as required. This depth grid will be used
 later for the definition of the prediction grid.
 
-The data directory at [https://github.com/tokami/fishdist/data] includes an
+The data directory at [https://github.com/tokami/fishdish/data] includes an
 example bathymetric map for the Northeast Atlantic with a grid size adjusted to
 the ICES statistical subrectangles (20' x 10' resolution). After downloading it,
 it can be loaded into R with:
@@ -279,8 +279,8 @@ space, the following functions can be used.
 
 ```{r, eval = FALSE}
 ## Plot the estimated abundance
-plotfdist.abun(fit)
+plotfishdish.abun(fit)
 
 ## Plot the estimated distribution
-plotfdist.dist(fit)
+plotfishdish.dist(fit)
 ```
