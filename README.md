@@ -1,4 +1,4 @@
-# fishdist
+# fishdish
 
 This package useful collects useful functions for the modelling of fish distributions.
 
@@ -8,15 +8,15 @@ This package useful collects useful functions for the modelling of fish distribu
 
 ```
 ## Install and load the package
-remotes::install_github("tokami/fishdist/fishdist")
-library(fishdist)
+remotes::install_github("tokami/fishdish/fishdish")
+library(fishdish)
 ```
 
 ### Vignette available
 
-Please see the `fishdist` vignette for details on how to download the scientific
+Please see the `fishdish` vignette for details on how to download the scientific
 survey data, create species-specific prediction grids and data sets.
 
 ```
-vignette("tutorial","fishdist")
+vignette("tutorial","fishdish")
 ```
