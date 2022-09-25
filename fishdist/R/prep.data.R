@@ -791,6 +791,7 @@ prep.data <- function(data, AphiaID = NULL,
                                               n.juv = unname(apply(n.by.length[,ind.juv], 1, sum)),
                                               n.adult = unname(apply(n.by.length[,ind.adult], 1, sum))
                                               )
+                    survey.spec$N <- survey.spec$n.juv + survey.spec$n.adult
                 }else{
                     survey.spec <- data.frame(haul.id = rownames(n.by.length),
                                               AphiaID = specs$AphiaID[i],
@@ -809,6 +810,7 @@ prep.data <- function(data, AphiaID = NULL,
                                                                 function(x) x %*% LW[ind.juv]))
                             survey.spec$bio.adult <- unname(apply(n.by.length[,ind.adult], 1,
                                                                   function(x) x %*% LW[ind.adult]))
+                            survey.spec$bio <- survey.spec$bio.juv + survey.spec$bio.adult
                         }else{
                             survey.spec$bio <- unname(apply(n.by.length, 1, function(x) x %*% LW))
                         }
@@ -824,6 +826,7 @@ prep.data <- function(data, AphiaID = NULL,
                                                                     function(x) x %*% LW[ind.juv]))
                                 survey.spec$bio.adult <- unname(apply(n.by.length[,ind.adult], 1,
                                                                       function(x) x %*% LW[ind.adult]))
+                                survey.spec$bio <- survey.spec$bio.juv + survey.spec$bio.adult
                             }else{
                                 survey.spec$bio <- unname(apply(n.by.length, 1, function(x) x %*% LW))
                             }

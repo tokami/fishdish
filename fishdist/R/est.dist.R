@@ -298,7 +298,7 @@ est.dist <- function(data, mods = NULL, n.lon = 20, nBoot = 0,
 
 
     if(mc.cores > 1){
-        try(setMKLthreads(1), silent = TRUE)
+        ## try(setMKLthreads(1), silent = TRUE)
         res <- parallel::mclapply(1:nspec,
                                   function(x){
                                       est.dist.one(

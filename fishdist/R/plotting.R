@@ -468,26 +468,21 @@ plotfdist.dist <- function(fit, mod = NULL, year = NULL,
                            xlim = NULL, ylim = NULL,
                            legend = TRUE, fixed.scale = TRUE,
                            cols = rev(heat.colors(8)),
-                           cut.cv = NULL){
+                           cut.cv = NULL, asp = 2){
+
+    if(is.null(year)){
+        year <- tail(rownames(fit$fits[[1]]$idx),1)
+        writeLines(paste0("No year selected. Plotting year: ",year))
+    }
+    if(is.null(mod)){
+        mod <- 1
+    }
 
     pred <- fit$fits[[mod]]$gPreds2[[1]][as.character(year)]
     cv <- fit$fits[[mod]]$gPreds2.CV[[1]][as.character(year)]
     grid <- fit$grid[as.character(year)]
     ny <- length(year)
-
-    if(ny >= 42){
-        mfrow = c(6,ceiling(ny/6))
-    }else if(ny >= 30){
-        mfrow = c(5,ceiling(ny/5))
-    }else if(ny >= 19){
-        mfrow = c(4,ceiling(ny/4))
-    }else if(ny >= 9){
-        mfrow = c(3,ceiling(ny/3))
-    }else if(ny < 9 & ny >= 4){
-        mfrow = c(2,ceiling(ny/2))
-    }else if(ny < 4){
-        mfrow = c(1,ny)
-    }
+    mfrow <- n2mfrow(ny, asp = asp)
     if(ny > 1){
         par(mfrow = mfrow, mar = c(0,0,2,0), oma = c(5,5,2,1))
     }
@@ -537,9 +532,8 @@ plotfdist.dist <- function(fit, mod = NULL, year = NULL,
             grid[[i]]$pred[which(cv[[i]] > cut.cv)] <- NA
         }
         tmp <- reshape2::acast(grid[[i]], lon~lat, value.var = "pred")
-        range(as.numeric(zFac))
         if(is.null(xlim)) xlimi <- range(as.numeric(rownames(tmp))) else xlimi <- xlim
-        if(is.null(ylim)) ylimi <- range(as.numeric(rownames(tmp))) else ylimi <- ylim
+        if(is.null(ylim)) ylimi <- range(as.numeric(colnames(tmp))) else ylimi <- ylim
         xaxt <- ifelse(i %in% xaxt.ind, "s", "n")
         yaxt <- ifelse(i %in% yaxt.ind, "s", "n")
         plot(1,1, xlim = xlimi, ylim = ylimi,
@@ -566,7 +560,6 @@ plotfdist.dist <- function(fit, mod = NULL, year = NULL,
         }
         box(lwd = 1.5)
     }
-
     mtext("Longitude", 1, 3, outer = TRUE)
     mtext("Latitude", 2, 3, outer = TRUE)
 
@@ -698,8 +691,6 @@ plotfdist.dist <- function(fit, mod = NULL, year = NULL,
         ##                             select="map",plotByAge=FALSE)
 
         }
-
-    return(NULL)
 }
 
 #' @name plotfdist.dist.cv
@@ -835,9 +826,6 @@ plotfdist.dist.cv <- function(fit, mod = NULL, year = NULL,
 
     mtext("Longitude", 1, 3, outer = TRUE)
     mtext("Latitude", 2, 3, outer = TRUE)
-
-    return(NULL)
-
 }
 
 
@@ -1233,8 +1221,6 @@ plotfdist.gam.effects.gear <- function(fit, mod = 1, xlim = NULL, ylim = NULL,
     ## mtext("Gears", 3, 0.5, font = 2)
     ## mtext("Effect", 2, 3)
 
-
-    return(NULL)
 }
 
 
@@ -1289,7 +1275,6 @@ plotfdist.diag <- function(fit, mod = 1){
                                 par = NULL,
                                 main = "Residuals vs. Depth")
     abline(h=0, lty=1, col = "grey70")
-    return(NULL)
 }
 
 
@@ -1320,5 +1305,4 @@ plotfdist.diag.spatial <- function(fit, mod = 1, year = NULL){
                                     xaxt = xaxt, yaxt = yaxt,
                                     main = year[y])
     }
-    return(NULL)
 }

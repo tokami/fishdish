@@ -1,0 +1,286 @@
+---
+title: "Tutorial"
+author: "Tobias K. Mildenberger"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  rmarkdown::html_vignette:
+    number_sections: yes
+    toc: yes
+  pdf_document:
+    number_sections: false
+    toc: false
+    keep_tex: false
+vignette: >
+  %\VignetteIndexEntry{Tutorial}
+  %\VignetteEngine{knitr::rmarkdown}
+  \usepackage[utf8]{inputenc}
+---
+
+```{r, echo = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "  ", fig.align = 'center', cache=FALSE)
+```
+
+# Description
+This package allows to process scientific survey data and fit spatio-temporal
+fish distribution models to the processed data. This tutorial highlights the
+main functionality of the package from loading the package to fitting the
+distribution models.
+
+
+# Load the package
+The R package is hosted on GitHub and can be installed using the function
+`install_github` from the `remotes` R package with:
+
+```{r, eval = FALSE}
+remotes::install_github("tokami/fishdist/fishdist")
+```
+
+After the successful installation, the package can be loaded into R with:
+
+```{r, eval = FALSE}
+library(fishdist)
+```
+
+
+# Required data
+
+## Download the DATRAS data set
+In order to download the DATRAS data set which contains the information of the
+scientific surveys, we can use the function `download.data`. Note, that the
+following code downloads the whole DATRAS database which can take several
+minutes. The arguments of the function allow you to limit the download to the
+required years, surveys, quarters, or species (defined by `aphiaID`). However,
+note that already selecting one (or more) species at this step, might affect the
+number of hauls with zero observations later on.
+
+```{r, eval = FALSE}
+datras <- download.data(first.year = 1967, last.year = 2021, surveys = "all",
+                        quarters = "all", aphiaID = "all", datasets = c("HH","HL","CA"),
+                        calc.swept.area = FALSE,
+                        reduce.file.size = FALSE)
+```
+
+```{r, eval = FALSE, echo = FALSE}
+load("../../data/datras.RData")
+```
+
+
+## Download the bathymetric data set
+As depth is an important predictor of fish distributions, we need to download a
+bathymetric map. This could be done with the function `getNOAA.bathy` in the
+`marmap` package. Make sure to download depth information for the whole area of
+interest and adjust the grid size as required. This depth grid will be used
+later for the definition of the prediction grid.
+
+The data directory at [https://github.com/tokami/fishdist/data] includes an
+example bathymetric map for the Northeast Atlantic with a grid size adjusted to
+the ICES statistical subrectangles (20' x 10' resolution). After downloading it,
+it can be loaded into R with:
+
+```{r, eval = FALSE}
+load("bathy.sub.statrec.grid.RData")
+```
+
+```{r, eval = FALSE, echo = FALSE}
+load("../../data/bathy.sub.statrec.grid.RData")
+```
+
+
+# Define species for analysis
+The DATRAS data set include information about more than 1000 species, if you do
+not want to analyse all of them, define a vector with the Aphia IDs of the
+species. The species names are not needed, but might be helpful.
+
+```{r}
+## 4 example species
+species <- c(
+    "Gadus morhua" = 126436,
+    "Merluccius merluccius" = 126484,
+    "Scophthalmus maximus" = 127149,
+    "Conger conger" = 126285
+)
+```
+
+
+
+# Define a prediction grid for each species
+In theory, we could use the same prediction grid for all species, however, it
+might be meaningful to restrict the extent of extrapolation by having
+species-specific prediction grids. These grids could be constant over time or
+time-variant accounting for the fact that the various surveys started operating
+at different times and, thus, the area sampled changed over time. Here, we
+define time-variant prediction grids for each species by identifying the ICES
+areas where a given species was caught at least once in a given year. If a
+species was observed at least once in a given ICES area, the whole area is
+included into the prediction grid for this year.
+
+
+```{r, eval = FALSE}
+## Create an empty list
+pred.grid.fine <- vector("list", length(species))
+
+## Loop through all species
+for(i in 1:length(species)){
+
+    ## Extract data set by species
+    dati <- prep.species(prep.data(datras, AphiaID = species[i], est.n = TRUE, est.bio = TRUE),
+                         min.gears = 0, min.surveys = 0, min.hauls = 0)
+
+    ## Define prediction grid for each year
+    years <- unique(dati$Year)
+
+    ## Make an empty list
+    pred.grid.fine[[i]] <- vector("list", length(years))
+
+    ## Loop through all years
+    for(y in 1:length(years)){
+
+        ## Subset data set for specific year
+        datiy <- dati[which(as.numeric(as.character(dati$Year)) == years[y]),]
+
+        ## Make sure to drop other years if year is a factor
+        if(inherits(datiy$Year, "factor")) datiy$Year <- droplevels(datiy$Year)
+
+        ## Use some criteria to extract information from bathymetric data set
+        ind <- which(bathy.sub.statrec.grid$Area_27 %in% unique(datiy$Area_27))
+        pred.grid.fine[[i]][[y]] <- bathy.sub.statrec.grid[ind,]
+
+        ## Rename the area to SweptArea (eases predicting absolute abundances)
+        colnames(pred.grid.fine[[i]][[y]])[colnames(pred.grid.fine[[i]][[y]]) == "SubStatRec_area"] <- "SweptArea"
+
+        ## Add a column with year (eases merging if required later)
+        pred.grid.fine[[i]][[y]]$Year <- as.numeric(as.character(years[y]))
+    }
+
+    ## Add names of years as names of prediction grids
+    names(pred.grid.fine[[i]]) <- as.character(years)
+
+}
+
+## Add species names as names of list with prediction grids
+names(pred.grid.fine) <- gsub(" ", "_", names(species))
+```
+
+If instead of using the whole ICES area, you would like to use a statistical
+rectangle you could replace the code `ind <-
+which(bathy.sub.statrec.grid$Area_27 %in% unique(datiy$Area_27))` with `ind <-
+which(bathy.sub.statrec.grid$StatRec %in% unique(datiy$StatRec))`.
+
+
+
+# Prepare the data sets
+The DATRAS data set requires some processing in order to fit spatial or
+spatio-temporal distribution models to the data. For example, it is necessary to
+identify the real zero observations, i.e. the hauls that could have caught the
+species, but did not. Furthermore, the following functions allow to estimate the
+number and biomass of all individuals caught in a specific haul or for juveniles
+and adults separately.
+
+
+```{r, eval = FALSE}
+## Create empty list
+data.list <- vector("list", length(species))
+
+## Loop through all species
+for(i in 1:length(species)){
+
+    ## Prepare data set
+    dat.spec <- prep.data(datras, AphiaID = species[i], est.n = TRUE, est.bio = TRUE, split.juv.adults = TRUE)
+
+    ## Prepare species datas
+    data.list[[i]] <- prep.species(dat.spec, min.gears = 0, min.surveys = 0, min.hauls = 0)
+}
+
+## Add species names as names of data list
+names(data.list) <- gsub(" ", "_", names(species))
+```
+
+
+
+
+# Predict the species distribution using a spatio-temporal GAM
+Any spatio-temporal distribution model could now be fitted to the processed
+species data set (elements of the `data.list` list) and be used to predict the
+abundance or relative density for the prediction grid (elements of the
+`pred.grid.fine` list). The models included in this package use the
+spatio-temporal generalised additive models (GAMs) of the `surveyIndex` package
+by Casper W. Berg.
+
+In order to fit these GAMs, just select the data set for the species of interest
+and define which life stage to use by overwriting N. If required, you could
+subset the data set to include any years of interest with the following code.
+For example, for juvenile cod and observations after 2009, we can use:
+
+
+```{r, eval = FALSE}
+## Subset the data set for specific species
+dati.spec <- data.list[[1]]
+
+## Define the numbers to be used in column 'N',
+## e.g. to model the distribution of the juveniles:
+dati.spec$N <- dati.spec$n.juv
+
+## Subset years
+dati.spec <- subset(dati.spec, Year > 2009)
+```
+
+Next, we have to define the model structure of the GAM. A simple structure could
+for example be:
+
+```{r, eval = FALSE}
+mod <-  "s(lon, lat, bs=c('ds'), k=128, m=c(1,0.5)) + s(ctime, bs='ds', k=17, m=c(1,0)) + ti(ctime, lon, lat, d=c(1,2), bs=c('ds','ds'), k=c(17,5), m=list(c(1,0), c(1,0.5))) + te(timeOfYear, lon, lat, d=c(1,2), bs=c('cc','ds'), k=c(6,30), m=list(c(1,0), c(1,0.5))) + s(Depth, bs='ds', k=5, m=c(1,0)) + offset(log(SweptArea))"
+```
+
+Note, that this model does not include any gear or ship-gear effect which is
+likely to be important when combining information from many different surveys.
+You can get a suggestion for meaningful model structures with the function
+`list.recom.models(dati.spec)`.
+
+Finally, we can predict the fish distribution with the function `est.dist.one`.
+
+```{r, eval = FALSE}
+## Fit GAM
+fit <- est.dist.one(dati.spec, mod,
+                    grid = pred.grid.fine[[1]],
+                    verbose = FALSE)
+```
+
+The argument `predfix` allows to specify specific prediction parameters and
+could be used in the following way:
+
+
+```{r, eval = FALSE}
+## Prediction parameters
+tmp <- subset(dati.spec, N > 0)
+predfix <- list()
+
+## First quarter
+predfix$timeOfYear <- median(tmp$timeOfYear[tmp$Quarter == 1])
+
+## Most common gear
+predfix$Gear <- names(which.max(table(tmp$Gear)))[1]
+
+## Median swept area index
+predfix$SweptArea <- median(tmp$SweptArea)
+
+## Most common ship-gear interaction
+predfix$ShipG <- names(which.max(table(tmp$ShipG)))[1]
+
+## Fit GAM with predfix
+fit <- est.dist.one(dati.spec, mod,
+                    grid = pred.grid.fine[[1]],
+                    predfix = predfix,
+                    verbose = FALSE)
+```
+
+The results can then be plotted with the various plotting functions included in
+the package. For example, to plot the abundance over time or the distribution in
+space, the following functions can be used.
+
+```{r, eval = FALSE}
+## Plot the estimated abundance
+plotfdist.abun(fit)
+
+## Plot the estimated distribution
+plotfdist.dist(fit)
+```

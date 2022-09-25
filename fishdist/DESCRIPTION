@@ -23,7 +23,8 @@ Imports:
 Suggests:
     knitr,
     glmmTMB,
-    sp
+    sp,
+    rmarkdown
 Remotes:
     tokami/icesDatras@fishdist,
     tokami/surveyIndex/surveyIndex@fishdist
