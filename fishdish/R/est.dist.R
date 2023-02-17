@@ -71,8 +71,8 @@ est.dist.one <- function(specdata, mods = NULL, n.lon = 20,
 
     ## Define grid if not provided
     ## --------------------------------------
-    ## years <- sort(unique(as.numeric(levels(droplevels(specdata$Year)))))
-    years <- sort(unique(specdata$Year))
+    years <- sort(unique(as.numeric(levels(droplevels(specdata$Year)))))
+    ## years <- sort(unique(specdata$Year))
     ny <- length(years)
     if(is.null(grid) || is.na(grid)){
         gridflag <- FALSE
@@ -198,8 +198,9 @@ est.dist.one <- function(specdata, mods = NULL, n.lon = 20,
                 ages = 1,
                 myids = myids,
                 predD = predD,
-                cutOff = 0,
+                cutOff = 0.1,
                 modelP = mods[[j]],
+                modelZ = mods[[j]],
                 ## knotsP = list(DoY = c(0.5,366.5), ToD = c(0.5,24.5)),  ## HERE:
                 fam = fam,
                 nBoot = nBoot,
@@ -374,8 +375,8 @@ pred.dist.one <- function(fit,
 
     ## Define grid if not provided
     ## --------------------------------------
-    ## years <- sort(unique(as.numeric(levels(droplevels(specdata$Year)))))
-    years <- sort(unique(specdata$Year))
+    years <- sort(unique(as.numeric(levels(droplevels(specdata$Year)))))
+    ## years <- sort(unique(specdata$Year))
     ny <- length(years)
     if(is.null(grid) || is.na(grid)){
         grid <- fit$grid

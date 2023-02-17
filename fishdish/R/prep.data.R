@@ -482,7 +482,11 @@ prep.data <- function(data, AphiaID = NULL,
         ind <- which(is.na(hl$HLNoAtLngt))
 
         ## NEW: DECISION: removing HLNoAtLngt = NA entries
-        hl <- hl[-ind,]
+        if(length(ind) > 0){
+            hl <- hl[-ind,]
+        }
+
+
         ## CHECK:
         ## DECISION: Using TotalNo when HLNoAtLngt == NA and setting subFactor to 1.
         ## this might still work, but only on TotalNo by haul id should be used! totalNo is repeated!
@@ -508,7 +512,6 @@ prep.data <- function(data, AphiaID = NULL,
             }
         }
 
-
         ## Account for LngtCode (mm and cm)
         ## Remove LngtCode = NA (LngtClass also NA)
         ind <- which(is.na(hl$LngtCode))
@@ -522,6 +525,24 @@ prep.data <- function(data, AphiaID = NULL,
         ## DataType R,S: TotalNo –report the total number of fish of one species, sex, and category in the given haul
         ## DataType C: TotalNo –report the total number of fish of one species and sex in the given haul, raised to 1 hour hauling;
         hl$multiplier <- ifelse(hl$DataType=="C", hl$HaulDur/60, hl$SubFactor)  ## not using SubFactor if DataType == "C"
+
+        ## REMOVE: check for spict benchmark ray
+        ## surveys22 <- lapply(strsplit(hl$HaulID, ":"), function(x) x[1])
+        ## years22 <- lapply(strsplit(hl$HaulID, ":"), function(x) x[2])
+
+        ## tmp <- hl[surveys22 == "SP-NORTH" & years22 == "2000",]
+        ## tmp2 <- hl[surveys22 == "SP-NORTH" & years22 != "2000",]
+
+        ## tmp$multiplier
+        ## tmp2$multiplier
+
+        ## tmp$SubFactor
+        ## tmp2$SubFactor
+
+        ## tmp$DataType
+        ## tmp2$DataType
+
+
         hl$Counts <- as.numeric(hl$HLNoAtLngt * hl$multiplier)
 
         ## Remove hauls where datatype = C and Subfactor != 1
@@ -560,9 +581,10 @@ prep.data <- function(data, AphiaID = NULL,
         ## -------------------
         if(est.n){
 
-            if(split.juv.adults){
-                data("bio.pars")
-            }
+            ## TODO: needed? but how to add missing species info to bio.pars? or how to pass specific Lm?
+            ## if(split.juv.adults){
+            ##     data("bio.pars")
+            ## }
 
             survey <- NULL
             nspec <- nrow(specs)
@@ -570,6 +592,9 @@ prep.data <- function(data, AphiaID = NULL,
 
                 hlc <- subset(hl, AphiaID == specs$AphiaID[i])
                 unique(hlc$AphiaID)
+                if(nrow(hlc) == 0){
+                    stop(paste0("No entries in HL after data prep for aphia ID:",specs$AphiaID[i],". Cannot calc n!"))
+                }
 
                 ## DATRAS::addSpectrum
                 by <- max(c("." = 0.1, "0" = 0.5, "1" = 1, "2" = 2, "5" = 5)[as.character(hlc$LngtCode)],
@@ -582,6 +607,7 @@ prep.data <- function(data, AphiaID = NULL,
                 n.by.length <- round(xtabs(Counts ~ HaulID + sizeGroup, data = hlc)) ## round after summing up?
 
                 if(split.juv.adults && any(bio.pars$AphiaID == specs$AphiaID[i])){
+                    print(paste0("Lm = ",bio.pars$Lm[bio.pars$AphiaID == specs$AphiaID[i]]))
                     ind.juv <- which(midLengths < bio.pars$Lm[bio.pars$AphiaID == specs$AphiaID[i]])
                     ind.adult <- which(midLengths >= bio.pars$Lm[bio.pars$AphiaID == specs$AphiaID[i]])
                     survey.spec <- data.frame(haul.id = rownames(n.by.length),
@@ -603,6 +629,10 @@ prep.data <- function(data, AphiaID = NULL,
                         cac$LngtCm <- c("." = 0.1, "0" = 0.5, "1" = 1, "2" = 2, "5" = 5)[as.character(cac$LngtCode)] * cac$LngtClass
                         mod <- lm(log(IndWgt) ~ log(LngtCm), data = subset(cac, IndWgt > 0))
                         LW <- exp(predict(mod, newdata = data.frame(LngtCm = midLengths)))
+                        if(verbose){
+                            plot(IndWgt ~ LngtCm, data = subset(cac, IndWgt > 0))
+                            lines(midLengths, LW, lwd = 2, col = 4)
+                        }
                         if(split.juv.adults && any(bio.pars$AphiaID == specs$AphiaID[i])){
                             survey.spec$bio.juv <- unname(apply(n.by.length[,ind.juv], 1,
                                                                 function(x) x %*% LW[ind.juv]))

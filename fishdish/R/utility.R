@@ -850,7 +850,7 @@ subset.fdist.prepped <- function(x, subset){
 #' @param CI 0.95
 #'
 #' @export
-get.gear.effect <- function(fit, mod = 1, CI = 0.95, var = "Gear", exp = TRUE){
+get.gear.effect <- function(fit, mod = 1, CI = 0.95, var = "Gear", exp = TRUE){  ## CHECK: why exp = TRUE by default for gears? because of link function?
 
     ## zscore <- qnorm(CI + (1 - CI)/2)
     ## fe <- data.frame(summary(fit$fits[[1]]$pModels[[1]])$p.table)[,c(1,2)]
@@ -860,17 +860,41 @@ get.gear.effect <- function(fit, mod = 1, CI = 0.95, var = "Gear", exp = TRUE){
     ## fe$up <- fe$value + fe$se
     ## fe <- exp(fe)
 
-    sel <- grep(var,names(coef(fit$fits[[1]]$pModels[[1]])))
+    ## TODO: if interested in intercept:
+    sel.intercept <- grep("(Intercept)",names(coef(fit$fits[[1]]$pModels[[1]])))
+    sel <- c(sel.intercept,grep(var,names(coef(fit$fits[[1]]$pModels[[1]]))))
     vals <- coef(fit$fits[[1]]$pModels[[1]])[sel]
-    if(exp) vals <- exp(vals)
-    sds <- sqrt(diag(vcov(fit$fits[[1]]$pModels[[1]])[sel,sel]))
-    ## HERE:
-    if(length(levels(droplevels(fit$data[,var]))) > length(vals)){
-        vals <- c(1, vals)
-        sds <- c(NA, sds)
+    vals <- c(vals[1], sapply(vals[-1], function(x) vals[1] + x))
+    if(length(sel) > 1){
+        sds <- sqrt(diag(vcov(fit$fits[[1]]$pModels[[1]])[sel,sel]))
+    }else{
+        sds <- sqrt(vcov(fit$fits[[1]]$pModels[[1]])[sel,sel])
     }
-    res <- as.data.frame(cbind(vals, sds))
-    colnames(res) <- c("mean", "sd")
+    vals <- vals - vals[1]
+    ll <- vals - qnorm(CI + (1 - CI)/2) * sds
+    ul <- vals + qnorm(CI + (1 - CI)/2) * sds
+    ## ll[1] <- NA
+    ## ul[1] <- NA
+    ## sds[1] <- NA
+    if(exp){
+        vals <- exp(vals)## / exp(vals[1])
+        ll <- exp(ll) ##/ exp(vals[1])
+        ul <- exp(ul) ##/ exp(vals[1])
+    }
+    ## else{
+    ##     vals <- vals / vals[1]
+    ##     ll <- ll / vals[1]
+    ##     ul <- ul / vals[1]
+    ## }
+    ## ## HERE:
+    ## if(length(levels(droplevels(fit$data[,var]))) > length(vals)){
+    ##     vals <- c(ifelse(exp, 1, 0), vals)
+    ##     ll <- c(ifelse(exp, 1, 0), ll)
+    ##     ul <- c(ifelse(exp, 1, 0), ul)
+    ##     sds <- c(NA, sds)
+    ## }
+    res <- as.data.frame(cbind(vals, ll, ul, sds))
+    colnames(res) <- c("est", "ll", "ul", "sd")
     rownames(res) <- levels(droplevels(fit$data[,var]))
 
     return(res)

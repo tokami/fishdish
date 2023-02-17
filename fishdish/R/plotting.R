@@ -157,7 +157,7 @@ plotfishdish.abun <- function(fit, by.area = FALSE, by.eco = FALSE,
             ## par(mfrow = c(neco,1), mar = c(2,2,1,1), oma = c(2,3,2,1))
 
             xlim <- range(fit$year)
-            if(fixed.scale) ylim <- c(0.99,1.01) * range(c(fit$idx, fit$lo, fit$up)) / y.scale
+            if(fixed.scale) ylim <- c(0.99,1.01) * range(c(fit$idx, fit$lo, fit$up), na.rm = TRUE) / y.scale
             xaxt.ind <- (prod(mfrow) - mfrow[2] + 1):prod(mfrow)
             if(prod(mfrow) - neco > 0) xaxt.ind <- (min(xaxt.ind) - (prod(mfrow) - neco)):max(xaxt.ind)
             yaxt.ind <- seq(1, prod(mfrow), mfrow[2])
@@ -168,7 +168,7 @@ plotfishdish.abun <- function(fit, by.area = FALSE, by.eco = FALSE,
                 nia <- length(areas.uni)
                 xaxt <- ifelse(i %in% xaxt.ind, "s", "n")
                 ##            yaxt <- ifelse(i %in% yaxt.ind, "s", "n")
-                if(!fixed.scale) ylim <- c(0.99,1.01) * range(c(fit$idx[eco.ind], fit$lo[eco.ind], fit$up[eco.ind])) / y.scale
+                if(!fixed.scale) ylim <- c(0.99,1.01) * range(c(fit$idx[eco.ind], fit$lo[eco.ind], fit$up[eco.ind]), na.rm = TRUE) / y.scale
                 plot(xlim, c(1,1), ty = "n",
                      xaxt = xaxt, yaxt = "s",
                      ylim = ylim, xlim = xlim,
@@ -426,7 +426,7 @@ plotfishdish.abun <- function(fit, by.area = FALSE, by.eco = FALSE,
         ## CHECK: TODO: might be species if fitted with est.dist
         ns <- length(fiti)
         years <- as.numeric(rownames(fiti[[1]]$idx))
-        ylim <- range(lapply(fiti, function(x) c(x$idx, x$up, x$lo) / y.scale))
+        ylim <- range(lapply(fiti, function(x) c(x$idx, x$up, x$lo) / y.scale), na.rm = TRUE)
         xlim <- range(years)
         plot(years, fiti[[1]]$idx/y.scale, ty='n',
              xlim = xlim, ylim = ylim,
@@ -467,8 +467,14 @@ plotfishdish.abun <- function(fit, by.area = FALSE, by.eco = FALSE,
 plotfishdish.dist <- function(fit, mod = NULL, year = NULL,
                            xlim = NULL, ylim = NULL,
                            legend = TRUE, fixed.scale = TRUE,
+                           title = NULL,
+                           fixed.lims = TRUE,
                            cols = rev(heat.colors(8)),
-                           cut.cv = NULL, asp = 2){
+                           min.val = NA,
+                           cut.cv = NULL, asp = 2,
+                           plot.land = TRUE,
+                           plot.obs = FALSE
+                           ){
 
     if(is.null(year)){
         year <- tail(rownames(fit$fits[[1]]$idx),1)
@@ -478,10 +484,19 @@ plotfishdish.dist <- function(fit, mod = NULL, year = NULL,
         mod <- 1
     }
 
+    if(year == "all"){
+        year <- names(fit$fits[[mod]]$gPreds2[[1]])
+    }
+
+    ny <- length(year)
     pred <- fit$fits[[mod]]$gPreds2[[1]][as.character(year)]
     cv <- fit$fits[[mod]]$gPreds2.CV[[1]][as.character(year)]
-    grid <- fit$grid[as.character(year)]
-    ny <- length(year)
+    if(inherits(fit$grid, "list")){
+        grid <- fit$grid[as.character(year)]
+    }else{
+        grid <- lapply(1:ny, function(x) fit$grid)
+    }
+
     mfrow <- n2mfrow(ny, asp = asp)
     if(ny > 1){
         par(mfrow = mfrow, mar = c(0,0,2,0), oma = c(5,5,2,1))
@@ -491,7 +506,7 @@ plotfishdish.dist <- function(fit, mod = NULL, year = NULL,
     yaxt.ind <- seq(1, prod(mfrow), mfrow[2])
 
     if(fixed.scale){
-        predi <- unlist(lapply(pred, function(x) x[,1]))
+        prediAll <- unlist(lapply(pred, function(x) x[,1]))
         ind <- vector("list",length(pred))
         for(i in 1:length(pred)){
             if(i == 1){
@@ -506,8 +521,12 @@ plotfishdish.dist <- function(fit, mod = NULL, year = NULL,
                 ind[[i]] <- NULL
             }
         }
-        concT <- surveyIndex:::concTransform(log(predi))
-        zFac <- cut(concT, 0:length(cols)/length(cols))
+        concT <- surveyIndex:::concTransform(log(prediAll))
+        if(is.null(min.val) || is.na(min.val)){
+            zFac <- cut(concT, 0:length(cols)/length(cols))
+        }else{
+            zFac <- cut(concT, sort(c(min.val,seq(0,1, length.out = length(cols)-1))))
+        }
         for(i in 1:length(grid)){
             if(!is.null(ind[[i]])){
                 grid[[i]]$pred <- as.numeric(zFac[ind[[i]]])
@@ -515,6 +534,11 @@ plotfishdish.dist <- function(fit, mod = NULL, year = NULL,
                 grid[[i]]$pred <- NA
             }
         }
+    }
+
+    if(fixed.lims){
+        if(is.null(xlim)) xlim <- extendrange(r = range(unlist(lapply(grid, function(x) range(x$lon)))), f = 0.1)
+        if(is.null(ylim)) ylim <- extendrange(r = range(unlist(lapply(grid, function(x) range(x$lat)))), f = 0.1)
     }
 
     for(i in 1:ny){
@@ -532,8 +556,8 @@ plotfishdish.dist <- function(fit, mod = NULL, year = NULL,
             grid[[i]]$pred[which(cv[[i]] > cut.cv)] <- NA
         }
         tmp <- reshape2::acast(grid[[i]], lon~lat, value.var = "pred")
-        if(is.null(xlim)) xlimi <- range(as.numeric(rownames(tmp))) else xlimi <- xlim
-        if(is.null(ylim)) ylimi <- range(as.numeric(colnames(tmp))) else ylimi <- ylim
+        if(is.null(xlim)) xlimi <- extendrange(r = range(as.numeric(rownames(tmp))), f = 0.1) else xlimi <- xlim
+        if(is.null(ylim)) ylimi <- extendrange(r = range(as.numeric(colnames(tmp))), f = 0.1) else ylimi <- ylim
         xaxt <- ifelse(i %in% xaxt.ind, "s", "n")
         yaxt <- ifelse(i %in% yaxt.ind, "s", "n")
         plot(1,1, xlim = xlimi, ylim = ylimi,
@@ -544,19 +568,30 @@ plotfishdish.dist <- function(fit, mod = NULL, year = NULL,
               add = TRUE,
               xlab = "", ylab = "", col = cols,
               breaks = seq(0.5,length(cols)+0.5,1))
+        if(plot.land){
         maps::map("world", xlim = xlimi,
                   ylim = ylimi,
                   fill = TRUE, plot = TRUE, add = TRUE,
                   col = grey(0.95), border = grey(0.8))
-        mtext(year[i], 3, 0.3, font = 2, cex = 0.8)
+        }
+        if(plot.obs){
+            dat <- subset(fit$data, Year == year[i] & N > 0)
+            points(dat$lon, dat$lat, pch = 1,
+                   col = adjustcolor(1, 1), cex = dat$N)
+        }
+        if(is.null(title)){
+            mtext(year[i], 3, 0.3, font = 2, cex = 0.8)
+        }else{
+            mtext(title, 3, 0.3, font = 2, cex = 0.8)
+        }
         if ((legend && fixed.scale && i == ny) || legend && !fixed.scale){
-            maxcuts = aggregate(predi ~ zFac, FUN=max)
-            mincuts = aggregate(predi ~ zFac, FUN=min)
-            mm = mean(predi)
+            maxcuts = aggregate(prediAll ~ zFac, FUN=max)
+            mincuts = aggregate(prediAll ~ zFac, FUN=min)
+            mm = mean(prediAll)
             ml = signif(mincuts[,2]/mm,3)
             ml[1] = 0
             leg = paste0("[",ml,",",signif(maxcuts[,2]/mm,3),"]")
-            legend("bottomright", legend = leg, pch = 16, col = cols, bg = "white")
+            legend("bottomright", legend = leg, pch = 16, col = cols, bg = "white", ncol = 1, cex = 0.6) ## HERE:
         }
         box(lwd = 1.5)
     }
@@ -896,6 +931,7 @@ plotfishdish.dist.year <- function(fit, mod = NULL, var.lim = FALSE, all.years =
             par(mar = c(1,1,2,1), oma = c(4,3,2,1))
         }
 
+
         for(j in 1:ny){
             year <- years[j]
             if(is.na(year)) break()
@@ -923,12 +959,21 @@ plotfishdish.dist.year <- function(fit, mod = NULL, var.lim = FALSE, all.years =
             cc = 0
             for (y in names(fitx$gPreds2[[a]])) {
                 cc = cc + 1
-                ally = rbind(ally, data.frame(val = fitx$gPreds2[[a]][[cc]],
-                                              year = as.character(levels(as.factor(data$Year))[cc])))
+                ## Account for missing year)
+                if(!is.null(fitx$gPreds2[[a]][[cc]])){
+                    ally = rbind(ally, data.frame(val = fitx$gPreds2[[a]][[cc]],
+                                                  year = as.character(levels(as.factor(data$Year))[cc])))
+                }else{
+                }
             }
             ally$conc = surveyIndex:::concTransform(log(ally$val))
             ally$zFac = cut(ally$conc, 0:length(colors)/length(colors))
+
+            yy = 2015
             for (yy in year) {
+                yy
+                length(tmp)
+                browser()
                 if(inherits(tmp, "list")){
                     tmpx <- tmp[[as.character(yy)]]
                 }else tmpx <- tmp
@@ -937,8 +982,21 @@ plotfishdish.dist.year <- function(fit, mod = NULL, var.lim = FALSE, all.years =
                      xlim = xlims, ylim = ylims,
                      cex = map.cex, xlab = "", ylab = "",
                      axes = FALSE)
+
+
+                cols = rev(heat.colors(8))
+                cols
+                tmpx
+
+                image(as.numeric(rownames(tmpx)), as.numeric(colnames(tmpx)), tmpx,
+                      add = TRUE,
+                      xlab = "", ylab = "", col = cols,
+                      breaks = seq(0.5,length(cols)+0.5,1))
+
+                ## OLD:
                 points(tmpx$lon, y = tmpx$lat, col = 1, pch = 1,
-                     cex = map.cex)
+                       cex = map.cex)
+
                 title(yy, line = 1)
                 sel = which(ally$year == yy)
                 for(i in 1:nlevels(ally$zFac[sel])){
@@ -1142,10 +1200,11 @@ plotfishdish.gam.effects.gear <- function(fit, mod = 1, xlim = NULL, ylim = NULL
     cols <- rep(c(RColorBrewer::brewer.pal(n = 8, "Dark2"),
                   RColorBrewer::brewer.pal(n = 8, "Accent")),50)
 
-
     gear.effs <- get.gear.effect(fit, mod = mod, CI = CI, var = var, exp = exp)
-    vals <- gear.effs[,1]
-    sds <- gear.effs[,2]
+    vals <- gear.effs[,"est"]
+    ll <- gear.effs[,"ll"]
+    ul <- gear.effs[,"ul"]
+    sds <- gear.effs[,"sd"]
     labs <- rownames(gear.effs)
     if(var == "ShipG"){
         ships <- sapply(strsplit(labs,":"),"[[",1)
@@ -1180,15 +1239,16 @@ plotfishdish.gam.effects.gear <- function(fit, mod = 1, xlim = NULL, ylim = NULL
 
 
     if(is.null(ylim)){
-    ylim <- range(vals, vals - sds, vals + sds, na.rm = TRUE)
-    if(ylim[1] < 0) ylim <- c(1.05,1.05) * ylim else ylim <- c(0.95,1.05) * ylim
+    ylim <- extendrange(r = range(vals, ll, ul, na.rm = TRUE), f = 0.1)
+    ## if(ylim[1] < 0) ylim <- c(1.05,1.05) * ylim else ylim <- c(0.95,1.05) * ylim
     }
     plot(1:length(vals), vals, ty = "n",
+         xlim = extendrange(r = c(1,length(vals)), f = 0.2),
          xlab = "", ylab = "",
          xaxt="n",ylim=ylim)
     if(exp) abline(h=1, lty=2, lwd = 1.5, col="grey50") else abline(h=0, lty=2, lwd = 1.5, col="grey50")
     for(i in 1:length(vals)){
-        arrows(i, vals[i] - sds[i], i, vals[i] + sds[i], col = cols[i], angle=90, code=3, lengt = 0.1)
+        arrows(i, ll[i], i, ul[i], col = cols[i], angle=90, code=3, lengt = 0.1)
     }
     points(1:length(vals), vals, pch = 16,
            cex = 1.5,
@@ -1305,4 +1365,244 @@ plotfishdish.diag.spatial <- function(fit, mod = 1, year = NULL){
                                     xaxt = xaxt, yaxt = yaxt,
                                     main = year[y])
     }
+}
+
+
+
+
+#' @name plotfishdish.dist.year2
+#'
+#' @title plot fit
+#'
+#' @param fit fit
+#' @param mod Select one of the models. Default: NULL
+#' @param var.lim variable axis limits? Default: FALSE
+#' @param all.years Plot all years? Otherwise plot 3 years: first or 1991, intermediate,
+#'     and last year. Default: TRUE
+#'
+#' @importFrom maps map
+#'
+#' @return Nothing
+#'
+#' @export
+plotfishdish.dist.year2 <- function(fit, mod = NULL, var.lim = FALSE, all.years = TRUE,
+                                    sandeel_areas = NULL, tobisbanker_wgs84 = NULL,
+                                    fixed.scale = TRUE,
+                                    cols = rev(heat.colors(8)),
+                                    xlim = NULL, ylim = NULL, cex = 1){
+
+    nmods <- length(fit$fits)
+    if(nmods == 1){
+        mod <- 1
+    }else if(is.null(mod)){
+        stop("Please use argument 'mod' to select one of the models, e.g. 'mod=1' for the first model!")
+    }
+    pred.by.haul <- fit$pred.by.haul
+
+    if(pred.by.haul){
+        predD <- NULL
+        myids <- fit$grid[[3]]
+    }else{
+        predD <- fit$grid
+        myids <- NULL
+    }
+
+    fitx <- fit$fit[[mod]]
+    data <- fit$data
+    map.cex <- cex
+    years0 <- sort(unique(fitx$yearNum))
+
+    if(all.years){
+
+        years <- years0
+        ny <- length(years)
+        ny1 <- ny + 1
+        print(ny1)
+        if(ny1 >= 30){
+            mfrow = c(5,ceiling(ny1/5))
+        }else if(ny1 >= 19){
+            mfrow = c(4,ceiling(ny1/4))
+        }else if(ny1 >= 9){
+            mfrow = c(3,ceiling(ny1/3))
+        }else if(ny1 < 9 & ny1 >= 4){
+            mfrow = c(2,ceiling(ny1/2))
+        }else if(ny1 < 4){
+            mfrow = c(1,ny1)
+        }
+        if(ny1 > 1){
+            ## lt <- layout(matrix(c(1:(mfrow[1]*mfrow[2]),rep(mfrow[1]*mfrow[2]+1,3)),
+            ##                     mfrow[1]+1,mfrow[2],byrow = TRUE),
+            ##              heights = c(rep(1,mfrow[1]),0.2))
+            par(mfrow = mfrow, mar = c(1,1,2,1), oma = c(2,2,2,1))
+        }else{
+            par(mar = c(1,1,2,1), oma = c(4,3,2,1))
+        }
+
+        browser()
+        j = 1
+
+
+        for(j in 1:ny){
+            year <- years[j]
+            if(is.na(year)) break()
+            colors=rev(heat.colors(8))
+            a <- 1
+            if(is.null(xlim) || is.null(ylim)){
+                if(var.lim){
+                    xlims <- NULL
+                    ylims <- NULL
+                }else{
+                    xlims = range(data$lon, na.rm = TRUE)
+                    ylims = range(data$lat, na.rm = TRUE)
+                }
+            }else{
+                xlims <- xlim
+                ylims <- ylim
+            }
+            if (is.null(predD)) {
+                tmp = subset(data, haul.id %in% myids)
+            }else {
+                tmp = predD
+            }
+            ally = data.frame(val = fitx$gPreds2[[a]][[1]],
+                              year = as.character(levels(as.factor(data$Year))[1]))
+            cc = 0
+            for (y in names(fitx$gPreds2[[a]])) {
+                cc = cc + 1
+                ally = rbind(ally, data.frame(val = fitx$gPreds2[[a]][[cc]],
+                                              year = as.character(levels(as.factor(data$Year))[cc])))
+            }
+            ally$conc = surveyIndex:::concTransform(log(ally$val))
+            ally$zFac = cut(ally$conc, 0:length(colors)/length(colors))
+
+    pred <- fit$fits[[mod]]$gPreds2[[1]][as.character(year)]
+    cv <- fit$fits[[mod]]$gPreds2.CV[[1]][as.character(year)]
+    grid <- fit$grid[as.character(year)]
+
+            yy = 2015
+            for (yy in year) {
+                if(inherits(tmp, "list")){
+                    tmpx <- tmp[[as.character(yy)]]
+                }else tmpx <- tmp
+                plot(tmpx$lon, y = tmpx$lat, col = 1, pch = 1,
+                     ty = "n",
+                     xlim = xlims, ylim = ylims,
+                     cex = map.cex, xlab = "", ylab = "",
+                     axes = FALSE)
+
+
+                cols = rev(heat.colors(8))
+                cols
+                tmpx
+
+                image(as.numeric(rownames(tmpx)), as.numeric(colnames(tmpx)), tmpx,
+                      add = TRUE,
+                      xlab = "", ylab = "", col = cols,
+                      breaks = seq(0.5,length(cols)+0.5,1))
+
+                ## OLD:
+                points(tmpx$lon, y = tmpx$lat, col = 1, pch = 1,
+                       cex = map.cex)
+
+                title(yy, line = 1)
+                sel = which(ally$year == yy)
+                for(i in 1:nlevels(ally$zFac[sel])){
+                    ind <- which(ally$zFac[sel] == levels(ally$zFac[sel])[i])
+                    points(tmpx$lon[ind], y = tmpx$lat[ind],
+                           col = colors[i], ## col = colors[as.numeric(ally$zFac[sel])],
+                           pch = 16, cex = map.cex)
+                }
+                ## ## REMOVE:
+                ## sp:::plot.SpatialPolygons(sandeel_areas, xlim = xlims, ylim = ylims,add=TRUE,
+                ##      border = rgb(t(col2rgb("grey10"))/255,alpha=0.4))
+                maps::map("world", xlim = xlims, ylim = ylims,
+                          fill = TRUE, plot = TRUE, add = TRUE,
+                          col = grey(0.95), border = grey(0.5))
+                ## ## REMOVE:
+                ## sp:::plot.SpatialPolygons(tobisbanker_wgs84, xlim = xlims, ylim = ylims, add=TRUE,
+                ##      col=rgb(t(col2rgb("darkgoldenrod4"))/255,alpha=0.4),
+                ##      border=rgb(t(col2rgb("darkgoldenrod4"))/255,alpha=0.4))
+                box(lwd=1.5)
+            }
+        }
+        plot.new()
+        maxcuts = aggregate(val ~ zFac, data = ally,
+                            FUN = max)
+        mincuts = aggregate(val ~ zFac, data = ally,
+                            FUN = min)
+        mm = mean(ally$val)
+        ml = signif(mincuts[, 2]/mm, 3)
+        ml[1] = 0
+        leg = paste0("[", ml, ",", signif(maxcuts[,2]/mm, 3), "]")
+        legend("center",
+               ## ncol = length(leg),
+               legend = leg, pch = 16,
+               col = colors, bg = "white",
+               cex = 1.2)
+
+    }else{
+
+        years <- c(max(min(years0),1991), floor(mean(years0)), 2020)
+        ny <- length(years)
+        lt <- layout(matrix(c(1:3,rep(4,3)),2,3,byrow = TRUE), heights = c(1,0.2))
+        par(mar = c(1,1,2,1), oma = c(4,3,2,1))
+        for(j in 1:ny){
+            year <- years[j]
+            if(is.na(year)) break()
+            colors=rev(heat.colors(8))
+            a <- 1
+            if(var.lim){
+                xlims <- NULL
+                ylims <- NULL
+            }else{
+                xlims = range(data$lon, na.rm = TRUE)
+                ylims = range(data$lat, na.rm = TRUE)
+            }
+            if (is.null(predD)) {
+                tmp = subset(data, haul.id %in% myids)
+            }else {
+                tmp = predD
+            }
+            ally = data.frame(val = fitx$gPreds2[[a]][[1]],
+                              year = as.character(levels(as.factor(data$Year))[1]))
+            cc = 0
+            for (y in names(fitx$gPreds2[[a]])) {
+                cc = cc + 1
+                ally = rbind(ally, data.frame(val = fitx$gPreds2[[a]][[cc]],
+                                              year = as.character(levels(as.factor(data$Year))[cc])))
+            }
+            ally$conc = surveyIndex:::concTransform(log(ally$val))
+            ally$zFac = cut(ally$conc, 0:length(colors)/length(colors))
+            for (yy in year) {
+                if(is.list(tmp)){
+                    tmpx <- tmp[[as.character(yy)]]
+                }else tmpx <- tmp
+                plot(tmpx$lon, y = tmpx$lat, col = 1, pch = 1,
+                     xlim = xlims, ylim = ylims,
+                     cex = map.cex, xlab = "", ylab = "",
+                     axes = FALSE)
+                title(yy, line = 1)
+                sel = which(ally$year == yy)
+                points(tmpx$lon, y = tmpx$lat, col = colors[as.numeric(ally$zFac[sel])],
+                       pch = 16, cex = map.cex)
+                maps::map("world;", xlim = xlims, ylim = ylims,
+                          fill = TRUE, plot = TRUE, add = TRUE, col = grey(0.5))
+                box(lwd=1.5)
+            }
+        }
+        plot.new()
+        maxcuts = aggregate(val ~ zFac, data = ally,
+                            FUN = max)
+        mincuts = aggregate(val ~ zFac, data = ally,
+                            FUN = min)
+        mm = mean(ally$val)
+        ml = signif(mincuts[, 2]/mm, 3)
+        ml[1] = 0
+        leg = paste0("[", ml, ",", signif(maxcuts[,2]/mm, 3), "]")
+        legend("center",
+               ## ncol = length(leg),
+               legend = leg, pch = 16,
+               col = colors, bg = "white")
+    }
+
 }

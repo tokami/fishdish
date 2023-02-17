@@ -39,7 +39,6 @@ prep.species <- function(data, aphiaID = NULL,
         survey$bio <- survey$bio.juv + survey$bio.adult
     }
 
-
     ## Subset all species for given species category
     ## --------------------------------------
     if(!is.null(aphiaID) && !is.na(aphiaID)){
@@ -77,6 +76,7 @@ prep.species <- function(data, aphiaID = NULL,
     gears.keep <- as.character(tmp$Gear[tmp$haul.id >= min.gears])
     colnames(tmp) <- c("Gear","#hauls")
     if(verbose) print(tmp)
+
 
     ## Surveys
     ## --------------
@@ -116,7 +116,6 @@ prep.species <- function(data, aphiaID = NULL,
     ## TODO: make check that Area_27 is included!!
     ices.keep <- sort(unique(survey.spp$Area_27))
 
-
     ## Apply selections to both data sets
     ## --------------------------------------
     survey.spp <- subset(survey.spp,
@@ -137,7 +136,6 @@ prep.species <- function(data, aphiaID = NULL,
     ## --------------------------------------
     first_occurence <- min(survey.spp$Year)
     survey0 <- subset(survey0, Year >= first_occurence)
-
 
 
     ## Missing / fragmented years
