@@ -40,3 +40,6 @@ vignettes/*.pdf
 
 # Default R plot file
 Rplots.pdf
+
+data/
+app/
