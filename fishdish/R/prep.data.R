@@ -412,7 +412,6 @@ prep.data <- function(data, AphiaID = NULL,
         hl <- plyr::join(hl, hh[,c("HaulID","BySpecRecCode","HaulDur","DataType")], by="HaulID") ## 16s
         rm(hh)
 
-
         ## Check DataType in hl
         ## ---------
         ind <- which(is.na(hl$DataType))

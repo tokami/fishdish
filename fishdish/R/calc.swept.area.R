@@ -564,8 +564,10 @@ calc.swept.area <- function(data, plot = FALSE, verbose = TRUE){
         idx <- is.na(hh$Distance) & !is.na(hh$lon) & !is.na(hh$lat) & !is.na(hh$HaulLong) & !is.na(hh$HaulLat)
         hh$Distance[idx] <- 1000 * apply(cbind(hh$lon[idx],hh$lat[idx],hh$HaulLong[idx],hh$HaulLat[idx]),1,
                                          function(x)sp::spDistsN1(matrix(x[1:2], ncol = 2),matrix(x[3:4], ncol = 2), longlat = T))
-        hist(hh$Distance[hh$Distance>10000], xlim = c(10000, max(hh$Distance, na.rm = T)))
-        hh$Distance[hh$Distance>10000] <- NA
+        if(sum(hh$Distance>10000, na.rm = TRUE) > 0){
+            hist(hh$Distance[hh$Distance>10000], xlim = c(10000, max(hh$Distance, na.rm = T)))
+            hh$Distance[hh$Distance>10000] <- NA
+        }
         if(verbose) prop.table(table(is.na(hh$Distance)))
 
         hh$Distance[hh$Distance==0]    <- NA

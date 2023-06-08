@@ -372,6 +372,7 @@ list.datras.variables.req <- function(swept.area.calculated = TRUE){
     }
     all.variables[["HL"]] <- c("Survey","Year","Quarter","Country","Ship",
                                "Gear","StNo", "HaulNo","SpecCodeType",
+                               "LngtCode","LngtClass",
                                "SpecCode","SpecVal","TotalNo","CatIdentifier",
                                "SubFactor","HLNoAtLngt","AphiaID")
     all.variables[["CA"]] <- c("Survey","Year","Quarter","Country","Ship",

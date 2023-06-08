@@ -12,9 +12,14 @@ plotfishdish.dist(
   ylim = NULL,
   legend = TRUE,
   fixed.scale = TRUE,
+  title = NULL,
+  fixed.lims = TRUE,
   cols = rev(heat.colors(8)),
+  min.val = NA,
   cut.cv = NULL,
-  asp = 2
+  asp = 2,
+  plot.land = TRUE,
+  plot.obs = FALSE
 )
 }
 \arguments{

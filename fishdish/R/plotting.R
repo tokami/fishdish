@@ -431,6 +431,7 @@ plotfishdish.abun <- function(fit, by.area = FALSE, by.eco = FALSE,
         plot(years, fiti[[1]]$idx/y.scale, ty='n',
              xlim = xlim, ylim = ylim,
              xlab = "", ylab = "")
+
         for(i in 1:ns){
             polygon(c(years,rev(years)), c(fiti[[i]]$lo,rev(fiti[[i]]$up))/y.scale,
                     border = NA, col = rgb(t(col2rgb(cols[i]))/255, alpha = alpha))
@@ -505,6 +506,8 @@ plotfishdish.dist <- function(fit, mod = NULL, year = NULL,
     xaxt.ind <- (prod(mfrow) - mfrow[2] + 1):prod(mfrow)
     yaxt.ind <- seq(1, prod(mfrow), mfrow[2])
 
+    ##TODO: include error when first year not in pred!
+
     if(fixed.scale){
         prediAll <- unlist(lapply(pred, function(x) x[,1]))
         ind <- vector("list",length(pred))
@@ -537,9 +540,10 @@ plotfishdish.dist <- function(fit, mod = NULL, year = NULL,
     }
 
     if(fixed.lims){
-        if(is.null(xlim)) xlim <- extendrange(r = range(unlist(lapply(grid, function(x) range(x$lon)))), f = 0.1)
-        if(is.null(ylim)) ylim <- extendrange(r = range(unlist(lapply(grid, function(x) range(x$lat)))), f = 0.1)
+        if(is.null(xlim)) xlim <- extendrange(r = range(unlist(lapply(grid, function(x) range(if(!is.null(x$lon)) x$lon else NA))),na.rm = TRUE), f = 0.1)
+        if(is.null(ylim)) ylim <- extendrange(r = range(unlist(lapply(grid, function(x) range(if(!is.null(x$lat)) x$lat else NA))),na.rm = TRUE), f = 0.1)
     }
+
 
     for(i in 1:ny){
         if(!fixed.scale){
@@ -555,7 +559,9 @@ plotfishdish.dist <- function(fit, mod = NULL, year = NULL,
         if(!is.null(cut.cv)){
             grid[[i]]$pred[which(cv[[i]] > cut.cv)] <- NA
         }
-        tmp <- reshape2::acast(grid[[i]], lon~lat, value.var = "pred")
+        if(!is.null(grid[[i]]$lon)){
+            tmp <- reshape2::acast(grid[[i]], lon~lat, value.var = "pred")
+        }
         if(is.null(xlim)) xlimi <- extendrange(r = range(as.numeric(rownames(tmp))), f = 0.1) else xlimi <- xlim
         if(is.null(ylim)) ylimi <- extendrange(r = range(as.numeric(colnames(tmp))), f = 0.1) else ylimi <- ylim
         xaxt <- ifelse(i %in% xaxt.ind, "s", "n")
@@ -564,10 +570,12 @@ plotfishdish.dist <- function(fit, mod = NULL, year = NULL,
              xaxt = xaxt, yaxt = yaxt,
              ty = "n",
              xlab = "", ylab = "")
+        if(!is.null(grid[[i]]$lon)){
         image(as.numeric(rownames(tmp)), as.numeric(colnames(tmp)), tmp,
               add = TRUE,
               xlab = "", ylab = "", col = cols,
               breaks = seq(0.5,length(cols)+0.5,1))
+        }
         if(plot.land){
         maps::map("world", xlim = xlimi,
                   ylim = ylimi,
@@ -584,7 +592,7 @@ plotfishdish.dist <- function(fit, mod = NULL, year = NULL,
         }else{
             mtext(title, 3, 0.3, font = 2, cex = 0.8)
         }
-        if ((legend && fixed.scale && i == ny) || legend && !fixed.scale){
+        if (legend && fixed.scale && i == ny){
             maxcuts = aggregate(prediAll ~ zFac, FUN=max)
             mincuts = aggregate(prediAll ~ zFac, FUN=min)
             mm = mean(prediAll)
@@ -592,6 +600,18 @@ plotfishdish.dist <- function(fit, mod = NULL, year = NULL,
             ml[1] = 0
             leg = paste0("[",ml,",",signif(maxcuts[,2]/mm,3),"]")
             legend("bottomright", legend = leg, pch = 16, col = cols, bg = "white", ncol = 1, cex = 0.6) ## HERE:
+        }else if (legend && !fixed.scale){
+            prediAll <- pred[[i]][,1]
+            if(!is.null(prediAll)){
+            zFac <- grid[[i]]$pred
+            maxcuts = aggregate(prediAll ~ zFac, FUN=max)
+            mincuts = aggregate(prediAll ~ zFac, FUN=min)
+            mm = mean(prediAll)
+            ml = signif(mincuts[,2]/mm,3)
+            ml[1] = 0
+            leg = paste0("[",ml,",",signif(maxcuts[,2]/mm,3),"]")
+            legend("bottomright", legend = leg, pch = 16, col = cols, bg = "white", ncol = 1, cex = 0.6) ## HERE:
+            }
         }
         box(lwd = 1.5)
     }
@@ -772,6 +792,7 @@ plotfishdish.dist.cv <- function(fit, mod = NULL, year = NULL,
 
     xaxt.ind <- (prod(mfrow) - mfrow[2] + 1):prod(mfrow)
     yaxt.ind <- seq(1, prod(mfrow), mfrow[2])
+    lastmax <- NULL
 
     if(fixed.scale){
         predi <- unlist(lapply(pred, function(x) x[,1]))
@@ -973,6 +994,7 @@ plotfishdish.dist.year <- function(fit, mod = NULL, var.lim = FALSE, all.years =
             for (yy in year) {
                 yy
                 length(tmp)
+                names(tmpx)
                 browser()
                 if(inherits(tmp, "list")){
                     tmpx <- tmp[[as.character(yy)]]
@@ -1114,7 +1136,8 @@ plotfishdish.dist.year <- function(fit, mod = NULL, var.lim = FALSE, all.years =
 #' @return Nothing
 #'
 #' @export
-plotfishdish.gam.effects <- function(fit, mod = 1, xlim = NULL, ylim = NULL){
+plotfishdish.gam.effects <- function(fit, mod = 1, xlim = NULL, ylim = NULL,
+                                     add = FALSE){
 
     cols <- c(RColorBrewer::brewer.pal(n = 8, "Dark2"),
               RColorBrewer::brewer.pal(n = 8, "Accent"))
@@ -1123,7 +1146,7 @@ plotfishdish.gam.effects <- function(fit, mod = 1, xlim = NULL, ylim = NULL){
 
     gamTerms <- unlist(lapply(plotInfo, function(x) ifelse(!is.null(x$xlab), x$xlab, NA)))
 
-    par(mfrow = c(1,1))  ## HERE:
+    if(!add) par(mfrow = c(1,1))  ## HERE:
 
     ## ind <- which(gamTerms == "lon")
     ## if(length(ind) > 0){
@@ -1438,8 +1461,8 @@ plotfishdish.dist.year2 <- function(fit, mod = NULL, var.lim = FALSE, all.years 
             par(mar = c(1,1,2,1), oma = c(4,3,2,1))
         }
 
-        browser()
-        j = 1
+        ## browser()
+        ## j = 1
 
 
         for(j in 1:ny){
