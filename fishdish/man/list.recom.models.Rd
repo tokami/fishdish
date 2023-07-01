@@ -6,15 +6,18 @@
 \usage{
 list.recom.models(
   specdata,
+  use.ctime = TRUE,
   use.toy = TRUE,
-  use.swept.area = TRUE,
+  use.ctime.space = TRUE,
+  use.swept.area = FALSE,
   use.sqrt.depth = FALSE,
   use.gear.as.fixed = FALSE,
   use.random.ship = FALSE,
   dim.lat.lon = 256,
   dim.ctime = "nyears",
   dim.ctime.lat.lon = c("nyears", 10),
-  dim.timeOfYear.lat.lon = c(6, 30)
+  dim.timeOfYear.lat.lon = c(6, 30),
+  single.mod = TRUE
 )
 }
 \arguments{

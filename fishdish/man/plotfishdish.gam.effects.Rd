@@ -4,7 +4,7 @@
 \alias{plotfishdish.gam.effects}
 \title{plot gam effects}
 \usage{
-plotfishdish.gam.effects(fit, mod = 1, xlim = NULL, ylim = NULL)
+plotfishdish.gam.effects(fit, mod = 1, xlim = NULL, ylim = NULL, add = FALSE)
 }
 \arguments{
 \item{fit}{fit}

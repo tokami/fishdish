@@ -40,7 +40,6 @@ prep.data <- function(data, AphiaID = NULL,
         ## ------------------
         saflag <- ifelse(any("SweptAreaDSKM2" == colnames(hh)),1,0)
 
-
         ## Species subsetting for hl (full hh needed for survey0)
         ## ------------------
         if(specflag){
@@ -60,10 +59,19 @@ prep.data <- function(data, AphiaID = NULL,
                 }
             }
 
+            ind <- which(specs$AphiaID %in% hl$AphiaID)
+            if(length(ind) > 0){
+                specs.matched <- data.frame(AphiaID = specs[ind,])
+            }else{
+                stop()
+            }
+
             ## Subset based on species list
             ## ---------
-            hl <- subset(hl, AphiaID %in% specs$AphiaID)
-            if(!is.null(ca)) ca <- subset(ca, AphiaID %in% specs$AphiaID)
+            hl <- subset(hl, AphiaID %in% specs.matched$AphiaID)
+            if(!is.null(ca)) ca <- subset(ca, AphiaID %in% specs.matched$AphiaID)
+        }else{
+            specs.matched <- data.frame(AphiaID = unique(hl$AphiaID))
         }
 
 
@@ -444,18 +452,19 @@ prep.data <- function(data, AphiaID = NULL,
         if(specflag){
             ## Subset relevant columns from species list
             ## ----------
-            ind <- which(is.na(specs$AphiaID))
-            if(length(ind) > 0) specs <- specs[-ind,]
-            ind <- which(duplicated(specs$AphiaID))
-            if(length(ind) > 0) specs <- specs[-ind,]
+            ind <- which(is.na(specs.matched$AphiaID))
+            if(length(ind) > 0) specs.matched <- specs.matched[-ind,]
+            if(!inherits(specs.matched,"data.frame")) specs.matched <- data.frame(AphiaID = specs.matched)
+            ind <- which(duplicated(specs.matched$AphiaID))
+            if(length(ind) > 0) specs.matched <- specs.matched[-ind,]
+            if(!inherits(specs.matched,"data.frame")) specs.matched <- data.frame(AphiaID = specs.matched)
             ## Merge species list to survey
             ## ----------
-            hl <- plyr::join(hl, specs, by="AphiaID")
+            hl <- plyr::join(hl, specs.matched, by="AphiaID")
             ## Species and bycatch corrections
             ## ------------
             hl <- correct.species(hl)
         }
-
 
         ## SpecVal (5,6) only useful for presence-absence
         ## ---------
@@ -576,6 +585,18 @@ prep.data <- function(data, AphiaID = NULL,
         ## Remove columns that are not needed any longer
         hl$LngtClass <- hl$HLNoAtLngt <- hl$DataType <- NULL
 
+        ## Correct specs.matched again after all these data cleaning steps
+        ind.remove <- NULL
+        for(i in 1:nrow(specs.matched)){
+            if(sum(hl$AphiaID == specs.matched$AphiaID[i]) == 0){
+                ind.remove <- c(ind.remove,i)
+            }
+        }
+        if(length(ind.remove) > 0){
+            specs.matched <- specs.matched[-ind.remove,]
+            if(!inherits(specs.matched,"data.frame")) specs.matched <- data.frame(AphiaID = specs.matched)
+        }
+
         ## Estimate N & Bio (requires CA)
         ## -------------------
         if(est.n){
@@ -586,14 +607,16 @@ prep.data <- function(data, AphiaID = NULL,
             ## }
 
             survey <- NULL
-            nspec <- nrow(specs)
+            nspec <- nrow(specs.matched)
             for(i in 1:nspec){
 
-                hlc <- subset(hl, AphiaID == specs$AphiaID[i])
+                hlc <- subset(hl, AphiaID == specs.matched$AphiaID[i])
                 unique(hlc$AphiaID)
                 if(nrow(hlc) == 0){
-                    stop(paste0("No entries in HL after data prep for aphia ID:",specs$AphiaID[i],". Cannot calc n!"))
+                    stop(paste0("No entries in HL after data prep for aphia ID:",
+                                specs.matched$AphiaID[i],". Cannot calc n!"))
                 }
+
 
                 ## DATRAS::addSpectrum
                 by <- max(c("." = 0.1, "0" = 0.5, "1" = 1, "2" = 2, "5" = 5)[as.character(hlc$LngtCode)],
@@ -605,25 +628,50 @@ prep.data <- function(data, AphiaID = NULL,
                 hlc$sizeGroup <- cut(hlc$LngtCm, breaks = cm.breaks, right = FALSE)
                 n.by.length <- round(xtabs(Counts ~ HaulID + sizeGroup, data = hlc)) ## round after summing up?
 
-                if(split.juv.adults && any(bio.pars$AphiaID == specs$AphiaID[i])){
-                    print(paste0("Lm = ",bio.pars$Lm[bio.pars$AphiaID == specs$AphiaID[i]]))
-                    ind.juv <- which(midLengths < bio.pars$Lm[bio.pars$AphiaID == specs$AphiaID[i]])
-                    ind.adult <- which(midLengths >= bio.pars$Lm[bio.pars$AphiaID == specs$AphiaID[i]])
+                if(split.juv.adults && any(bio.pars$AphiaID == specs.matched$AphiaID[i])){
+                    if(verbose){
+                        print(paste0("Lm(",i,") = ",bio.pars$Lm[bio.pars$AphiaID == specs.matched$AphiaID[i]]))
+                    }
+
+                    ind.juv <- which(midLengths <
+                                     bio.pars$Lm[bio.pars$AphiaID ==
+                                                 specs.matched$AphiaID[i]])
+                    ind.adult <- which(midLengths >=
+                                       bio.pars$Lm[bio.pars$AphiaID ==
+                                                   specs.matched$AphiaID[i]])
                     survey.spec <- data.frame(haul.id = rownames(n.by.length),
-                                              AphiaID = specs$AphiaID[i],
-                                              n.juv = unname(apply(n.by.length[,ind.juv], 1, sum)),
-                                              n.adult = unname(apply(n.by.length[,ind.adult], 1, sum))
-                                              )
+                                              AphiaID = specs.matched$AphiaID[i])
+
+                    if(length(ind.juv) > 0){
+                        if(nrow(n.by.length) > 1 && length(ind.juv) > 1){
+                            survey.spec$n.juv = unname(apply(n.by.length[,ind.juv],
+                                                             1, sum))
+                        }else{
+                            survey.spec$n.juv = sum(n.by.length[,ind.juv])
+                        }
+                    }else{
+                        survey.spec$n.juv <- 0
+                    }
+                    if(length(ind.adult) > 0){
+                        if(nrow(n.by.length) > 1 && length(ind.adult) > 1){
+                            survey.spec$n.adult = unname(apply(n.by.length[,ind.adult],
+                                                               1, sum))
+                        }else{
+                        survey.spec$n.adult = sum(n.by.length[,ind.adult])
+                        }
+                    }else{
+                        survey.spec$n.adult <- 0
+                    }
                 }else{
                     survey.spec <- data.frame(haul.id = rownames(n.by.length),
-                                              AphiaID = specs$AphiaID[i],
+                                              AphiaID = specs.matched$AphiaID[i],
                                               N = unname(apply(n.by.length, 1, sum)))
                 }
 
                 if(est.bio){
-                    if(!is.null(ca) && any(ca$AphiaID == specs$AphiaID[i])){
+                    if(!is.null(ca) && any(ca$AphiaID == specs.matched$AphiaID[i])){
 
-                        cac <- subset(ca, AphiaID == specs$AphiaID[i])
+                        cac <- subset(ca, AphiaID == specs.matched$AphiaID[i])
                         ## DATRAS::addWeightByHaul
                         cac$LngtCm <- c("." = 0.1, "0" = 0.5, "1" = 1, "2" = 2, "5" = 5)[as.character(cac$LngtCode)] * cac$LngtClass
                         mod <- lm(log(IndWgt) ~ log(LngtCm), data = subset(cac, IndWgt > 0))
@@ -632,7 +680,7 @@ prep.data <- function(data, AphiaID = NULL,
                             plot(IndWgt ~ LngtCm, data = subset(cac, IndWgt > 0))
                             lines(midLengths, LW, lwd = 2, col = 4)
                         }
-                        if(split.juv.adults && any(bio.pars$AphiaID == specs$AphiaID[i])){
+                        if(split.juv.adults && any(bio.pars$AphiaID == specs.matched$AphiaID[i])){
                             survey.spec$bio.juv <- unname(apply(n.by.length[,ind.juv], 1,
                                                                 function(x) x %*% LW[ind.juv]))
                             survey.spec$bio.adult <- unname(apply(n.by.length[,ind.adult], 1,
@@ -643,10 +691,10 @@ prep.data <- function(data, AphiaID = NULL,
                     }else{
                         ## Look up in downloaded fishbase data
                         data(fishbase.dat)
-                        ind <- which(fishbase.dat$AphiaID == specs$AphiaID[i])
+                        ind <- which(fishbase.dat$AphiaID == specs.matched$AphiaID[i])
                         if(length(ind) > 0){
                             LW <- fishbase.dat$LWa[ind] * midLengths ^ fishbase.dat$LWb[ind]
-                            if(split.juv.adults && any(bio.pars$AphiaID == specs$AphiaID[i])){
+                            if(split.juv.adults && any(bio.pars$AphiaID == specs.matched$AphiaID[i])){
                                 survey.spec$bio.juv <- unname(apply(n.by.length[,ind.juv], 1,
                                                                     function(x) x %*% LW[ind.juv]))
                                 survey.spec$bio.adult <- unname(apply(n.by.length[,ind.adult], 1,
@@ -692,14 +740,14 @@ prep.data <- function(data, AphiaID = NULL,
             if(specflag){
                 ## Subset relevant columns from species list
                 ## ----------
-                ind <- which(is.na(specs$AphiaID))
-                if(length(ind) > 0) specs <- specs[-ind,]
-                ind <- which(duplicated(specs$AphiaID))
-                if(length(ind) > 0) specs <- specs[-ind,]
+                ind <- which(is.na(specs.matched$AphiaID))
+                if(length(ind) > 0) specs.matched <- specs.matched[-ind,]
+                ind <- which(duplicated(specs.matched$AphiaID))
+                if(length(ind) > 0) specs.matched <- specs.matched[-ind,]
 
                 ## Merge species list to survey
                 ## ----------
-                survey <- plyr::join(survey, specs, by="AphiaID")
+                survey <- plyr::join(survey, specs.matched, by="AphiaID")
 
                 ## Species and bycatch corrections
                 ## ------------
@@ -794,6 +842,7 @@ prep.data <- function(data, AphiaID = NULL,
                 data("bio.pars")
             }
 
+            browser()
 
             survey <- NULL
             nspec <- nrow(specs)

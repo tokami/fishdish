@@ -14,8 +14,7 @@ load.data(
   aphiaID = "all",
   datasets = c("HH", "HL"),
   calc.swept.area = TRUE,
-  datras.variables = list.datras.variables.req(swept.area.calculated =
-    !calc.swept.area),
+  datras.variables = list.datras.variables.req(swept.area.calculated = !calc.swept.area),
   reduce.file.size = TRUE,
   verbose = TRUE
 )

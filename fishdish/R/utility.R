@@ -128,15 +128,18 @@ get.info.surveys <- function(survey=NULL, statrec = FALSE, plot = TRUE){
 #'
 #' @export
 list.recom.models <- function(specdata,
+                              use.ctime = TRUE,
                               use.toy = TRUE,
-                              use.swept.area = TRUE,
+                              use.ctime.space = TRUE,
+                              use.swept.area = FALSE,
                               use.sqrt.depth = FALSE,
                               use.gear.as.fixed = FALSE,
                               use.random.ship = FALSE,
                               dim.lat.lon = 256,
                               dim.ctime = "nyears",
                               dim.ctime.lat.lon = c("nyears",10),
-                              dim.timeOfYear.lat.lon = c(6,30)){
+                              dim.timeOfYear.lat.lon = c(6,30),
+                              single.mod = TRUE){
 
     ## Checks
     if(length(dim.ctime.lat.lon) != 2) stop("The variable dim.ctime.lat.lon has to have length equal to 2.")
@@ -178,22 +181,32 @@ list.recom.models <- function(specdata,
     mSel <- rep(TRUE, length(mm))
     if(!use.random.ship) mSel[6] <- FALSE
     if (!use.toy) mSel[4] <- FALSE
+    if (!use.ctime){
+        mSel[2] <- FALSE
+        mSel[3] <- FALSE
+    }
+    if (!use.ctime.space){
+        mSel[3] <- FALSE
+    }
     if(length(unique(specdata$Gear)) == 1)  mSel[5] <- FALSE
     ## if(length(unique(specdata$ShipG)) == 1) mSel[6] <- FALSE
 
     ## all
     mps <- list(paste(mm[mSel],collapse=' + '))
-    ## keep all terms, reduce k
-    if(mSel[3]){
-        ctimeLatLon <- paste0("ti(ctime, lon, lat, d=c(1,2), bs=c('ds','ds'), k=c(",
-                              dim.ctime.lat.lon[1], ",", 5, "), m=list(c(1,0), c(1,0.5)))")
-        mps <- append(mps,paste(c(latLon, ctime, ctimeLatLon, timeOfYearLatLon, gear, ship, depth, offset)[mSel],
-                                collapse=' + '))
-    }
-    if(mSel[1]){
-        latLon <- paste0("s(lon, lat, bs=c('ds'), k=",128,", m=c(1,0.5))")
-        mps <- append(mps,paste(c(latLon, ctime, ctimeLatLon, timeOfYearLatLon, gear, ship, depth, offset)[mSel],
-                                collapse=' + '))
+
+    if(!single.mod){
+        ## keep all terms, reduce k
+        if(mSel[3]){
+            ctimeLatLon <- paste0("ti(ctime, lon, lat, d=c(1,2), bs=c('ds','ds'), k=c(",
+                                  dim.ctime.lat.lon[1], ",", 5, "), m=list(c(1,0), c(1,0.5)))")
+            mps <- append(mps,paste(c(latLon, ctime, ctimeLatLon, timeOfYearLatLon, gear, ship, depth, offset)[mSel],
+                                    collapse=' + '))
+        }
+        if(mSel[1]){
+            latLon <- paste0("s(lon, lat, bs=c('ds'), k=",128,", m=c(1,0.5))")
+            mps <- append(mps,paste(c(latLon, ctime, ctimeLatLon, timeOfYearLatLon, gear, ship, depth, offset)[mSel],
+                                    collapse=' + '))
+        }
     }
 
     ## ## no ship, if exist
@@ -1029,4 +1042,29 @@ remove.zeros <- function(d, cutat=-3, plot=TRUE, verbose=TRUE, response="bio"){
         title(paste(d$genus[1],d$family[1]),outer=TRUE)
     }
     return(dsub)
+}
+
+
+
+
+#' @name collapse.grid
+#'
+#' @title Collapse annualy varying grids to a single grid
+#'
+#' @param grid grid
+#'
+#'
+#' @export
+collapse.grid <- function(grid){
+    if(inherits(grid, "list") && length(grid) > 1){
+        grid.all <- do.call(rbind,grid)
+        ind <- which(colnames(grid.all) == "Year")
+        if(length(ind) > 0) grid.all <- grid.all[,-ind]
+        rownames(grid.all) <- NULL
+        ind <- which(duplicated(grid.all))
+        if(length(ind) > 0) grid.all <- grid.all[-ind,]
+    }else{
+        grid.all <- grid
+    }
+    return(grid.all)
 }

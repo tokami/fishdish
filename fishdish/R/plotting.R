@@ -468,14 +468,18 @@ plotfishdish.abun <- function(fit, by.area = FALSE, by.eco = FALSE,
 plotfishdish.dist <- function(fit, mod = NULL, year = NULL,
                            xlim = NULL, ylim = NULL,
                            legend = TRUE, fixed.scale = TRUE,
-                           title = NULL,
+                           title = NULL, xlab = NULL, ylab = NULL,
+                           xaxt = NULL, yaxt = NULL,
                            fixed.lims = TRUE,
                            cols = rev(heat.colors(8)),
                            min.val = NA,
                            cut.cv = NULL, asp = 2,
                            plot.land = TRUE,
-                           plot.obs = FALSE
+                           plot.obs = FALSE,
+                           average = FALSE
                            ){
+    xaxt0 <- xaxt
+    yaxt0 <- yaxt
 
     if(is.null(year)){
         year <- tail(rownames(fit$fits[[1]]$idx),1)
@@ -485,7 +489,7 @@ plotfishdish.dist <- function(fit, mod = NULL, year = NULL,
         mod <- 1
     }
 
-    if(year == "all"){
+    if(year[1] == "all"){
         year <- names(fit$fits[[mod]]$gPreds2[[1]])
     }
 
@@ -498,15 +502,26 @@ plotfishdish.dist <- function(fit, mod = NULL, year = NULL,
         grid <- lapply(1:ny, function(x) fit$grid)
     }
 
-    mfrow <- n2mfrow(ny, asp = asp)
-    if(ny > 1){
+    if(ny > 1 && !average){
+        mfrow <- n2mfrow(ny, asp = asp)
         par(mfrow = mfrow, mar = c(0,0,2,0), oma = c(5,5,2,1))
+    }else{
+        mfrow <- c(1,1)
     }
 
     xaxt.ind <- (prod(mfrow) - mfrow[2] + 1):prod(mfrow)
     yaxt.ind <- seq(1, prod(mfrow), mfrow[2])
 
     ##TODO: include error when first year not in pred!
+
+    ## length(pred)
+
+    nyx <- ifelse(average, 1, ny)
+    if(average){
+        grid <- list(collapse.grid(grid))
+        tmp <- do.call(cbind,pred)
+        pred <- list(data.frame(apply(tmp, 1, mean, na.rm = TRUE)))
+    }
 
     if(fixed.scale){
         prediAll <- unlist(lapply(pred, function(x) x[,1]))
@@ -545,7 +560,7 @@ plotfishdish.dist <- function(fit, mod = NULL, year = NULL,
     }
 
 
-    for(i in 1:ny){
+    for(i in 1:nyx){
         if(!fixed.scale){
             predi <- pred[[i]][,1]
             if(!is.null(predi)){
@@ -564,8 +579,8 @@ plotfishdish.dist <- function(fit, mod = NULL, year = NULL,
         }
         if(is.null(xlim)) xlimi <- extendrange(r = range(as.numeric(rownames(tmp))), f = 0.1) else xlimi <- xlim
         if(is.null(ylim)) ylimi <- extendrange(r = range(as.numeric(colnames(tmp))), f = 0.1) else ylimi <- ylim
-        xaxt <- ifelse(i %in% xaxt.ind, "s", "n")
-        yaxt <- ifelse(i %in% yaxt.ind, "s", "n")
+        if(is.null(xaxt0)) xaxt <- ifelse(i %in% xaxt.ind, "s", "n")
+        if(is.null(yaxt0)) yaxt <- ifelse(i %in% yaxt.ind, "s", "n")
         plot(1,1, xlim = xlimi, ylim = ylimi,
              xaxt = xaxt, yaxt = yaxt,
              ty = "n",
@@ -585,7 +600,7 @@ plotfishdish.dist <- function(fit, mod = NULL, year = NULL,
         if(plot.obs){
             dat <- subset(fit$data, Year == year[i] & N > 0)
             points(dat$lon, dat$lat, pch = 1,
-                   col = adjustcolor(1, 1), cex = dat$N)
+                   col = adjustcolor(1, 1)) ##, cex = dat$N)  ## HERE: cex too high
         }
         if(is.null(title)){
             mtext(year[i], 3, 0.3, font = 2, cex = 0.8)
@@ -615,9 +630,16 @@ plotfishdish.dist <- function(fit, mod = NULL, year = NULL,
         }
         box(lwd = 1.5)
     }
-    mtext("Longitude", 1, 3, outer = TRUE)
-    mtext("Latitude", 2, 3, outer = TRUE)
-
+    if(is.null(xlab)){
+        mtext("Latitude", 2, 3, outer = TRUE)
+    }else{
+        mtext(xlab, 2, 3, outer = TRUE)
+    }
+    if(is.null(ylab)){
+        mtext("Longitude", 1, 3, outer = TRUE)
+    }else{
+        mtext(ylab, 1, 3, outer = TRUE)
+    }
 
 
     ## OLD: pre-wkfishdis II
@@ -1628,4 +1650,101 @@ plotfishdish.dist.year2 <- function(fit, mod = NULL, var.lim = FALSE, all.years 
                col = colors, bg = "white")
     }
 
+}
+
+
+
+#' @name plotfishdish.overlapp
+#'
+#' @title plot overlapp
+#'
+#' @param x data
+#'
+#' @importFrom maps map
+#'
+#' @return Nothing
+#'
+#' @export
+plotfishdish.overlap <- function(x, var = "Gear",
+                                  xlim = NULL, ylim = NULL,
+                                 combine = TRUE, cex = 2,
+                                 cols = NULL,
+                                 legend = TRUE){
+
+    if(is.null(cols)){
+        cols <- c("dodgerblue3","darkorange","forestgreen",
+                  "purple","firebrick2","salmon3","chartreuse2","brown",
+                  RColorBrewer::brewer.pal(n = 8, "Dark2"),
+                  RColorBrewer::brewer.pal(n = 8, "Set1")
+                  )
+    }
+    if(is.null(names(cols))){
+        cols <- cols[1:length(unique(x[,var]))]
+        names(cols) <- unique(x[,var])
+    }
+
+    data(ices.rectangles)
+
+    if(is.null(xlim)) xlim <- range(x$lon)
+    if(is.null(ylim)) ylim <- range(x$lat)
+
+    if(combine){
+        plot(1, 1, ty = "n",
+             xlim = xlim,
+             ylim = ylim,
+             xlab = "", ylab = "")
+        maps::map("world", xlim = xlim,
+                  ylim = ylim,
+                  fill = TRUE, plot = TRUE, add = TRUE,
+                  col = grey(0.95), border = grey(0.8))
+        ## hauls by var
+        uni <- unique(x[,var])
+        n <- length(uni)
+        for(i in 1:n){
+            xi <- x[x[,var] == uni[i],c("lat","lon","StatRec")]
+            tmp <- merge(xi, ices.rectangles[,c("ICESNAME","sub_x","sub_y")],
+                         by.x = "StatRec", by.y = "ICESNAME", all.x = TRUE)
+            tmp2 <- tmp[!duplicated(tmp$StatRec),]
+            points(tmp2$lon, tmp2$lat,
+                   col = adjustcolor(cols[names(cols) == uni[i]], 0.4),
+                   cex = cex, pch = 16)
+        }
+        if(legend){
+            legend("bottomright", legend = names(cols)[names(cols) %in% uni],
+                   col = adjustcolor(cols[names(cols) %in% uni], 0.4),
+                   pch = 16, box.lwd = 1.5, bg = "white")
+        }
+        box(lwd = 1.5)
+        mtext("Latitude", 2, 2)
+        mtext("Longitude", 1, 2)
+    }else{
+        ## hauls by var
+        uni <- unique(x[,var])
+        n <- length(uni)
+        par(mfrow = n2mfrow(n), mar = c(2,2,1,1), oma = c(3,3,1,1))
+        for(i in 1:n){
+            plot(1, 1, ty = "n",
+                 xlim = xlim,
+                 ylim = ylim,
+                 xlab = "", ylab = "")
+            maps::map("world", xlim = xlim,
+                      ylim = ylim,
+                      fill = TRUE, plot = TRUE, add = TRUE,
+                      col = grey(0.95), border = grey(0.8))
+            xi <- x[x[,var] == uni[i],c("lat","lon","StatRec")]
+            tmp <- merge(xi, ices.rectangles[,c("ICESNAME","sub_x","sub_y")],
+                         by.x = "StatRec", by.y = "ICESNAME", all.x = TRUE)
+            tmp2 <- tmp[!duplicated(tmp$StatRec),]
+            points(tmp2$lon, tmp2$lat,
+                   col = adjustcolor(cols[i], 0.4),
+                   cex = cex, pch = 16)
+            legend("topleft", legend = uni[i],
+                   pch = NA,
+                   x.intersp = 0.6,
+                   bg = "white")
+            box(lwd = 1.5)
+        }
+        mtext("Latitude", 2, 1.4, outer = TRUE)
+        mtext("Longitude", 1, 1.4, outer = TRUE)
+    }
 }

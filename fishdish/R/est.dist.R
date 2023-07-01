@@ -27,6 +27,7 @@ est.dist.one <- function(specdata, mods = NULL, n.lon = 20,
                          predfix = NULL,
                          model.bio = FALSE,
                          fam = NULL,
+                         intrapolate.year = TRUE,
                          verbose = TRUE, ...){
 
     saflag <- ifelse(all(is.na(specdata$SweptArea)),0,1)
@@ -74,7 +75,7 @@ est.dist.one <- function(specdata, mods = NULL, n.lon = 20,
     years <- sort(unique(as.numeric(levels(droplevels(specdata$Year)))))
     ## years <- sort(unique(specdata$Year))
     ny <- length(years)
-    if(is.null(grid) || is.na(grid)){
+    if(is.null(grid)  || (inherits(grid, "list") && any(is.na(grid)))){
         gridflag <- FALSE
         if(!verbose) sink("/dev/null")  ## CHECK: this might be platform dependent? sink("NUL")
         if(use.bathy){
@@ -214,6 +215,7 @@ est.dist.one <- function(specdata, mods = NULL, n.lon = 20,
                 ## method = "fREML", ## HERE:
                 ## discrete = TRUE,
                 ## nthreads = c(4,1),
+                intrapolate.year = intrapolate.year,
                 ...
             ),
             silent = TRUE

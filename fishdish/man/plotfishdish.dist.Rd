@@ -13,13 +13,16 @@ plotfishdish.dist(
   legend = TRUE,
   fixed.scale = TRUE,
   title = NULL,
+  xlab = NULL,
+  ylab = NULL,
   fixed.lims = TRUE,
   cols = rev(heat.colors(8)),
   min.val = NA,
   cut.cv = NULL,
   asp = 2,
   plot.land = TRUE,
-  plot.obs = FALSE
+  plot.obs = FALSE,
+  average = FALSE
 )
 }
 \arguments{
