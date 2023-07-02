@@ -5,7 +5,16 @@
 \alias{plotfishdish.overlap}
 \title{plot overlapp}
 \usage{
-plotfishdish.overlap(x, var = "Gear", xlim = NULL, ylim = NULL, combine = TRUE)
+plotfishdish.overlap(
+  x,
+  var = "Gear",
+  xlim = NULL,
+  ylim = NULL,
+  combine = TRUE,
+  cex = 2,
+  cols = NULL,
+  legend = TRUE
+)
 }
 \arguments{
 \item{x}{data}

@@ -167,10 +167,12 @@ list.recom.models <- function(specdata,
     }else{
         ship <- ""
     }
-    if(use.gear.as.fixed){
+    if(as.integer(use.gear.as.fixed) == 1){
         gear <- "Gear"
-    }else{
+    }else if(as.integer(use.gear.as.fixed) == 2){
         gear <- "s(Gear, bs='re')"
+    }else{
+        gear <- ""
     }
 
     offset.var <- ifelse(use.swept.area, "SweptArea", "HaulDur")
@@ -1067,4 +1069,137 @@ collapse.grid <- function(grid){
         grid.all <- grid
     }
     return(grid.all)
+}
+
+
+
+#' @name get.coeffs
+#'
+#' @title Get coefficients
+#'
+#' @param fit fit
+#'
+#'
+#' @export
+get.coeffs <- function(fit, mod = 1, CI = 0.95, var = "Gear",
+                       exp = TRUE, plot = TRUE){
+    ## CHECK: why exp = TRUE by default for gears? because of link function?
+
+    ## zscore <- qnorm(CI + (1 - CI)/2)
+    ## fe <- data.frame(summary(fit$fits[[1]]$pModels[[1]])$p.table)[,c(1,2)]
+    ## colnames(fe) =  c('value', 'se')
+    ## fe[1,] <- c(0,0)
+    ## fe$lo <- fe$value - fe$se
+    ## fe$up <- fe$value + fe$se
+    ## fe <- exp(fe)
+
+    flag.intercept <- ifelse(var %in% c("ShipG"), FALSE, TRUE)
+
+    ## TODO: if interested in intercept:
+    if(!flag.intercept){
+        sel.intercept <- NULL
+    }else{
+        sel.intercept <- grep("(Intercept)",names(coef(fit$fits[[1]]$pModels[[1]])))
+    }
+    sel <- c(sel.intercept,grep(var,names(coef(fit$fits[[1]]$pModels[[1]]))))
+    vals <- coef(fit$fits[[1]]$pModels[[1]])[sel]
+    if(flag.intercept){
+        vals <- c(vals[1], sapply(vals[-1], function(x) vals[1] + x))
+    }
+    if(length(sel) > 1){
+        sds <- sqrt(diag(vcov(fit$fits[[1]]$pModels[[1]])[sel,sel]))
+    }else{
+        sds <- sqrt(vcov(fit$fits[[1]]$pModels[[1]])[sel,sel])
+    }
+    if(flag.intercept){
+        vals <- vals - vals[1]
+    }
+    ll <- vals - qnorm(CI + (1 - CI)/2) * sds
+    ul <- vals + qnorm(CI + (1 - CI)/2) * sds
+    ## ll[1] <- NA
+    ## ul[1] <- NA
+    ## sds[1] <- NA
+    if(exp){
+        vals <- exp(vals)## / exp(vals[1])
+        ll <- exp(ll) ##/ exp(vals[1])
+        ul <- exp(ul) ##/ exp(vals[1])
+    }
+    ## else{
+    ##     vals <- vals / vals[1]
+    ##     ll <- ll / vals[1]
+    ##     ul <- ul / vals[1]
+    ## }
+    ## ## HERE:
+    ## if(length(levels(droplevels(fit$data[,var]))) > length(vals)){
+    ##     vals <- c(ifelse(exp, 1, 0), vals)
+    ##     ll <- c(ifelse(exp, 1, 0), ll)
+    ##     ul <- c(ifelse(exp, 1, 0), ul)
+    ##     sds <- c(NA, sds)
+    ## }
+    res <- as.data.frame(cbind(vals, ll, ul, sds))
+    colnames(res) <- c("est", "ll", "ul", "sd")
+    rownames(res) <- levels(droplevels(fit$data[,var]))
+
+    if(plot){
+
+    cols <- rep(c(RColorBrewer::brewer.pal(n = 8, "Dark2"),
+                  RColorBrewer::brewer.pal(n = 8, "Accent")),50)
+
+
+        plot(seq_along(vals), vals, ty = "n",
+             ylim = range(vals,ll,ul),
+             xaxt = "n",
+             xlab = "", ylab = "")
+        if(exp) abline(h=1, lty=2, lwd = 1.5, col="grey50") else abline(h=0, lty=2, lwd = 1.5, col="grey50")
+        for(i in 1:length(vals)){
+            arrows(i, ll[i], i, ul[i], col = cols[i], angle=90, code=3,
+                   length = 0.1)
+        }
+        points(seq_along(vals), vals, pch = 16,
+               cex = 1.5,
+               col = cols[1:length(vals)])
+        axis(1, at = seq_along(vals), labels = row.names(res), las = 2)
+        mtext(var, 3, 0.5, font = 2)
+        if(exp) ylab <- "Effect" else ylab <- "Effect (log)"
+
+    }
+
+    return(res)
+}
+
+
+
+
+
+#' @name apply.coeffs
+#'
+#' @title Apply coefficients
+#'
+#' @param specdata specdata
+#' @param coeffs coeffs
+#'
+#'
+#' @export
+apply.coeffs <- function(specdata, coeffs, var = "Gear",
+                         use.min = TRUE){
+
+    vari <- specdata[,var]
+    uni <- unique(vari)
+    if(all(uni %in% rownames(coeffs))){
+        ind <- match(vari, rownames(coeffs))
+        if(use.min){
+            corFac <- coeffs[,"est"] / min(coeffs[,"est"])
+        }else{
+            corFac <- coeffs[,"est"]
+        }
+        cori <- c("N","n.adult","n.juv","bio","bio.adult","bio.juv")
+        for(i in 1:length(cori)){
+            if(any(colnames(specdata) == cori[i]))
+                specdata[,cori[i]] <- specdata[,cori[i]] * corFac[ind]
+        }
+    }else{
+        stop("Not all variables in coeffs!")
+    }
+
+    return(specdata)
 }

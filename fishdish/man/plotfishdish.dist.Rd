@@ -15,6 +15,8 @@ plotfishdish.dist(
   title = NULL,
   xlab = NULL,
   ylab = NULL,
+  xaxt = NULL,
+  yaxt = NULL,
   fixed.lims = TRUE,
   cols = rev(heat.colors(8)),
   min.val = NA,
