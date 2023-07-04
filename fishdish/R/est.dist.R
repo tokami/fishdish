@@ -77,7 +77,10 @@ est.dist.one <- function(specdata, mods = NULL, n.lon = 20,
     ny <- length(years)
     if(is.null(grid)  || (inherits(grid, "list") && any(is.na(grid)))){
         gridflag <- FALSE
-        if(!verbose) sink("/dev/null")  ## CHECK: this might be platform dependent? sink("NUL")
+        if(!verbose){
+            sink("/dev/null")  ## CHECK: this might be platform dependent? sink("NUL")
+            on.exit(sink(NULL))
+        }
         if(use.bathy){
             if(var.grid){
                 grid <- vector("list", ny)
@@ -99,7 +102,7 @@ est.dist.one <- function(specdata, mods = NULL, n.lon = 20,
             predD <- NULL
             myids <- grid[[3]]
         }
-        if(!verbose) sink()
+        ## if(!verbose) sink()
     }else{
         gridflag <- TRUE
         if(inherits(grid, "list")){
@@ -192,7 +195,10 @@ est.dist.one <- function(specdata, mods = NULL, n.lon = 20,
 
         ## CHECK: find way to report original error messages from getSurveyIndex
         ## run gams
-        if(!verbose) sink("/dev/null")  ## CHECK: this might be platform dependent? sink("NUL")
+        if(!verbose){
+            sink("/dev/null")  ## CHECK: this might be platform dependent? sink("NUL")
+            on.exit(sink(NULL))
+        }
         resList[[j]] <- try(
             surveyIndex::getSurveyIdx(
                 specdata,
@@ -220,7 +226,7 @@ est.dist.one <- function(specdata, mods = NULL, n.lon = 20,
             ),
             silent = TRUE
         )
-        if(!verbose) sink()
+        ## if(!verbose) sink()
     }
     names(resList) <- paste0("mod",1:nmods)
 
@@ -469,7 +475,10 @@ pred.dist.one <- function(fit,
         }
 
         ## run gams
-        if(!verbose) sink("/dev/null")  ## CHECK: this might be platform dependent? sink("NUL")
+        if(!verbose){
+            sink("/dev/null")  ## CHECK: this might be platform dependent? sink("NUL")
+            on.exit(sink(NULL))
+        }
         resList[[j]] <- try(
             surveyIndex::redoSurveyIndex(x = specdata,
                                          model = fit$fits[[j]],
@@ -481,7 +490,7 @@ pred.dist.one <- function(fit,
                                          verbose = verbose),
             silent = TRUE
         )
-        if(!verbose) sink()
+        ## if(!verbose) sink()
     }
     names(resList) <- paste0("mod",1:nmods)
 

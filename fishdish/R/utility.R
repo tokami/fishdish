@@ -138,7 +138,8 @@ list.recom.models <- function(specdata,
                               dim.lat.lon = 256,
                               dim.ctime = "nyears",
                               dim.ctime.lat.lon = c("nyears",10),
-                              dim.timeOfYear.lat.lon = c(6,30),
+                              dim.timeOfYear = 5,
+                              dim.timeOfYear.lat.lon = c(5,30),
                               single.mod = TRUE){
 
     ## Checks
@@ -154,7 +155,7 @@ list.recom.models <- function(specdata,
     ctimeLatLon <- paste0("ti(ctime, lon, lat, d=c(1,2), bs=c('ds','ds'), k=c(",
                           dim.ctime.lat.lon[1], ",",
                           dim.ctime.lat.lon[2],"), m=list(c(1,0), c(1,0.5)))")
-    timeOfYearLatLon <- paste0("te(timeOfYear, lon, lat, d=c(1,2), bs=c('cc','ds'), k=c(",
+    timeOfYearLatLon <- paste0("s(timeOfYear, bs='cc', k=",dim.timeOfYear[1],", m=c(1,0)) + ti(timeOfYear, lon, lat, d=c(1,2), bs=c('cc','ds'), k=c(",
                                dim.timeOfYear.lat.lon[1],",",
                                dim.timeOfYear.lat.lon[2],"), m=list(c(1,0), c(1,0.5)))")
     if(use.sqrt.depth){
@@ -181,8 +182,6 @@ list.recom.models <- function(specdata,
     ##        1        2        3               4           5     6      7,    8
     mm <- c(latLon, ctime, ctimeLatLon, timeOfYearLatLon, gear, ship, depth, offset)
     mSel <- rep(TRUE, length(mm))
-    if(!use.random.ship) mSel[6] <- FALSE
-    if (!use.toy) mSel[4] <- FALSE
     if (!use.ctime){
         mSel[2] <- FALSE
         mSel[3] <- FALSE
@@ -190,8 +189,12 @@ list.recom.models <- function(specdata,
     if (!use.ctime.space){
         mSel[3] <- FALSE
     }
-    if(length(unique(specdata$Gear)) == 1)  mSel[5] <- FALSE
-    ## if(length(unique(specdata$ShipG)) == 1) mSel[6] <- FALSE
+    if (!use.toy) mSel[4] <- FALSE
+    if(length(unique(specdata$Gear)) == 1 ||
+       !(as.integer(use.gear.as.fixed) %in% c(1,2))){
+        mSel[5] <- FALSE
+    }
+    if(!use.random.ship) mSel[6] <- FALSE
 
     ## all
     mps <- list(paste(mm[mSel],collapse=' + '))

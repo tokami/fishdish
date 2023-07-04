@@ -466,20 +466,26 @@ plotfishdish.abun <- function(fit, by.area = FALSE, by.eco = FALSE,
 #'
 #' @export
 plotfishdish.dist <- function(fit, mod = NULL, year = NULL,
-                           xlim = NULL, ylim = NULL,
-                           legend = TRUE, fixed.scale = TRUE,
-                           title = NULL, xlab = NULL, ylab = NULL,
-                           xaxt = NULL, yaxt = NULL,
-                           fixed.lims = TRUE,
-                           cols = rev(heat.colors(8)),
-                           min.val = NA,
-                           cut.cv = NULL, asp = 2,
-                           plot.land = TRUE,
-                           plot.obs = FALSE,
-                           average = FALSE
-                           ){
+                              grid.all = NULL,
+                              xlim = NULL, ylim = NULL,
+                              legend = TRUE, fixed.scale = TRUE,
+                              title = NULL, xlab = NULL, ylab = NULL,
+                              xaxt = NULL, yaxt = NULL,
+                              fixed.lims = TRUE,
+                              cols = rev(heat.colors(8)),
+                              min.val = NA,
+                              cut.cv = NULL, asp = 2,
+                              plot.land = TRUE,
+                              plot.obs = FALSE,
+                              average = FALSE
+                              ){
     xaxt0 <- xaxt
     yaxt0 <- yaxt
+
+    ## TODO: not ideal fit$grid might be a list!
+    if(is.null(grid.all)){
+        grid.all <- fit$grid
+    }
 
     if(is.null(year)){
         year <- tail(rownames(fit$fits[[1]]$idx),1)
@@ -575,7 +581,13 @@ plotfishdish.dist <- function(fit, mod = NULL, year = NULL,
             grid[[i]]$pred[which(cv[[i]] > cut.cv)] <- NA
         }
         if(!is.null(grid[[i]]$lon)){
-            tmp <- reshape2::acast(grid[[i]], lon~lat, value.var = "pred")
+            ## tmp <- reshape2::acast(grid[[i]], lon~lat, value.var = "pred")
+            ## Needed because grid[[i]] could have gaps which are then filled with long cells
+            ## TODO: not ideal to have to provide another grid! how to fix?
+            grid.dum <- merge(grid.all[,c("lon","lat")],
+                              grid[[i]][,c("lon","lat","pred")],
+                              by = c("lon","lat"), all.x = TRUE)
+            tmp <- reshape2::acast(grid.dum, lon~lat, value.var = "pred")
         }
         if(is.null(xlim)) xlimi <- extendrange(r = range(as.numeric(rownames(tmp))), f = 0.1) else xlimi <- xlim
         if(is.null(ylim)) ylimi <- extendrange(r = range(as.numeric(colnames(tmp))), f = 0.1) else ylimi <- ylim
