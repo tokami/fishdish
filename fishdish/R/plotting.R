@@ -1695,8 +1695,6 @@ plotfishdish.overlap <- function(x, var = "Gear",
         names(cols) <- unique(x[,var])
     }
 
-    data(ices.rectangles)
-
     if(is.null(xlim)) xlim <- range(x$lon)
     if(is.null(ylim)) ylim <- range(x$lat)
 

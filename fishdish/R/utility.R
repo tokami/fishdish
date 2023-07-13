@@ -606,6 +606,7 @@ correct.species <- function(data){
         data$Species[which(data$Species == "Dipturus batis-complex")] <- "Dipturus spp"
         data$Species[which(data$Species == "Dipturus intermedia")] <- "Dipturus spp"
         data$Species[which(data$Species == "Dipturus")] <- "Dipturus spp"
+        data$Species[which(data$Species == "Dipturus linteus")] <- "Rajella lintea"
         data$Species[which(data$Species == "Liparis montagui")] <- "Liparis spp"
         data$Species[which(data$Species == "Liparis liparis")] <- "Liparis spp"
         data$Species[which(data$Species == "Liparis liparis liparis")] <- "Liparis spp"

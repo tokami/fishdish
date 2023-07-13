@@ -35,7 +35,6 @@ prep.data <- function(data, AphiaID = NULL,
         ca <- data$CA
         rm(data)
 
-
         ## Flags
         ## ------------------
         saflag <- ifelse(any("SweptAreaDSKM2" == colnames(hh)),1,0)
@@ -197,8 +196,6 @@ prep.data <- function(data, AphiaID = NULL,
         hh$abstime <- hh$Year+(hh$Month-1)*1/12+(hh$Day-1)/365
         hh$timeOfYear <- (hh$Month-1)*1/12+(hh$Day-1)/365
         hh$ctime <- as.numeric(as.character(hh$Year)) + round(hh$timeOfYear,1)
-        if("TimeShot" %in% colnames(hh))
-            hh$TimeShotHour <- as.integer(hh$TimeShot/100) + (hh$TimeShot%%100)/60
         hh$Depth <- replace(hh$Depth, hh$Depth<0, NA)
         hh$Ship <- as.factor(hh$Ship)
         hh$Gear <- as.factor(hh$Gear)
@@ -206,14 +203,24 @@ prep.data <- function(data, AphiaID = NULL,
 
         ## Convert TimeShot to time of day (ToD)
         ## Remove hauls with incorrect time of day entry
-        ind <- which(nchar(hh$TimeShot) < 3)
-        if(length(ind) > 0){
-            hh <- hh[-ind,]
-        }
+        ## ind <- which(nchar(hh$TimeShot) < 3)
+        ## if(length(ind) > 0){
+        ##     hh <- hh[-ind,]
+        ## }
         ## Assume that first character is 0 if missing
         ind <- which(nchar(hh$TimeShot) == 3)
         if(length(ind) > 0){
             hh$TimeShot[ind] <- paste0(0, hh$TimeShot[ind])
+        }
+        ## Assume that first character is 0 if missing
+        ind <- which(nchar(hh$TimeShot) == 2)
+        if(length(ind) > 0){
+            hh$TimeShot[ind] <- paste0(0, 0, hh$TimeShot[ind])
+        }
+        ## Assume that first character is 0 if missing
+        ind <- which(nchar(hh$TimeShot) == 1)
+        if(length(ind) > 0){
+            hh$TimeShot[ind] <- paste0(0, 0, 0, hh$TimeShot[ind])
         }
         ## Convert to time
         hh$time <- strptime(hh$TimeShot, format = "%H%M")
@@ -227,6 +234,10 @@ prep.data <- function(data, AphiaID = NULL,
 
         ## check
         range(hh$ToD)
+
+        if("TimeShot" %in% colnames(hh))
+            hh$TimeShotHour <- as.integer(as.numeric(hh$TimeShot)/100) +
+                (as.numeric(hh$TimeShot)%%100)/60
 
         ## Add 0 to months with one digit
         hh$Month_char <- hh$Month
@@ -242,7 +253,8 @@ prep.data <- function(data, AphiaID = NULL,
         }
 
         ## Add time zone
-        hh$timezone <- lutz::tz_lookup_coords(lat = hh$lat, lon = hh$lon, method = "accurate")
+        hh$timezone <- lutz::tz_lookup_coords(lat = hh$lat, lon = hh$lon,
+                                              method = "accurate")
 
         ## Date columns
         hh$date <- paste0(hh$Year,"-",hh$Month_char,"-",hh$Day_char)
@@ -293,6 +305,7 @@ prep.data <- function(data, AphiaID = NULL,
         hh$SweptAreaWSKM2 <- NULL
         hh$SweptAreaBWKM2 <- NULL
         hh$SweptAreaDSKM2 <- NULL
+
 
 
         ## Remove invalid data and clean data set
@@ -364,18 +377,18 @@ prep.data <- function(data, AphiaID = NULL,
         ind <- which(is.na(hh$lat))
         ind <- which(is.na(hh$lon))
 
+
         ## Apply selection
         ## ---------
         hh <- subset(hh, HaulVal %in% c("A","V") &
                          StdSpecRecCode == 1 &
                          !is.na(lat) & !is.na(lon))
-        if(saflag) hh <- subset(hh, !is.na(SweptArea))
+        ## if(saflag) hh <- subset(hh, !is.na(SweptArea))
 
 
         ## Surveys
         ## -------------
         hh <- correct.surveys(hh)
-
 
         ## Gear Categories
         ## -------------
@@ -417,7 +430,8 @@ prep.data <- function(data, AphiaID = NULL,
         ## Data sets including species
         ## --------------------------------------------
         ## Merge variables from hh needed in hl
-        hl <- plyr::join(hl, hh[,c("HaulID","BySpecRecCode","HaulDur","DataType")], by="HaulID") ## 16s
+        hl <- plyr::join(hl, hh[,c("HaulID","BySpecRecCode","HaulDur","DataType")],
+                         by = "HaulID") ## 16s
         rm(hh)
 
         ## Check DataType in hl
@@ -525,7 +539,7 @@ prep.data <- function(data, AphiaID = NULL,
         ind <- which(is.na(hl$LngtCode))
         if(length(ind) > 0) hl <- hl[-ind,]
         ## DATRAS:::getAccuracyCM
-        lngt2cm <- c("." = 0.1, "0" = 0.1, "1" = 1, "2" = 1, "5" = 1)[as.character(hl$LngtCode)]
+        lngt2cm <- c("." = 0.1, "0" = 0.1, "1" = 1, "2" = 1, "5" = 1)[as.character(hl$LngtCode)] ## 6,7 for NO shrimp survey
         hl$LngtCm <- lngt2cm * hl$LngtClass
         range(hl$LngtCm)
         ## DATRAS::addSpectrum
@@ -549,7 +563,6 @@ prep.data <- function(data, AphiaID = NULL,
 
         ## tmp$DataType
         ## tmp2$DataType
-
 
         hl$Counts <- as.numeric(hl$HLNoAtLngt * hl$multiplier)
 
