@@ -80,6 +80,7 @@ prep.data <- function(data, AphiaID = NULL,
         if(!saflag) ind <- ind[-which(ind %in% c("SweptAreaDSKM2",
                                                  "SweptAreaWSKM2",
                                                  "SweptAreaBWKM2"))]
+        if("GearEx" %in% colnames(hh)) ind <- c(ind, "GearEx")
         hh <- hh[,which(colnames(hh) %in% ind)]
 
 
@@ -427,10 +428,12 @@ prep.data <- function(data, AphiaID = NULL,
         survey0 <- survey0[!ind,]
 
 
+
         ## Data sets including species
         ## --------------------------------------------
         ## Merge variables from hh needed in hl
-        hl <- plyr::join(hl, hh[,c("HaulID","BySpecRecCode","HaulDur","DataType")],
+        hl <- plyr::join(hl, hh[,c("HaulID","BySpecRecCode","HaulDur","DataType",
+                                   "GearEx")],
                          by = "HaulID") ## 16s
         rm(hh)
 
@@ -565,6 +568,14 @@ prep.data <- function(data, AphiaID = NULL,
         ## tmp2$DataType
 
         hl$Counts <- as.numeric(hl$HLNoAtLngt * hl$multiplier)
+
+        ## Account for double beams
+        if(any(colnames(hl) == "GearEx")){
+            ind <- which(!is.na(hl$GearEx) & hl$GearEx == "DB")
+            if(length(ind) > 0) hl$Counts[ind] <- hl$Counts[ind] * 2
+        }
+
+        ## TESTING: check if D has an effect (double sweeps)
 
         ## Remove hauls where datatype = C and Subfactor != 1
         ind <- which(hl$DataType == "C" & hl$SubFactor != 1)
