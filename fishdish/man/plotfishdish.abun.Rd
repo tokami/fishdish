@@ -10,7 +10,8 @@ plotfishdish.abun(
   by.eco = FALSE,
   ylab = "Abundance index",
   y.scale = 1,
-  fixed.scale = FALSE
+  fixed.scale = FALSE,
+  mean.one = FALSE
 )
 }
 \arguments{

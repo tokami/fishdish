@@ -123,7 +123,8 @@ plotdist <- function(data, plot.survey.dist = TRUE){
 #' @export
 plotfishdish.abun <- function(fit, by.area = FALSE, by.eco = FALSE,
                            ylab = "Abundance index",
-                           y.scale = 1, fixed.scale = FALSE){
+                           y.scale = 1, fixed.scale = FALSE,
+                           mean.one = FALSE){
 
     cols <- rep(c(RColorBrewer::brewer.pal(n = 8, "Dark2"),
                   RColorBrewer::brewer.pal(n = 8, "Accent")),50)
@@ -423,6 +424,7 @@ plotfishdish.abun <- function(fit, by.area = FALSE, by.eco = FALSE,
         cols <- c("dodgerblue","darkorange","darkgreen","goldenrod")
 
         fiti <- fit$fits
+        if(mean.one) y.scale <- mean(fiti[[1]]$idx[,1])
         ## CHECK: TODO: might be species if fitted with est.dist
         ns <- length(fiti)
         years <- as.numeric(rownames(fiti[[1]]$idx))
@@ -477,7 +479,8 @@ plotfishdish.dist <- function(fit, mod = NULL, year = NULL,
                               cut.cv = NULL, asp = 2,
                               plot.land = TRUE,
                               plot.obs = FALSE,
-                              average = FALSE
+                              average = FALSE,
+                              mfrow = NULL
                               ){
     xaxt0 <- xaxt
     yaxt0 <- yaxt
@@ -499,6 +502,7 @@ plotfishdish.dist <- function(fit, mod = NULL, year = NULL,
         year <- names(fit$fits[[mod]]$gPreds2[[1]])
     }
 
+    names(fit$fits[[mod]]$gPreds2[[1]])
     ny <- length(year)
     pred <- fit$fits[[mod]]$gPreds2[[1]][as.character(year)]
     cv <- fit$fits[[mod]]$gPreds2.CV[[1]][as.character(year)]
@@ -508,15 +512,20 @@ plotfishdish.dist <- function(fit, mod = NULL, year = NULL,
         grid <- lapply(1:ny, function(x) fit$grid)
     }
 
-    if(ny > 1 && !average){
+    if(ny > 1 && !average && is.null(mfrow)){
         mfrow <- n2mfrow(ny, asp = asp)
         par(mfrow = mfrow, mar = c(0,0,2,0), oma = c(5,5,2,1))
-    }else{
-        mfrow <- c(1,1)
+    }else if(!is.null(mfrow)){
+        par(mfrow = mfrow, mar = c(0,0,2,0), oma = c(5,5,2,1))
     }
 
+
+    if(!is.null(mfrow)){
     xaxt.ind <- (prod(mfrow) - mfrow[2] + 1):prod(mfrow)
     yaxt.ind <- seq(1, prod(mfrow), mfrow[2])
+    }else{
+        xaxt.ind <- yaxt.ind <- 1
+    }
 
     ##TODO: include error when first year not in pred!
 
@@ -525,7 +534,10 @@ plotfishdish.dist <- function(fit, mod = NULL, year = NULL,
     nyx <- ifelse(average, 1, ny)
     if(average){
         grid <- list(collapse.grid(grid))
-        tmp <- do.call(cbind,pred)
+        if(sd(sapply(pred, nrow)) > 0.1){
+            stop("Did you use the same prediction grid for the years that you want to combine?")
+        }
+        tmp <- do.call(cbind, pred)
         pred <- list(data.frame(apply(tmp, 1, mean, na.rm = TRUE)))
     }
 
@@ -619,7 +631,7 @@ plotfishdish.dist <- function(fit, mod = NULL, year = NULL,
         }else{
             mtext(title, 3, 0.3, font = 2, cex = 0.8)
         }
-        if (legend && fixed.scale && i == ny){
+        if ((legend && fixed.scale && i == ny) || (legend && average)){
             maxcuts = aggregate(prediAll ~ zFac, FUN=max)
             mincuts = aggregate(prediAll ~ zFac, FUN=min)
             mm = mean(prediAll)
@@ -1286,9 +1298,12 @@ plotfishdish.gam.effects.gear <- function(fit, mod = 1, xlim = NULL, ylim = NULL
         gears <- gears[ordi]
         ships <- ships[ordi]
         gears.ori <- gears.ori[ordi]
-        labs <- paste0(countries,":",gears.ori, ":", ships)
+        labs <- paste0(ships," - ",gears.ori)
+        ## paste0(countries,":",gears.ori, ":", ships)
         vals <- vals[ordi]
         sds <- sds[ordi]
+        ll <- ll[ordi]
+        ul <- ul[ordi]
         cols <- cols[factor(gears)]
     }else{
         cols <- cols
@@ -1296,11 +1311,11 @@ plotfishdish.gam.effects.gear <- function(fit, mod = 1, xlim = NULL, ylim = NULL
 
 
     if(is.null(ylim)){
-    ylim <- extendrange(r = range(vals, ll, ul, na.rm = TRUE), f = 0.1)
-    ## if(ylim[1] < 0) ylim <- c(1.05,1.05) * ylim else ylim <- c(0.95,1.05) * ylim
+        ylim <- extendrange(r = range(vals, ll, ul, na.rm = TRUE), f = 0.1)
+        ## if(ylim[1] < 0) ylim <- c(1.05,1.05) * ylim else ylim <- c(0.95,1.05) * ylim
     }
     plot(1:length(vals), vals, ty = "n",
-         xlim = extendrange(r = c(1,length(vals)), f = 0.2),
+         xlim = extendrange(r = c(1,length(vals)), f = 0.02),
          xlab = "", ylab = "",
          xaxt="n",ylim=ylim)
     if(exp) abline(h=1, lty=2, lwd = 1.5, col="grey50") else abline(h=0, lty=2, lwd = 1.5, col="grey50")
@@ -1311,10 +1326,10 @@ plotfishdish.gam.effects.gear <- function(fit, mod = 1, xlim = NULL, ylim = NULL
            cex = 1.5,
            col = cols[1:length(vals)])
     axis(1, at = 1:length(vals), labels = labs, las = 2)
-    mtext(var, 3, 0.5, font = 2)
+##    mtext(var, 3, 0.5, font = 2)
     if(exp) ylab <- "Effect" else ylab <- "Effect (log)"
     mtext(ylab, 2, 3)
-##    if(var == "ShipG") legend("topright", legend = unique(gears), col = unique(cols), pch = 16, ncol = 2)
+    ##    if(var == "ShipG") legend("topright", legend = unique(gears), col = unique(cols), pch = 16, ncol = 2)
     box(lwd=1.5)
 
     ## This only works for fixed gear effect (not random)

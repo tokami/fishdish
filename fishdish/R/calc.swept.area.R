@@ -718,7 +718,7 @@ calc.swept.area <- function(data, plot = FALSE, verbose = TRUE){
     ## some gear levels were missing in the data, so need an altnerative prediction of door/wingspread
     ## fill missing data by Survey
     tmp_ms <- table(hh$Survey,(is.na(hh$SweptAreaWSKM2) | is.na(hh$SweptAreaDSKM2)) & is.na(hh$SweptAreaBWKM2))
-    if("TRUE" == colnames(tmp_ms)){
+    if(any(colnames(tmp_ms) == "TRUE")){
         missing_surveys <- tmp_ms[,"TRUE"]
         SURVEYS         <- names(missing_surveys[missing_surveys>0])
 
@@ -1097,7 +1097,7 @@ calc.swept.area <- function(data, plot = FALSE, verbose = TRUE){
     ## some gear levels were missing in the data, so need an altnerative prediction of door/wingspread
     ## fill missing data by Survey
     tmp_ms <- table(hh$Survey,(is.na(hh$SweptAreaWSKM2) | is.na(hh$SweptAreaDSKM2)) & is.na(hh$SweptAreaBWKM2))
-    if("TRUE" == colnames(tmp_ms)){
+    if(any(colnames(tmp_ms) == "TRUE")){
         missing_surveys <- tmp_ms[,"TRUE"]
         SURVEYS         <- names(missing_surveys[missing_surveys>0])
 

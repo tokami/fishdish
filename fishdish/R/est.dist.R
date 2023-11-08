@@ -379,6 +379,7 @@ pred.dist.one <- function(fit,
 
     specdata <- fit$data
     ## if(!inherits(specdata$Year, "factor")) specdata$Year <- as.factor(specdata$Year)
+    mods <- fit$fits
     nmods <- length(fit$fits)
 
     ## Define grid if not provided
@@ -386,7 +387,7 @@ pred.dist.one <- function(fit,
     years <- sort(unique(as.numeric(levels(droplevels(specdata$Year)))))
     ## years <- sort(unique(specdata$Year))
     ny <- length(years)
-    if(is.null(grid) || is.na(grid)){
+    if(is.null(grid) || all(is.na(grid))){
         grid <- fit$grid
         if(fit$pred.by.haul){
             predD <- NULL
@@ -487,6 +488,7 @@ pred.dist.one <- function(fit,
                                          nBoot = nBoot,
                                          predfix = predfix,
                                          mc.cores = 1,
+                                         CIlevel = 0.95,
                                          verbose = verbose),
             silent = TRUE
         )

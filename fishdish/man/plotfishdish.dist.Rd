@@ -8,6 +8,7 @@ plotfishdish.dist(
   fit,
   mod = NULL,
   year = NULL,
+  grid.all = NULL,
   xlim = NULL,
   ylim = NULL,
   legend = TRUE,
@@ -24,7 +25,8 @@ plotfishdish.dist(
   asp = 2,
   plot.land = TRUE,
   plot.obs = FALSE,
-  average = FALSE
+  average = FALSE,
+  mfrow = NULL
 )
 }
 \arguments{

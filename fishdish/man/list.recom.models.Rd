@@ -16,7 +16,8 @@ list.recom.models(
   dim.lat.lon = 256,
   dim.ctime = "nyears",
   dim.ctime.lat.lon = c("nyears", 10),
-  dim.timeOfYear.lat.lon = c(6, 30),
+  dim.timeOfYear = 5,
+  dim.timeOfYear.lat.lon = c(5, 30),
   single.mod = TRUE
 )
 }

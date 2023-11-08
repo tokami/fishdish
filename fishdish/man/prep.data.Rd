@@ -2,8 +2,20 @@
 % Please edit documentation in R/prep.data.R
 \name{prep.data}
 \alias{prep.data}
+\alias{prep.data.internal}
 \title{Prepare data for distribution modelling}
 \usage{
+prep.data.internal(
+  data,
+  AphiaID = NULL,
+  datras.variables = list.datras.variables.req(),
+  est.n = TRUE,
+  est.bio = FALSE,
+  split.juv.adults = FALSE,
+  use.ca = TRUE,
+  verbose = TRUE
+)
+
 prep.data(
   data,
   AphiaID = NULL,
@@ -11,6 +23,7 @@ prep.data(
   est.n = TRUE,
   est.bio = FALSE,
   split.juv.adults = FALSE,
+  use.ca = TRUE,
   verbose = TRUE
 )
 }
@@ -23,11 +36,17 @@ subsetted for species.}
 
 \item{datras.variables}{Variables of DATRAS data set to be used}
 
+\item{use.ca}{Use CA data for AphiaID to estimate bio?}
+
 \item{verbose}{Print stuff? Default: TRUE}
 }
 \value{
 List containing hh and hl data sets.
+
+List containing hh and hl data sets.
 }
 \description{
+Prepare data for distribution modelling
+
 Prepare data for distribution modelling
 }

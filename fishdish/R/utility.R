@@ -445,9 +445,16 @@ pred.statrec <- function(data, tol = 0.00001, only.missing = TRUE,
         data$lat_fac <- cut(data$lat, lat.cuts)
         cols.merge <- c("ICESNAME","sub_code","Area_27","Ecoregion","sub_area")
         if(dbg > 0) cols.merge <- c(cols.merge, "sub_x","sub_y","stat_x","stat_y")
-        data <- plyr::join(x = data, y = ices.rectangles[,c("lon_fac","lat_fac",cols.merge)],
+        data <- plyr::join(x = data, y = ices.rectangles[,c("lon_fac","lat_fac",
+                                                            cols.merge)],
                            by = c("lon_fac","lat_fac"))
-        datain <- cbind(datain, data[,cols.merge])
+        indi <- 1:ncol(datain)
+        indii <- which(colnames(datain) == "StatRec")
+        if(length(indii) > 0){
+            indi <- indi[-indii]
+        }
+        datain <- cbind(datain[indi],
+                        data[,cols.merge])
         colnames(datain)[colnames(datain) == "ICESNAME"] <- "StatRec"
         colnames(datain)[colnames(datain) == "sub_code"] <- "SubStatRec"
         colnames(datain)[colnames(datain) == "sub_area"] <- "SubStatRec_area"
@@ -469,7 +476,6 @@ pred.statrec <- function(data, tol = 0.00001, only.missing = TRUE,
             datain$stat_lon <- NA
             datain$stat_lat <- NA
         }
-
         if(only.missing){
             ind.na <- which(is.na(datain$StatRec))
         }else{
