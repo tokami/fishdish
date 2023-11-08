@@ -876,7 +876,12 @@ subset.fdist.prepped <- function(x, subset){
 #' @param CI 0.95
 #'
 #' @export
-get.gear.effect <- function(fit, mod = 1, CI = 0.95, var = "Gear", exp = TRUE){  ## CHECK: why exp = TRUE by default for gears? because of link function?
+get.gear.effect <- function(fit, mod = 1, CI = 0.95,
+                            var = "Gear", exp = TRUE){  ## CHECK: why exp = TRUE by default for gears? because of link function?
+
+    tmp <- strsplit(as.character(fit$fits[[mod]]$pModels[[1]]$formula),"\\+")[[3]]
+    tmpi <- grep('\"re\"',tmp[grep(var, tmp)])
+    re.flag <- ifelse(length(tmpi)>=1, TRUE, FALSE)
 
     ## zscore <- qnorm(CI + (1 - CI)/2)
     ## fe <- data.frame(summary(fit$fits[[1]]$pModels[[1]])$p.table)[,c(1,2)]
@@ -888,15 +893,15 @@ get.gear.effect <- function(fit, mod = 1, CI = 0.95, var = "Gear", exp = TRUE){ 
 
     ## TODO: if interested in intercept:
     sel.intercept <- grep("(Intercept)",names(coef(fit$fits[[1]]$pModels[[1]])))
-    sel <- c(sel.intercept,grep(var,names(coef(fit$fits[[1]]$pModels[[1]]))))
+    if(!re.flag) sel <- c(sel.intercept,grep(var,names(coef(fit$fits[[1]]$pModels[[1]])))) else sel <- grep(var,names(coef(fit$fits[[1]]$pModels[[1]])))
     vals <- coef(fit$fits[[1]]$pModels[[1]])[sel]
-    vals <- c(vals[1], sapply(vals[-1], function(x) vals[1] + x))
+    if(!re.flag) vals <- c(vals[1], sapply(vals[-1], function(x) vals[1] + x))
     if(length(sel) > 1){
         sds <- sqrt(diag(vcov(fit$fits[[1]]$pModels[[1]])[sel,sel]))
     }else{
         sds <- sqrt(vcov(fit$fits[[1]]$pModels[[1]])[sel,sel])
     }
-    vals <- vals - vals[1]
+    if(!re.flag) vals <- vals - vals[1]
     ll <- vals - qnorm(CI + (1 - CI)/2) * sds
     ul <- vals + qnorm(CI + (1 - CI)/2) * sds
     ## ll[1] <- NA
@@ -921,7 +926,8 @@ get.gear.effect <- function(fit, mod = 1, CI = 0.95, var = "Gear", exp = TRUE){ 
     ## }
     res <- as.data.frame(cbind(vals, ll, ul, sds))
     colnames(res) <- c("est", "ll", "ul", "sd")
-    rownames(res) <- levels(droplevels(fit$data[,var]))
+    labi <- levels(droplevels(fit$data[,var]))
+    rownames(res) <- labi
 
     return(res)
 }
