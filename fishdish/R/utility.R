@@ -924,6 +924,7 @@ get.gear.effect <- function(fit, mod = 1, CI = 0.95,
     ##     ul <- c(ifelse(exp, 1, 0), ul)
     ##     sds <- c(NA, sds)
     ## }
+
     res <- as.data.frame(cbind(vals, ll, ul, sds))
     colnames(res) <- c("est", "ll", "ul", "sd")
     labi <- levels(droplevels(fit$data[,var]))

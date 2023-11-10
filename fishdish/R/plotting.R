@@ -519,10 +519,9 @@ plotfishdish.dist <- function(fit, mod = NULL, year = NULL,
         par(mfrow = mfrow, mar = c(0,0,2,0), oma = c(5,5,2,1))
     }
 
-
     if(!is.null(mfrow)){
-    xaxt.ind <- (prod(mfrow) - mfrow[2] + 1):prod(mfrow)
-    yaxt.ind <- seq(1, prod(mfrow), mfrow[2])
+        xaxt.ind <- (prod(mfrow) - mfrow[2] + 1):prod(mfrow)
+        yaxt.ind <- seq(1, prod(mfrow), mfrow[2])
     }else{
         xaxt.ind <- yaxt.ind <- 1
     }
@@ -542,6 +541,7 @@ plotfishdish.dist <- function(fit, mod = NULL, year = NULL,
     }
 
     if(fixed.scale){
+        lastmax <- NULL
         prediAll <- unlist(lapply(pred, function(x) x[,1]))
         ind <- vector("list",length(pred))
         for(i in 1:length(pred)){
@@ -807,40 +807,78 @@ plotfishdish.dist <- function(fit, mod = NULL, year = NULL,
 #'
 #' @export
 plotfishdish.dist.cv <- function(fit, mod = NULL, year = NULL,
-                           xlim = NULL, ylim = NULL,
-                           legend = TRUE, fixed.scale = TRUE,
-                           cols = cm.colors(7)[-1], breaks = NULL,
-                           plot.obs = 2   ## 0 = no hauls, 1 = all hauls, 2 = all pos hauls
-                           ){
+                                 grid.all = NULL,
+                                 xlim = NULL, ylim = NULL,
+                                 legend = TRUE, fixed.scale = TRUE,
+                                 title = NULL, xlab = NULL, ylab = NULL,
+                                 xaxt = NULL, yaxt = NULL,
+                                 fixed.lims = TRUE,
+                                 cols = cm.colors(7)[-1], breaks = NULL,
+                                 min.val = NA,
+                                 cut.cv = NULL, asp = 2,
+                                 plot.land = TRUE,
+                                 plot.obs = 2,   ## 0 = no hauls, 1 = all hauls, 2 = all pos hauls
+                                 average = FALSE,
+                                 mfrow = NULL
+                                 ){
+    xaxt0 <- xaxt
+    yaxt0 <- yaxt
 
-
-
-    pred <- fit$fits[[mod]]$gPreds2.CV[[1]][as.character(year)]
-    grid <- fit$grid[as.character(year)]
-    ny <- length(year)
-
-    if(ny >= 42){
-        mfrow = c(6,ceiling(ny/6))
-    }else if(ny >= 30){
-        mfrow = c(5,ceiling(ny/5))
-    }else if(ny >= 19){
-        mfrow = c(4,ceiling(ny/4))
-    }else if(ny >= 9){
-        mfrow = c(3,ceiling(ny/3))
-    }else if(ny < 9 & ny >= 4){
-        mfrow = c(2,ceiling(ny/2))
-    }else if(ny < 4){
-        mfrow = c(1,ny)
+    ## TODO: not ideal fit$grid might be a list!
+    if(is.null(grid.all)){
+        grid.all <- fit$grid
     }
-    if(ny > 1){
+
+    if(is.null(year)){
+        year <- tail(rownames(fit$fits[[1]]$idx),1)
+        writeLines(paste0("No year selected. Plotting year: ",year))
+    }
+    if(is.null(mod)){
+        mod <- 1
+    }
+
+    if(year[1] == "all"){
+        year <- names(fit$fits[[mod]]$gPreds2[[1]])
+    }
+
+    names(fit$fits[[mod]]$gPreds2[[1]])
+    ny <- length(year)
+    pred <- fit$fits[[mod]]$gPreds2.CV[[1]][as.character(year)]
+    names(fit$fits[[mod]]$gPreds2.CV[[1]])
+    if(inherits(fit$grid, "list")){
+        grid <- fit$grid[as.character(year)]
+    }else{
+        grid <- lapply(1:ny, function(x) fit$grid)
+    }
+
+    if(ny > 1 && !average && is.null(mfrow)){
+        mfrow <- n2mfrow(ny, asp = asp)
+        par(mfrow = mfrow, mar = c(0,0,2,0), oma = c(5,5,2,1))
+    }else if(!is.null(mfrow)){
         par(mfrow = mfrow, mar = c(0,0,2,0), oma = c(5,5,2,1))
     }
 
-    xaxt.ind <- (prod(mfrow) - mfrow[2] + 1):prod(mfrow)
-    yaxt.ind <- seq(1, prod(mfrow), mfrow[2])
-    lastmax <- NULL
+
+    if(!is.null(mfrow)){
+        xaxt.ind <- (prod(mfrow) - mfrow[2] + 1):prod(mfrow)
+        yaxt.ind <- seq(1, prod(mfrow), mfrow[2])
+    }else{
+        xaxt.ind <- yaxt.ind <- 1
+    }
+
+
+    nyx <- ifelse(average, 1, ny)
+    if(average){
+        grid <- list(collapse.grid(grid))
+        if(sd(sapply(pred, nrow)) > 0.1){
+            stop("Did you use the same prediction grid for the years that you want to combine?")
+        }
+        tmp <- do.call(cbind, pred)
+        pred <- list(data.frame(apply(tmp, 1, mean, na.rm = TRUE)))
+    }
 
     if(fixed.scale){
+        lastmax <- NULL
         predi <- unlist(lapply(pred, function(x) x[,1]))
         ind <- vector("list",length(pred))
         for(i in 1:length(pred)){
@@ -857,6 +895,11 @@ plotfishdish.dist.cv <- function(fit, mod = NULL, year = NULL,
             }
         }
         concT <- surveyIndex:::concTransform(log(predi))
+        if(is.null(min.val) || is.na(min.val)){
+            zFac <- cut(concT, 0:length(cols)/length(cols))
+        }else{
+            zFac <- cut(concT, sort(c(min.val,seq(0,1, length.out = length(cols)-1))))
+        }
         if(is.null(breaks)){
             zFac <- cut(concT, 0:length(cols)/length(cols))
         }else{
@@ -871,16 +914,22 @@ plotfishdish.dist.cv <- function(fit, mod = NULL, year = NULL,
         }
     }
 
+    if(fixed.lims){
+        if(is.null(xlim)) xlim <- extendrange(r = range(unlist(lapply(grid, function(x) range(if(!is.null(x$lon)) x$lon else NA))),na.rm = TRUE), f = 0.1)
+        if(is.null(ylim)) ylim <- extendrange(r = range(unlist(lapply(grid, function(x) range(if(!is.null(x$lat)) x$lat else NA))),na.rm = TRUE), f = 0.1)
+    }
+
     if(plot.obs == 2){
         obs <- fit$data[which(fit$data$bio > 0),]
     }else{
         obs <- fit$data
     }
-    for(i in 1:ny){
+    for(i in 1:nyx){
         if(!fixed.scale){
             predi <- pred[[i]][,1]
             if(!is.null(predi)){
                 concT <- surveyIndex:::concTransform(log(predi))
+                zFac <- cut(concT, 0:length(cols)/length(cols))
                 if(is.null(breaks)){
                     zFac <- cut(concT, 0:length(cols)/length(cols))
                 }else{
@@ -892,10 +941,12 @@ plotfishdish.dist.cv <- function(fit, mod = NULL, year = NULL,
             }
         }
         tmp <- reshape2::acast(grid[[i]], lon~lat, value.var = "pred")
-        if(is.null(xlim)) xlimi <- range(as.numeric(rownames(tmp))) else xlimi <- xlim
-        if(is.null(ylim)) ylimi <- range(as.numeric(rownames(tmp))) else ylimi <- ylim
-        xaxt <- ifelse(i %in% xaxt.ind, "s", "n")
-        yaxt <- ifelse(i %in% yaxt.ind, "s", "n")
+        ## if(is.null(xlim)) xlimi <- range(as.numeric(rownames(tmp))) else xlimi <- xlim
+        ## if(is.null(ylim)) ylimi <- range(as.numeric(rownames(tmp))) else ylimi <- ylim
+        if(is.null(xlim)) xlimi <- extendrange(r = range(as.numeric(rownames(tmp))), f = 0.1) else xlimi <- xlim
+        if(is.null(ylim)) ylimi <- extendrange(r = range(as.numeric(colnames(tmp))), f = 0.1) else ylimi <- ylim
+        if(is.null(xaxt0)) xaxt <- ifelse(i %in% xaxt.ind, "s", "n")
+        if(is.null(yaxt0)) yaxt <- ifelse(i %in% yaxt.ind, "s", "n")
         plot(1,1, xlim = xlimi, ylim = ylimi,
              xaxt = xaxt, yaxt = yaxt,
              ty = "n",
