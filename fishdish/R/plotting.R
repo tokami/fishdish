@@ -533,7 +533,9 @@ plotfishdish.dist <- function(fit, mod = NULL, year = NULL,
     nyx <- ifelse(average, 1, ny)
     if(average){
         grid <- list(collapse.grid(grid))
-        if(sd(sapply(pred, nrow)) > 0.1){
+        nrowi <- sapply(pred, nrow)
+        if(!is.na(sd(unlist(nrowi)[!sapply(nrowi,is.null)])) &&
+           sd(unlist(nrowi)[!sapply(nrowi,is.null)]) > 0.1){
             stop("Did you use the same prediction grid for the years that you want to combine?")
         }
         tmp <- do.call(cbind, pred)
