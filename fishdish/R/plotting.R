@@ -1423,9 +1423,9 @@ plotfishdish.gam.effects.gear <- function(fit, mod = 1, xlim = NULL, ylim = NULL
 #'
 #' @export
 plotfishdish.diag <- function(fit, mod = 1){
-    opar <- par()
-    par(mfrow = c(2,3), mar = c(5,5,4,2), oma = c(0,0,0,0))
-    on.exit(par(opar))
+##    opar <- par()
+    par(mfrow = c(3,3), mar = c(5,5,4,2), oma = c(0,0,0,0))
+##    on.exit(par(opar))
     surveyIndex::surveyIdxPlots(fit$fits[[mod]],
                                 fit$data,
                                 select = "residuals",
@@ -1436,24 +1436,35 @@ plotfishdish.diag <- function(fit, mod = 1){
                                 select = "fitVsRes",
                                 par = NULL,
                                 main = "Residuals vs. Fitted")
+    qqnorm(fit$fits[[mod]]$residuals[[1]])
+    qqline(fit$fits[[mod]]$residuals[[1]])
     surveyIndex::surveyIdxPlots(fit$fits[[mod]],
                                 fit$data,
                                 select = "resVsYear",
                                 par = NULL,
                                 main = "Residuals vs. year")
-        abline(h=0, lty=1, col = "grey30")
+    abline(h=0, lty=1, col = "grey30")
+    colnames(fit$data)
+    plot(factor(fit$data$Quarter), fit$fits[[mod]]$residuals[[1]],
+         main = "Residuals vs. quarter",
+         xlab = "Quarter", ylab = "Residuals")
+    abline(h=0, lty=1, col = "grey30")
+    plot(factor(fit$data$DayNight), fit$fits[[mod]]$residuals[[1]],
+         main = "Residuals vs. DayNight",
+         xlab = "DayNight", ylab = "Residuals")
+    abline(h=0, lty=1, col = "grey30")
     surveyIndex::surveyIdxPlots(fit$fits[[mod]],
                                 fit$data,
                                 select = "resVsShip",
                                 par = NULL,
                                 main = "Residuals vs. Ship")
-        abline(h=0, lty=1, col = "grey30")
+    abline(h=0, lty=1, col = "grey30")
     surveyIndex::surveyIdxPlots(fit$fits[[mod]],
                                 fit$data,
                                 select = "resVsGear",
                                 par = NULL,
                                 main = "Residuals vs. Gear")
-        abline(h=0, lty=1, col = "grey30")
+    abline(h=0, lty=1, col = "grey30")
     surveyIndex::surveyIdxPlots(fit$fits[[mod]],
                                 fit$data,
                                 select = "resVsDepth",
@@ -1532,7 +1543,7 @@ plotfishdish.dist.year2 <- function(fit, mod = NULL, var.lim = FALSE, all.years 
         myids <- NULL
     }
 
-    fitx <- fit$fit[[mod]]
+    fitx <- fit$fits[[mod]]
     data <- fit$data
     map.cex <- cex
     years0 <- sort(unique(fitx$yearNum))
