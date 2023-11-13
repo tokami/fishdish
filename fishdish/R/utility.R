@@ -927,8 +927,10 @@ get.gear.effect <- function(fit, mod = 1, CI = 0.95,
 
     res <- as.data.frame(cbind(vals, ll, ul, sds))
     colnames(res) <- c("est", "ll", "ul", "sd")
-    fit$data$id <- fit$data[,var]
-    tmp <- aggregate(N ~ id, data = fit$data, FUN = sum)
+    dati <- fit$data
+    dati$id <- dati[,var]
+    dati$bio[dati$bio <= fit$fits[[1]]$cutOff] <- 0
+    tmp <- aggregate(bio ~ id, data = dati, FUN = sum)
     labi <- tmp[tmp[,2] > 0,1]
     rownames(res) <- labi
 

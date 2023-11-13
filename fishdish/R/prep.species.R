@@ -30,13 +30,27 @@ prep.species <- function(data, aphiaID = NULL,
     survey <- data$survey
 
     if(any(colnames(survey) == "N")){
-    }else if(!any(colnames(survey) == "N") && any(colnames(survey) == "n.juv") && any(colnames(survey) == "n.adult")){
+    }else if(!any(colnames(survey) == "N") &&
+             any(colnames(survey) == "n.juv") && any(colnames(survey) == "n.adult")){
         survey$N <- survey$n.juv + survey$n.adult
+    }else if(!any(colnames(survey) == "N") &&
+             any(colnames(survey) == "n1")){
+        survey$N <- apply(survey[,unlist(sapply(1:100,
+                                                function(x) grep(paste0("n",x),
+                                                                 colnames(survey))))],
+                          1, sum)
     }else{
         stop("No N!")
     }
-    if(!any(colnames(survey) == "bio") && any(colnames(survey) == "bio.juv") && any(colnames(survey) == "bio.adult")){
+    if(!any(colnames(survey) == "bio") &&
+       any(colnames(survey) == "bio.juv") && any(colnames(survey) == "bio.adult")){
         survey$bio <- survey$bio.juv + survey$bio.adult
+    }else if(!any(colnames(survey) == "bio") &&
+             any(colnames(survey) == "bio1")){
+        survey$bio <- apply(survey[,unlist(sapply(1:100,
+                                                function(x) grep(paste0("bio",x),
+                                                                 colnames(survey))))],
+                          1, sum)
     }
 
     ## Subset all species for given species category

@@ -17,7 +17,6 @@
 prep.data.internal <- function(data, AphiaID = NULL,
                                datras.variables = list.datras.variables.req(),
                                est.n = TRUE, est.bio = FALSE,
-                               split.juv.adults = FALSE,
                                use.ca = TRUE,
                                verbose = TRUE){
 
@@ -612,11 +611,6 @@ prep.data.internal <- function(data, AphiaID = NULL,
         if(!inherits(specs.matched,"data.frame")) specs.matched <- data.frame(AphiaID = specs.matched)
     }
 
-    ## TODO: needed? but how to add missing species info to bio.pars? or how to pass specific Lm?
-    ## if(split.juv.adults){
-    ##     data("bio.pars")
-    ## }
-
     res <- list(hl = hl,
                 ca = ca,
                 specs.matched = specs.matched,
@@ -649,6 +643,7 @@ prep.data <- function(data, AphiaID = NULL,
                       datras.variables = list.datras.variables.req(),
                       est.n = TRUE, est.bio = FALSE,
                       split.juv.adults = FALSE,
+                      split.length = FALSE,
                       use.ca = TRUE,
                       verbose = TRUE){
 
@@ -666,7 +661,6 @@ prep.data <- function(data, AphiaID = NULL,
         data.prepped <- prep.data.internal(data = data, AphiaID = AphiaID,
                                            datras.variables = datras.variables,
                                            est.n = est.n, est.bio = est.bio,
-                                           split.juv.adults = split.juv.adults,
                                            use.ca = use.ca,
                                            verbose = verbose)
         hh <- data.prepped$hh
@@ -701,7 +695,12 @@ prep.data <- function(data, AphiaID = NULL,
                 hlc$sizeGroup <- cut(hlc$LngtCm, breaks = cm.breaks, right = FALSE)
                 n.by.length <- round(xtabs(Counts ~ HaulID + sizeGroup, data = hlc)) ## round after summing up?
 
-                if(split.juv.adults && any(bio.pars$AphiaID == specs.matched$AphiaID[i])){
+                ## TODO: needed? but how to add missing species info to bio.pars? or how to pass specific Lm?
+                ## if(split.juv.adults){
+                ##     data("bio.pars")
+                ## }
+
+                if(split.juv.adults && any(bio.pars$AphiaID == specs.matched$AphiaID[i]) && !split.length){
                     if(verbose){
                         print(paste0("Lm(",i,") = ",bio.pars$Lm[bio.pars$AphiaID == specs.matched$AphiaID[i]]))
                     }
@@ -735,6 +734,36 @@ prep.data <- function(data, AphiaID = NULL,
                     }else{
                         survey.spec$n.adult <- 0
                     }
+                }else if(split.length && any(bio.pars$AphiaID == specs.matched$AphiaID[i])){
+
+                    ind.split <- grep("split",colnames(bio.pars))
+
+                    if(verbose){
+                        print(paste0("Lsplit(",i,") = ",bio.pars[bio.pars$AphiaID == specs.matched$AphiaID[i],ind.split]))
+                    }
+
+                    survey.spec <- data.frame(haul.id = rownames(n.by.length),
+                                              AphiaID = specs.matched$AphiaID[i])
+
+                    inds <- as.numeric(cut(midLengths, c(-10,bio.pars[bio.pars$AphiaID ==
+                                                 specs.matched$AphiaID[i],
+                                                 ind.split],1e4)))
+
+                    for(j in 1:length(unique(inds))){
+                        tmp <- n.by.length[,inds == j]
+                        if(ncol(tmp) > 0){
+                            if(nrow(tmp) > 1){
+                                addi <- data.frame(apply(tmp, 1, sum))
+                            }else{
+                                addi <- data.frame(rep(sum(tmp),nrow(survey.spec)))
+                            }
+                        }else{
+                            addi <- data.frame(rep(0, nrow(survey.spec)))
+                        }
+                        colnames(addi) <- paste0("n",j)
+                        survey.spec <- data.frame(survey.spec, addi)
+                    }
+
                 }else{
                     survey.spec <- data.frame(haul.id = rownames(n.by.length),
                                               AphiaID = specs.matched$AphiaID[i],
@@ -802,12 +831,28 @@ prep.data <- function(data, AphiaID = NULL,
 
                         LW <- a * midLengths^b
 
-                        if(split.juv.adults && any(bio.pars$AphiaID == specs.matched$AphiaID[i])){
+                        if(split.juv.adults &&
+                           any(bio.pars$AphiaID == specs.matched$AphiaID[i]) &&
+                           !split.length){
                             survey.spec$bio.juv <- unname(apply(n.by.length[,ind.juv], 1,
                                                                 function(x) x %*% LW[ind.juv]))
                             survey.spec$bio.adult <- unname(apply(n.by.length[,ind.adult], 1,
                                                                   function(x) x %*% LW[ind.adult]))
-                        }else{
+                        }else if(split.length &&
+                            any(bio.pars$AphiaID == specs.matched$AphiaID[i])){
+
+                             bios <- NULL
+                             for(j in 1:length(unique(inds))){
+                                 tmp <- n.by.length[,inds == j]
+                                 bios <- cbind(bios,
+                                               unname(apply(tmp, 1,
+                                                            function(x) x %*% LW[inds == j])))
+                             }
+                            colnames(bios) <- paste0("bio", 1:length(unique(inds)))
+
+                            survey.spec <- data.frame(survey.spec, bios)
+
+                         }else{
                             survey.spec$bio <- unname(apply(n.by.length, 1, function(x) x %*% LW))
                         }
 
@@ -826,6 +871,19 @@ prep.data <- function(data, AphiaID = NULL,
                any(colnames(survey) == "n.adult")){
                 survey$n.juv[is.na(survey$n.juv)] <- 0
                 survey$n.adult[is.na(survey$n.adult)] <- 0
+                if(est.bio){
+                    survey$bio.juv[is.na(survey$bio.juv)] <- 0
+                    survey$bio.adult[is.na(survey$bio.adult)] <- 0
+                }
+            }else if(split.length && any(colnames(survey) == "n1")){
+                for(j in 1:length(unique(inds))){
+                    survey[is.na(survey[,grep(paste0("n",j),colnames(survey))]),
+                           grep(paste0("n",j),colnames(survey))] <- 0
+                    if(est.bio){
+                        survey[is.na(survey[,grep(paste0("bio",j),colnames(survey))]),
+                               grep(paste0("bio",j),colnames(survey))] <- 0
+                    }
+                }
             }
 
             ## HERE: just for checking! REMOVE:
