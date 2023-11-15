@@ -128,18 +128,19 @@ prep.species <- function(data, aphiaID = NULL,
     ices.keep <- sort(unique(survey.spp$StatRec))  ## CHECK: that no StatRec with N=0 are in survey.spp
     ## NEW: make argument or only use this?
     ## TODO: make check that Area_27 is included!!
-    ices.keep <- sort(unique(survey.spp$Area_27))
+    ## ices.keep <- sort(unique(survey.spp$Area_27))
+
 
     ## Apply selections to both data sets
     ## --------------------------------------
     survey.spp <- subset(survey.spp,
-                         Area_27 %in% ices.keep &
+                         StatRec %in% ices.keep &  ## Area_27 %in% ices.keep &
                          Gear %in% gears.keep &
                          ShipG %in% shipgear.keep &
                          Survey %in% surveys.keep &
                          Depth <= max.depth)
     survey0 <- subset(survey0,
-                      Area_27 %in% ices.keep &
+                      StatRec %in% ices.keep &  ## Area_27 %in% ices.keep &
                       Gear %in% gears.keep &
                       ShipG %in% shipgear.keep &
                       Survey %in% surveys.keep &
