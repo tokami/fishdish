@@ -18,6 +18,7 @@ prep.data.internal <- function(data, AphiaID = NULL,
                                datras.variables = list.datras.variables.req(),
                                est.n = TRUE, est.bio = FALSE,
                                use.ca = TRUE,
+                               use.total.catch.w.and.n = TRUE,
                                verbose = TRUE){
 
     specflag <- ifelse(is.null(AphiaID[1]) || is.na(AphiaID[1]) || AphiaID[1] %in% c("all","All","ALL"),0,1)
@@ -140,11 +141,10 @@ prep.data.internal <- function(data, AphiaID = NULL,
                                  sep="\t\t\t"))
     if(!is.null(ca)) ca <- subset(ca, ca$HaulID %in% hh$HaulID)
 
-
     ## Subset HL (also to avoid double info in hh and hl after merging)
     ## ------------------
     hl <- hl[,c("HaulID","SpecCodeType","SpecCode","SpecVal",
-                "TotalNo","CatIdentifier","SubFactor", "LngtCode",
+                "TotalNo","CatCatchWgt","CatIdentifier","SubFactor", "LngtCode",
                 "LngtClass","HLNoAtLngt","AphiaID")]
 
     ## Subset CA (also to avoid double info in hh and ca after merging)
@@ -495,67 +495,42 @@ prep.data.internal <- function(data, AphiaID = NULL,
     ## HLNoAtLngt
     ## -------------
     ind <- which(is.na(hl$HLNoAtLngt))
-
-    ## NEW: DECISION: removing HLNoAtLngt = NA entries
-    if(length(ind) > 0){
-        hl <- hl[-ind,]
-    }
-
-
-    ## CHECK:
-    ## DECISION: Using TotalNo when HLNoAtLngt == NA and setting subFactor to 1.
-    ## this might still work, but only on TotalNo by haul id should be used! totalNo is repeated!
-    if(FALSE){
+    if(!use.total.catch.w.and.n){
+        ## NEW: DECISION: removing HLNoAtLngt = NA entries
         if(length(ind) > 0){
-            tmp <- hl[ind,]
-            any(duplicated(tmp$HaulID))
-            tmp$DataType <- "R"
-            hl$HLNoAtLngt[ind] <- hl$TotalNo[ind]
-            hl$SubFactor[ind] <- 1
-            ind2 <- which(!is.na(hl$TotalNo[ind]))
-            if(verbose){
-                writeLines(paste0(paste("Number of entries with missing HLNoAtLngt: ",
-                                        paste0(length(ind), " (",round(length(ind)/nrow(hl)*100,1),
-                                               "%)"),
-                                        sep = "\t\t\t"),
-                                  " Using TotalNo (with SubFactor = 1) for these hauls."))
-                writeLines(paste("Number of meaningful TotalNo replacements: ",
-                                 paste0(length(ind2), " (",round(length(ind2)/length(ind)*100,1),
-                                        "%)"),
-                                 sep = "\t\t\t"))
-            }
+            hl <- hl[-ind,]
+            writeLines(paste0(length(ind), " entries do not have HLNoAtlngt information are removed!"))
         }
+    }else{
+        hl$HLNoAtLngt[ind] <- hl$TotalNo[ind]
+        hl$SubFactor[ind] <- 1
+        ## all length NA for these entries, so if length is being used later than they are removed anyways
+        ## TODO: keep CatCatchWgt also for est.bio!
     }
 
     ## Account for LngtCode (mm and cm)
     ## Remove LngtCode = NA (LngtClass also NA)
     ind <- which(is.na(hl$LngtCode))
-    if(length(ind) > 0) hl <- hl[-ind,]
+    if(!use.total.catch.w.and.n){
+        if(length(ind) > 0){
+            hl <- hl[-ind,]
+            writeLines(paste0(length(ind), " entries do not have LngtCod information are removed!"))
+        }
+    }
+
+
+    hl$LngtCm <- NA
+    ind <- which(!is.na(hl$LngtCode))
     ## DATRAS:::getAccuracyCM
-    lngt2cm <- c("." = 0.1, "0" = 0.1, "1" = 1, "2" = 1, "5" = 1)[as.character(hl$LngtCode)] ## 6,7 for NO shrimp survey
-    hl$LngtCm <- lngt2cm * hl$LngtClass
-    range(hl$LngtCm)
+    lngt2cm <- c("." = 0.1, "0" = 0.1, "1" = 1, "2" = 1, "5" = 1)[as.character(hl$LngtCode[ind])] ## 6,7 for NO shrimp survey
+    hl$LngtCm[ind] <- lngt2cm * hl$LngtClass[ind]
+    range(hl$LngtCm, na.rm = TRUE)
     ## DATRAS::addSpectrum
+
     ## https://www.ices.dk/data/Documents/DATRAS/DATRAS_FAQs.pdf:
     ## DataType R,S: TotalNo –report the total number of fish of one species, sex, and category in the given haul
     ## DataType C: TotalNo –report the total number of fish of one species and sex in the given haul, raised to 1 hour hauling;
     hl$multiplier <- ifelse(hl$DataType=="C", hl$HaulDur/60, hl$SubFactor)  ## not using SubFactor if DataType == "C"
-
-    ## REMOVE: check for spict benchmark ray
-    ## surveys22 <- lapply(strsplit(hl$HaulID, ":"), function(x) x[1])
-    ## years22 <- lapply(strsplit(hl$HaulID, ":"), function(x) x[2])
-
-    ## tmp <- hl[surveys22 == "SP-NORTH" & years22 == "2000",]
-    ## tmp2 <- hl[surveys22 == "SP-NORTH" & years22 != "2000",]
-
-    ## tmp$multiplier
-    ## tmp2$multiplier
-
-    ## tmp$SubFactor
-    ## tmp2$SubFactor
-
-    ## tmp$DataType
-    ## tmp2$DataType
 
     hl$Counts <- as.numeric(hl$HLNoAtLngt * hl$multiplier)
 
@@ -566,6 +541,8 @@ prep.data.internal <- function(data, AphiaID = NULL,
     }
 
     ## TESTING: check if D has an effect (double sweeps)
+
+    ## CHECK: this!
 
     ## Remove hauls where datatype = C and Subfactor != 1
     ind <- which(hl$DataType == "C" & hl$SubFactor != 1)
@@ -645,6 +622,7 @@ prep.data <- function(data, AphiaID = NULL,
                       split.juv.adults = FALSE,
                       split.length = FALSE,
                       use.ca = TRUE,
+                      use.total.catch.w.and.n = TRUE,
                       verbose = TRUE){
 
     specflag <- ifelse(is.null(AphiaID[1]) || is.na(AphiaID[1]) || AphiaID[1] %in% c("all","All","ALL"),0,1)
@@ -662,12 +640,15 @@ prep.data <- function(data, AphiaID = NULL,
                                            datras.variables = datras.variables,
                                            est.n = est.n, est.bio = est.bio,
                                            use.ca = use.ca,
+                                           use.total.catch.w.and.n =
+                                               use.total.catch.w.and.n,
                                            verbose = verbose)
         hh <- data.prepped$hh
         hl <- data.prepped$hl
         ca <- data.prepped$ca
         specs.matched <- data.prepped$specs.matched
         survey0 <- data.prepped$survey0
+
 
         ## Estimate N & Bio (requires CA)
         ## -------------------
@@ -684,177 +665,358 @@ prep.data <- function(data, AphiaID = NULL,
                                 specs.matched$AphiaID[i],". Cannot calc n!"))
                 }
 
-                ## DATRAS::addSpectrum
-                ## DATRAS:::getAccuracyCM
-                by <- max(c("." = 0.1, "0" = 0.5, "1" = 1, "2" = 2, "5" = 5)[as.character(hlc$LngtCode)],
-                          na.rm = TRUE)
-                cm.breaks <- seq(min(hlc$LngtCm, na.rm = TRUE),
-                                 max(hlc$LngtCm, na.rm = TRUE) + by,
-                                 by = by)
-                midLengths <- cm.breaks[-1] - diff(cm.breaks)/2 ## TODO: make issue/PR for DATRAS (always assumes 1cm bins)
-                hlc$sizeGroup <- cut(hlc$LngtCm, breaks = cm.breaks, right = FALSE)
-                n.by.length <- round(xtabs(Counts ~ HaulID + sizeGroup, data = hlc)) ## round after summing up?
 
-                ## TODO: needed? but how to add missing species info to bio.pars? or how to pass specific Lm?
-                ## if(split.juv.adults){
-                ##     data("bio.pars")
-                ## }
+                ## NEW: account for some lengths = NA (Counts = TotalNo)
+                ind <- which(!is.na(hlc$LngtCode))
 
-                if(split.juv.adults && any(bio.pars$AphiaID == specs.matched$AphiaID[i]) && !split.length){
-                    if(verbose){
-                        print(paste0("Lm(",i,") = ",bio.pars$Lm[bio.pars$AphiaID == specs.matched$AphiaID[i]]))
-                    }
-
-                    ind.juv <- which(midLengths <
-                                     bio.pars$Lm[bio.pars$AphiaID ==
-                                                 specs.matched$AphiaID[i]])
-                    ind.adult <- which(midLengths >=
-                                       bio.pars$Lm[bio.pars$AphiaID ==
-                                                   specs.matched$AphiaID[i]])
-                    survey.spec <- data.frame(haul.id = rownames(n.by.length),
-                                              AphiaID = specs.matched$AphiaID[i])
-
-                    if(length(ind.juv) > 0){
-                        if(nrow(n.by.length) > 1 && length(ind.juv) > 1){
-                            survey.spec$n.juv = unname(apply(n.by.length[,ind.juv],
-                                                             1, sum))
-                        }else{
-                            survey.spec$n.juv = sum(n.by.length[,ind.juv])
-                        }
+                if(length(ind) == 0){
+                    if(split.juv.adults || split.length){
+                        stop(paste0("Species ",specs.matched$AphiaID[i],
+                                    " does not have any length information. Cannot split into length classes! Run total N/bio or remove species!"))
                     }else{
-                        survey.spec$n.juv <- 0
+                        tmpi <- hlc[, c("HaulID","AphiaID","Counts")]
+                        survey.spec <- aggregate(list(N = tmpi$Counts),
+                                           by = list(haul.id = tmpi$HaulID,
+                                                     AphiaID = tmpi$AphiaID),
+                                           FUN = sum)
+
+                        ## TODO: remove NA?
                     }
-                    if(length(ind.adult) > 0){
-                        if(nrow(n.by.length) > 1 && length(ind.adult) > 1){
-                            survey.spec$n.adult = unname(apply(n.by.length[,ind.adult],
-                                                               1, sum))
-                        }else{
-                            survey.spec$n.adult = sum(n.by.length[,ind.adult])
+                }else{
+
+                    ## DATRAS::addSpectrum
+                    ## DATRAS:::getAccuracyCM
+                    by <- max(c("." = 0.1, "0" = 0.5, "1" = 1, "2" = 2, "5" = 5)[as.character(hlc$LngtCode[ind])],
+                              na.rm = TRUE)
+                    cm.breaks <- seq(min(hlc$LngtCm[ind], na.rm = TRUE),
+                                     max(hlc$LngtCm[ind], na.rm = TRUE) + by,
+                                     by = by)
+                    midLengths <- cm.breaks[-1] - diff(cm.breaks)/2
+                    names(midLengths) <- cm.breaks[-length(cm.breaks)]
+                    ## TODO: make issue/PR for DATRAS (always assumes 1cm bins)
+                    hlc$sizeGroup <- NA
+                    hlc$sizeGroup[ind] <- cut(hlc$LngtCm[ind],
+                                              breaks = cm.breaks,
+                                              right = FALSE)
+                    n.by.length <- round(xtabs(Counts ~ HaulID + sizeGroup,
+                                               data = hlc)) ## round after summing up?
+
+                    ## TODO: needed? but how to add missing species info to bio.pars? or how to pass specific Lm?
+                    ## if(split.juv.adults){
+                    ##     data("bio.pars")
+                    ## }
+
+                    if(split.juv.adults && any(bio.pars$AphiaID ==
+                                               specs.matched$AphiaID[i]) &&
+                       !split.length){
+                        if(verbose){
+                            print(paste0("Lm(",i,") = ",
+                                         bio.pars$Lm[bio.pars$AphiaID ==
+                                                     specs.matched$AphiaID[i]]))
                         }
-                    }else{
-                        survey.spec$n.adult <- 0
-                    }
-                }else if(split.length && any(bio.pars$AphiaID == specs.matched$AphiaID[i])){
 
-                    ind.split <- grep("split",colnames(bio.pars))
+                        ind.juv <- which(midLengths <
+                                         bio.pars$Lm[bio.pars$AphiaID ==
+                                                     specs.matched$AphiaID[i]])
+                        ind.adult <- which(midLengths >=
+                                           bio.pars$Lm[bio.pars$AphiaID ==
+                                                       specs.matched$AphiaID[i]])
+                        survey.spec <- data.frame(haul.id = rownames(n.by.length),
+                                                  AphiaID = specs.matched$AphiaID[i])
 
-                    if(verbose){
-                        print(paste0("Lsplit(",i,") = ",bio.pars[bio.pars$AphiaID == specs.matched$AphiaID[i],ind.split]))
-                    }
-
-                    survey.spec <- data.frame(haul.id = rownames(n.by.length),
-                                              AphiaID = specs.matched$AphiaID[i])
-
-                    inds <- as.numeric(cut(midLengths, c(-10,bio.pars[bio.pars$AphiaID ==
-                                                 specs.matched$AphiaID[i],
-                                                 ind.split],1e4)))
-
-                    for(j in 1:length(unique(inds))){
-                        tmp <- n.by.length[,inds == j]
-                        if(ncol(tmp) > 0){
-                            if(nrow(tmp) > 1){
-                                addi <- data.frame(apply(tmp, 1, sum))
+                        if(length(ind.juv) > 0){
+                            if(nrow(n.by.length) > 1 && length(ind.juv) > 1){
+                                survey.spec$n.juv = unname(apply(n.by.length[,ind.juv],
+                                                                 1, sum))
                             }else{
-                                addi <- data.frame(rep(sum(tmp),nrow(survey.spec)))
+                                survey.spec$n.juv = sum(n.by.length[,ind.juv])
                             }
                         }else{
-                            addi <- data.frame(rep(0, nrow(survey.spec)))
+                            survey.spec$n.juv <- 0
                         }
-                        colnames(addi) <- paste0("n",j)
-                        survey.spec <- data.frame(survey.spec, addi)
-                    }
+                        if(length(ind.adult) > 0){
+                            if(nrow(n.by.length) > 1 && length(ind.adult) > 1){
+                                survey.spec$n.adult = unname(apply(n.by.length[,ind.adult],
+                                                                   1, sum))
+                            }else{
+                                survey.spec$n.adult = sum(n.by.length[,ind.adult])
+                            }
+                        }else{
+                            survey.spec$n.adult <- 0
+                        }
+                    }else if(split.length &&
+                             any(bio.pars$AphiaID == specs.matched$AphiaID[i])){
 
-                }else{
-                    survey.spec <- data.frame(haul.id = rownames(n.by.length),
-                                              AphiaID = specs.matched$AphiaID[i],
-                                              N = unname(apply(n.by.length, 1, sum)))
+                        ind.split <- grep("split",colnames(bio.pars))
+
+                        if(verbose){
+                            print(paste0("Lsplit(",i,") = ",bio.pars[bio.pars$AphiaID == specs.matched$AphiaID[i],ind.split]))
+                        }
+
+                        survey.spec <- data.frame(haul.id = rownames(n.by.length),
+                                                  AphiaID = specs.matched$AphiaID[i])
+
+                        inds <- as.numeric(cut(midLengths, c(-10,bio.pars[bio.pars$AphiaID ==
+                                                                          specs.matched$AphiaID[i],
+                                                                          ind.split],1e4)))
+
+                        for(j in 1:length(unique(inds))){
+                            tmp <- n.by.length[,inds == j]
+                            if(ncol(tmp) > 0){
+                                if(nrow(tmp) > 1){
+                                    addi <- data.frame(apply(tmp, 1, sum))
+                                }else{
+                                    addi <- data.frame(rep(sum(tmp),nrow(survey.spec)))
+                                }
+                            }else{
+                                addi <- data.frame(rep(0, nrow(survey.spec)))
+                            }
+                            colnames(addi) <- paste0("n",j)
+                            survey.spec <- data.frame(survey.spec, addi)
+                        }
+
+                    }else{
+                        survey.spec <- data.frame(haul.id = rownames(n.by.length),
+                                                  AphiaID = specs.matched$AphiaID[i],
+                                                  N = unname(apply(n.by.length, 1, sum)))
+                        ## Add entries with missing length information
+                        ind <- which(is.na(hlc$sizeGroup))
+                        if(length(ind) > 0){
+                            tmpi <- hlc[ind, c("HaulID","AphiaID","Counts")]
+                            tmpi2 <- aggregate(list(N = tmpi$Counts),
+                                               by = list(haul.id = tmpi$HaulID,
+                                                         AphiaID = tmpi$AphiaID),
+                                               FUN = sum)
+                            survey.spec <- rbind(survey.spec, tmpi2)
+                            survey.spec <- aggregate(list(N = survey.spec$N),
+                                               by = list(haul.id = survey.spec$haul.id,
+                                                         AphiaID = survey.spec$AphiaID),
+                                               FUN = sum)
+                            ## CHECK: NEEDED?
+                            ## ## remove NA
+                            ## ind <- which(is.na(survey.spec$N))
+                            ## if(length(ind) > 0){
+                            ##     survey.spec <- survey.spec[-ind,]
+                            ## }
+                        }
+                    }
                 }
+
 
                 if(est.bio){
                     if(use.ca){
-                        if(!is.null(ca) && any(ca$AphiaID == specs.matched$AphiaID[i])){
+                        if(!is.null(ca) && any(ca$AphiaID ==
+                                               specs.matched$AphiaID[i])){
+
 
                             cac <- subset(ca, AphiaID == specs.matched$AphiaID[i])
-                            ## DATRAS::addWeightByHaul
-                            cac$LngtCm <- c("." = 0.1, "0" = 0.1, "1" = 1, "2" = 1, "5" = 1)[as.character(cac$LngtCode)] * cac$LngtClass
-                            mod <- lm(log(IndWgt) ~ log(LngtCm),
-                                      data = subset(cac, IndWgt > 0))
-                            LW <- exp(predict(mod, newdata = data.frame(LngtCm = midLengths)))
-                            if(verbose){
-                                plot(IndWgt ~ LngtCm, data = subset(cac, IndWgt > 0))
-                                lines(midLengths, LW, lwd = 2, col = 4)
-                            }
-                            if(split.juv.adults && any(bio.pars$AphiaID == specs.matched$AphiaID[i])){
-                                survey.spec$bio.juv <- unname(apply(n.by.length[,ind.juv], 1,
-                                                                    function(x) x %*% LW[ind.juv]))
-                                survey.spec$bio.adult <- unname(apply(n.by.length[,ind.adult], 1,
-                                                                      function(x) x %*% LW[ind.adult]))
+
+                            ## NEW: account for some lengths = NA (bio = CatCatchWgt)
+                            ind <- which(!is.na(cac$LngtCode))
+
+                            if(length(ind) == 0){
+                                if(split.juv.adults || split.length){
+                                    stop(paste0("Species ",specs.matched$AphiaID[i],
+                                                " does not have any length information. Cannot split into length classes! Run total N/bio or remove species!"))
+                                }else{
+                                    tmpi <- hlc[, c("HaulID","AphiaID","Counts")]
+                                    browser()
+                                    survey.spec <- aggregate(list(bio = tmpi$CatCatchWgt),
+                                                             by = list(haul.id = tmpi$HaulID,
+                                                                       AphiaID = tmpi$AphiaID),
+                                                             FUN = sum)
+
+                                    ## TODO: remove NA?
+                                }
                             }else{
-                                survey.spec$bio <- unname(apply(n.by.length, 1, function(x) x %*% LW))
-                            }
-                        }else{
-                            ## Look up in downloaded fishbase data
-                            data(fishbase.dat)
-                            ind <- which(fishbase.dat$AphiaID == specs.matched$AphiaID[i])
-                            if(length(ind) > 0){
-                                LW <- fishbase.dat$LWa[ind] * midLengths ^ fishbase.dat$LWb[ind]
-                                if(split.juv.adults && any(bio.pars$AphiaID == specs.matched$AphiaID[i])){
+
+                                ## DATRAS::addWeightByHaul
+                                cac$LngtCm <- NA
+                                cac$LngtCm[ind] <- c("." = 0.1, "0" = 0.1, "1" = 1, "2" = 1, "5" = 1)[as.character(cac$LngtCode[ind])] * cac$LngtClass[ind]
+                                mod <- try(lm(log(IndWgt) ~ log(LngtCm),
+                                              data = subset(cac, IndWgt > 0)))
+                                if(!inherits(mod, "try-error")){
+                                    LW <- exp(predict(mod,
+                                                      newdata = data.frame(LngtCm = midLengths)))
+                                }else{
+                                    stop(paste0("Cannot fit length-weight model for: ",
+                                                specs.matched$AphiaID[i],
+                                                ". Conider removing species or use a and b in bio.pars and use.ca = FALSE."))
+                                }
+
+                                if(verbose){
+                                    plot(IndWgt ~ LngtCm, data = subset(cac, IndWgt > 0))
+                                    lines(midLengths, LW, lwd = 2, col = 4)
+                                }
+                                if(split.juv.adults &&
+                                   any(bio.pars$AphiaID == specs.matched$AphiaID[i])){
                                     survey.spec$bio.juv <- unname(apply(n.by.length[,ind.juv], 1,
                                                                         function(x) x %*% LW[ind.juv]))
                                     survey.spec$bio.adult <- unname(apply(n.by.length[,ind.adult], 1,
                                                                           function(x) x %*% LW[ind.adult]))
                                 }else{
-                                    survey.spec$bio <- unname(apply(n.by.length, 1, function(x) x %*% LW))
-                                }
-                            }else{
-                                ## otherwise try to download
-                                tmp <- try(as.data.frame(rfishbase::length_weight(spec)), silent = TRUE)
-                                if(!inherits(tmp,"try-error")){
-                                    LW <- median(na.omit(tmp$a)) * midLengths ^ median(na.omit(tmp$b))
-                                    survey.spec$bio <- unname(apply(n.by.length, 1, function(x) x %*% LW))
-                                }else{
-                                    warning("Cannot estimate biomass, because neither CA data available nor are the length-weight parameters available on fishbase.")
                                     survey.spec$bio <- NA
+                                    survey.spec$bio[survey.spec$haul.id %in% rownames(n.by.length)] <- unname(apply(n.by.length, 1,
+                                                                                                                    function(x) x %*% LW[names(LW) %in% colnames(n.by.length)]))
+
+                                    ## Add entries with missing length information
+                                    ind <- which(is.na(hlc$sizeGroup))
+                                    if(length(ind) > 0){
+                                        tmpi <- hlc[ind, c("HaulID","AphiaID","CatCatchWgt")]
+                                        tmpi2 <- aggregate(list(bio = tmpi$CatCatchWgt),
+                                                           by = list(haul.id = tmpi$HaulID,
+                                                                     AphiaID = tmpi$AphiaID),
+                                                           FUN = sum, na.rm = TRUE)
+                                        survey.spec$bio[match(tmpi2$haul.id,
+                                                              survey.spec$haul.id)] <-
+                                            tmpi2$bio
+
+                                    }
                                 }
                             }
-                        }
+
+                        }else{
+                            ## Look up in downloaded fishbase data
+                                    data(fishbase.dat)
+                                    ind <- which(fishbase.dat$AphiaID == specs.matched$AphiaID[i])
+                                    if(length(ind) > 0){
+                                        LW <- fishbase.dat$LWa[ind] * midLengths ^ fishbase.dat$LWb[ind]
+                                        if(split.juv.adults && any(bio.pars$AphiaID == specs.matched$AphiaID[i])){
+                                            survey.spec$bio.juv <- unname(apply(n.by.length[,ind.juv], 1,
+                                                                                function(x) x %*% LW[ind.juv]))
+                                            survey.spec$bio.adult <- unname(apply(n.by.length[,ind.adult], 1,
+                                                                                  function(x) x %*% LW[ind.adult]))
+                                        }else{
+                                            survey.spec$bio <- unname(apply(n.by.length, 1, function(x) x %*% LW))
+                                        }
+                                    }else{
+                                        ## otherwise try to download
+                                        tmp <- try(as.data.frame(rfishbase::length_weight(spec)), silent = TRUE)
+                                        if(!inherits(tmp,"try-error")){
+                                            LW <- median(na.omit(tmp$a)) * midLengths ^ median(na.omit(tmp$b))
+                                            survey.spec$bio <- unname(apply(n.by.length, 1, function(x) x %*% LW))
+                                        }else{
+                                            warning("Cannot estimate biomass, because neither CA data available nor are the length-weight parameters available on fishbase.")
+                                            survey.spec$bio <- NA
+                                        }
+                                    }
+                                }
                     }else{
+
+                        tmp <- try(get("bio.pars"))
+                        if(inherits(tmp, "try-error")) data(bio.pars)
 
                         indii <- which(bio.pars$AphiaID == specs.matched$AphiaID[i])
                         if(length(indii) == 1){
-                            a <- bio.pars$a[indii]
-                            b <- bio.pars$b[indii]
+                            if(any(colnames(bio.pars) == "a") &&
+                               any(colnames(bio.pars) == "b")){
+                                a <- bio.pars$a[indii]
+                                b <- bio.pars$b[indii]
+                            }else{
+                                stop(paste0("No 'a' and 'b' found in bio.pars for AphiaID ",
+                                            specs.matched$AphiaID[i]))
+                            }
                         }else{
                             stop(paste0("No (or more than 1) match found in bio.pars for AphiaID ",
                                         specs.matched$AphiaID[i]))
                         }
 
-                        LW <- a * midLengths^b
 
-                        if(split.juv.adults &&
-                           any(bio.pars$AphiaID == specs.matched$AphiaID[i]) &&
-                           !split.length){
-                            survey.spec$bio.juv <- unname(apply(n.by.length[,ind.juv], 1,
-                                                                function(x) x %*% LW[ind.juv]))
-                            survey.spec$bio.adult <- unname(apply(n.by.length[,ind.adult], 1,
-                                                                  function(x) x %*% LW[ind.adult]))
-                        }else if(split.length &&
-                            any(bio.pars$AphiaID == specs.matched$AphiaID[i])){
+                        ## There might be no length measurements (only CatCatchWgt)
+                        if(any(!is.na(hlc$LngtCm))){
 
-                             bios <- NULL
-                             for(j in 1:length(unique(inds))){
-                                 tmp <- n.by.length[,inds == j]
-                                 bios <- cbind(bios,
-                                               unname(apply(tmp, 1,
-                                                            function(x) x %*% LW[inds == j])))
-                             }
-                            colnames(bios) <- paste0("bio", 1:length(unique(inds)))
+                            LW <- a * midLengths^b
 
-                            survey.spec <- data.frame(survey.spec, bios)
+                            if(split.juv.adults &&
+                               any(bio.pars$AphiaID == specs.matched$AphiaID[i]) &&
+                               !split.length){
+                                survey.spec$bio.juv <- unname(apply(n.by.length[,ind.juv], 1,
+                                                                    function(x) x %*% LW[ind.juv]))
+                                survey.spec$bio.adult <- unname(apply(n.by.length[,ind.adult], 1,
+                                                                      function(x) x %*% LW[ind.adult]))
+                            }else if(split.length &&
+                                     any(bio.pars$AphiaID == specs.matched$AphiaID[i])){
 
-                         }else{
-                            survey.spec$bio <- unname(apply(n.by.length, 1, function(x) x %*% LW))
+                                bios <- NULL
+                                for(j in 1:length(unique(inds))){
+                                    tmp <- n.by.length[,inds == j]
+                                    bios <- cbind(bios,
+                                                  unname(apply(tmp, 1,
+                                                               function(x) x %*% LW[inds == j])))
+                                }
+                                colnames(bios) <- paste0("bio", 1:length(unique(inds)))
+
+                                survey.spec <- data.frame(survey.spec, bios)
+
+                            }else{
+                                survey.spec$bio <- NA
+                                bio <- unname(apply(n.by.length, 1,
+                                                    function(x) x %*%
+                                                                LW[match(names(midLengths)[
+                                                                    as.numeric(colnames(
+                                                                        n.by.length))],
+                                                                    names(LW))]))
+                                if(any(rownames(n.by.length) %in% survey.spec$haul.id)){
+                                    indi <- which(survey.spec$haul.id %in% rownames(n.by.length))
+                                    indi2 <- which(rownames(n.by.length) %in% survey.spec$haul.id)
+                                    survey.spec$bio[indi] <- bio[indi2]
+                                }else{
+                                    indi <- indi2 <- NULL
+                                }
+
+                                if(any(!rownames(n.by.length) %in% survey.spec$haul.id)){
+                                    if(!is.null(indi2)){
+                                        hauli <- rownames(n.by.length)[-indi2]
+                                        bioi <- bio[-indi2]
+                                    }else{
+                                        hauli <- rownames(n.by.length)
+                                        bioi <- bio
+                                    }
+                                    tmpi <- data.frame(haul.id = hauli,
+                                                       AphiaID = specs.matched$AphiaID[i],
+                                                       N = NA,
+                                                       bio = bioi)
+                                    survey.spec <- rbind(survey.spec, tmpi)
+
+                                }
+
+
+                                ## Add entries with missing length information
+                                ind <- which(is.na(hlc$sizeGroup))
+                                if(length(ind) > 0){
+                                    tmpi <- hlc[ind, c("HaulID","AphiaID","CatCatchWgt")]
+                                    tmpi2 <- aggregate(list(bio = tmpi$CatCatchWgt),
+                                                       by = list(haul.id = tmpi$HaulID,
+                                                                 AphiaID = tmpi$AphiaID),
+                                                       FUN = sum, na.rm = TRUE)
+                                    survey.spec$bio[match(tmpi2$haul.id,
+                                                          survey.spec$haul.id)] <-
+                                        tmpi2$bio
+
+                                }
+                            }
+
+                        }else{
+
+                            survey.spec$bio <- NA
+
+                            ## Add entries with missing length information
+                            ind <- which(is.na(hlc$LngtCm))
+                            if(length(ind) > 0){
+                                tmpi <- hlc[ind, c("HaulID","AphiaID","CatCatchWgt")]
+                                tmpi2 <- aggregate(list(bio = tmpi$CatCatchWgt),
+                                                   by = list(haul.id = tmpi$HaulID,
+                                                             AphiaID = tmpi$AphiaID),
+                                                   FUN = sum, na.rm = TRUE)
+                                survey.spec$bio[match(tmpi2$haul.id,
+                                                      survey.spec$haul.id)] <-
+                                    tmpi2$bio
+
+                            }
+
+
                         }
+
 
                     }
                 }else{
