@@ -490,16 +490,18 @@ plotfishdish.dist <- function(fit, mod = NULL, year = NULL,
         grid.all <- fit$grid
     }
 
-    if(is.null(year)){
-        year <- tail(rownames(fit$fits[[1]]$idx),1)
-        writeLines(paste0("No year selected. Plotting year: ",year))
-    }
     if(is.null(mod)){
         mod <- 1
+    }
+    if(is.null(year)){
+##        year <- tail(rownames(fit$fits[[1]]$idx),1)
+        year <- max(as.numeric(names(fit$fits[[mod]]$gPreds2[[1]])),na.rm = TRUE)
+        writeLines(paste0("No year selected. Plotting year: ",year))
     }
 
     if(year[1] == "all"){
         year <- names(fit$fits[[mod]]$gPreds2[[1]])
+        ## year <- year[year != ""] ## TODO: why "" for muelleri?
     }
 
     names(fit$fits[[mod]]$gPreds2[[1]])
@@ -542,8 +544,9 @@ plotfishdish.dist <- function(fit, mod = NULL, year = NULL,
         pred <- list(data.frame(apply(tmp, 1, mean, na.rm = TRUE)))
     }
 
+
     if(fixed.scale){
-        lastmax <- NULL
+        lastmax <- 0
         prediAll <- unlist(lapply(pred, function(x) x[,1]))
         ind <- vector("list",length(pred))
         for(i in 1:length(pred)){
@@ -556,7 +559,7 @@ plotfishdish.dist <- function(fit, mod = NULL, year = NULL,
                 ind[[i]] <- starti:(starti + nrow(pred[[i]])-1)
                 lastmax <- max(ind[[i]])
             }else{
-                ind[[i]] <- NULL
+                ind[[i]] <- NA
             }
         }
         concT <- surveyIndex:::concTransform(log(prediAll))
@@ -566,7 +569,7 @@ plotfishdish.dist <- function(fit, mod = NULL, year = NULL,
             zFac <- cut(concT, sort(c(min.val,seq(0,1, length.out = length(cols)-1))))
         }
         for(i in 1:length(grid)){
-            if(!is.null(ind[[i]])){
+            if(all(!is.na(ind[[i]]))){
                 grid[[i]]$pred <- as.numeric(zFac[ind[[i]]])
             }else{
                 grid[[i]]$pred <- NA
@@ -880,7 +883,7 @@ plotfishdish.dist.cv <- function(fit, mod = NULL, year = NULL,
     }
 
     if(fixed.scale){
-        lastmax <- NULL
+        lastmax <- 0
         predi <- unlist(lapply(pred, function(x) x[,1]))
         ind <- vector("list",length(pred))
         for(i in 1:length(pred)){
@@ -893,7 +896,7 @@ plotfishdish.dist.cv <- function(fit, mod = NULL, year = NULL,
                 ind[[i]] <- starti:(starti + nrow(pred[[i]])-1)
                 lastmax <- max(ind[[i]])
             }else{
-                ind[[i]] <- NULL
+                ind[[i]] <- NA
             }
         }
         concT <- surveyIndex:::concTransform(log(predi))
@@ -908,7 +911,7 @@ plotfishdish.dist.cv <- function(fit, mod = NULL, year = NULL,
             zFac <- cut(predi, breaks)
         }
         for(i in 1:length(grid)){
-            if(!is.null(ind[[i]])){
+            if(all(!is.na(ind[[i]]))){
                 grid[[i]]$pred <- as.numeric(zFac[ind[[i]]])
             }else{
                 grid[[i]]$pred <- NA

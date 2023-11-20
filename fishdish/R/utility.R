@@ -877,7 +877,9 @@ subset.fdist.prepped <- function(x, subset){
 #'
 #' @export
 get.gear.effect <- function(fit, mod = 1, CI = 0.95,
-                            var = "Gear", exp = TRUE){  ## CHECK: why exp = TRUE by default for gears? because of link function?
+                            var = "Gear", exp = TRUE,
+                            use.bio = TRUE){
+    ## CHECK: why exp = TRUE by default for gears? because of link function?
 
     tmp <- strsplit(as.character(fit$fits[[mod]]$pModels[[1]]$formula),"\\+")[[3]]
     tmpi <- grep('\"re\"',tmp[grep(var, tmp)])
@@ -929,8 +931,13 @@ get.gear.effect <- function(fit, mod = 1, CI = 0.95,
     colnames(res) <- c("est", "ll", "ul", "sd")
     dati <- fit$data
     dati$id <- dati[,var]
-    dati$bio[dati$bio <= fit$fits[[1]]$cutOff] <- 0
-    tmp <- aggregate(bio ~ id, data = dati, FUN = sum)
+    if(use.bio){
+        dati$bio[dati$bio <= fit$fits[[1]]$cutOff] <- 0
+        tmp <- aggregate(bio ~ id, data = dati, FUN = sum)
+    }else{
+        dati$N[dati$N <= fit$fits[[1]]$cutOff] <- 0
+        tmp <- aggregate(N ~ id, data = dati, FUN = sum)
+    }
     labi <- tmp[tmp[,2] > 0,1]
     rownames(res) <- labi
 
