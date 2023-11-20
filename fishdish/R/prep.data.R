@@ -833,6 +833,36 @@ prep.data <- function(data, AphiaID = NULL,
                                 ## DATRAS::addWeightByHaul
                                 cac$LngtCm <- NA
                                 cac$LngtCm[ind] <- c("." = 0.1, "0" = 0.1, "1" = 1, "2" = 1, "5" = 1)[as.character(cac$LngtCode[ind])] * cac$LngtClass[ind]
+
+
+
+                                ## For debugging length-weight relationship
+                                if(FALSE){
+                                    browser()
+
+                                    range(cac$LngtCm, na.rm = TRUE)
+
+                                    cac <- cac[-grep("BITS:2021:4:DE:06SL:TVS:24300:35",
+                                                     cac$HaulID),]
+
+                                    cac <- cac[-grep("BTS:2005:3:GB:74RY:BT4A",
+                                                     cac$HaulID),]
+
+                                    grep("NS-IBTS:2015:1:DE:06NI:GOV",
+                                         cac$HaulID[cac$LngtCm > 3 &
+                                        cac$IndWgt > 25000
+                                        & !is.na(cac$IndWgt)])
+
+                                    plot(cac$LngtCm, cac$IndWgt)
+                                    indi <- grep(##"BTS:1999:3:GB:74RY:BT4A:102",
+                                        "NS-IBTS:2005:3:GB:74E9:GOV:31:88",
+                                        "BITS:2017:4:DK:26D4:TVL:160",
+                                                 cac$HaulID)
+                                    points(cac$LngtCm[indi], cac$IndWgt[indi],col=3,
+                                           pch = 16,cex=1.5)
+
+                                }
+
                                 mod <- try(lm(log(IndWgt) ~ log(LngtCm),
                                               data = subset(cac, IndWgt > 0)))
                                 if(!inherits(mod, "try-error")){
