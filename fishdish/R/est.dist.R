@@ -28,6 +28,7 @@ est.dist.one <- function(specdata, mods = NULL, n.lon = 20,
                          model.bio = FALSE,
                          fam = NULL,
                          intrapolate.year = TRUE,
+                         cut.off = 0.1,
                          verbose = TRUE, ...){
 
     saflag <- ifelse(all(is.na(specdata$SweptArea)),0,1)
@@ -205,7 +206,7 @@ est.dist.one <- function(specdata, mods = NULL, n.lon = 20,
                 ages = 1,
                 myids = myids,
                 predD = predD,
-                cutOff = 0.1,
+                cutOff = cut.off,
                 modelP = mods[[j]],
                 modelZ = mods[[j]],
                 ## knotsP = list(DoY = c(0.5,366.5), ToD = c(0.5,24.5)),  ## HERE:
