@@ -42,6 +42,7 @@ prep.data.internal <- function(data, AphiaID = NULL,
         ## Species that could not be matched
         ## ---------
         flag <- any(specs$AphiaID %in% hl$AphiaID)
+        unique(hl$AphiaID)
         if(!flag) stop("Provided Aphia IDs were not found in the data set. Please check data and/or IDs!")
         ind <- which(!(specs$AphiaID %in% hl$AphiaID))
         if(length(ind) > 0){
@@ -937,6 +938,7 @@ prep.data <- function(data, AphiaID = NULL,
                         if(inherits(tmp, "try-error")) data(bio.pars)
 
                         indii <- which(bio.pars$AphiaID == specs.matched$AphiaID[i])
+
                         if(length(indii) == 1){
                             if(any(colnames(bio.pars) == "a") &&
                                any(colnames(bio.pars) == "b")){

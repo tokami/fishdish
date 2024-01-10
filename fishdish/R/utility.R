@@ -131,6 +131,7 @@ list.recom.models <- function(specdata,
                               use.ctime = TRUE,
                               use.toy = TRUE,
                               use.ctime.space = TRUE,
+                              use.toy.space = TRUE,
                               use.swept.area = FALSE,
                               use.sqrt.depth = FALSE,
                               use.gear.as.fixed = FALSE,
@@ -155,7 +156,8 @@ list.recom.models <- function(specdata,
     ctimeLatLon <- paste0("ti(ctime, lon, lat, d=c(1,2), bs=c('ds','ds'), k=c(",
                           dim.ctime.lat.lon[1], ",",
                           dim.ctime.lat.lon[2],"), m=list(c(1,0), c(1,0.5)))")
-    timeOfYearLatLon <- paste0("s(timeOfYear, bs='cc', k=",dim.timeOfYear[1],", m=c(1,0)) + ti(timeOfYear, lon, lat, d=c(1,2), bs=c('cc','ds'), k=c(",
+    timeOfYear <- paste0("s(timeOfYear, bs='cc', k=",dim.timeOfYear[1],", m=c(1,0))")
+    timeOfYearLatLon <- paste0("ti(timeOfYear, lon, lat, d=c(1,2), bs=c('cc','ds'), k=c(",
                                dim.timeOfYear.lat.lon[1],",",
                                dim.timeOfYear.lat.lon[2],"), m=list(c(1,0), c(1,0.5)))")
     if(use.sqrt.depth){
@@ -179,8 +181,10 @@ list.recom.models <- function(specdata,
     offset.var <- ifelse(use.swept.area, "SweptArea", "HaulDur")
     offset <- paste0("offset(log(",offset.var,"))")
 
-    ##        1        2        3               4           5     6      7,    8
-    mm <- c(latLon, ctime, ctimeLatLon, timeOfYearLatLon, gear, ship, depth, offset)
+    ##        1        2        3            4
+    mm <- c(latLon, ctime, ctimeLatLon, timeOfYear,
+    ##             5           6     7      8
+            timeOfYearLatLon, gear, ship, depth, offset)
     mSel <- rep(TRUE, length(mm))
     if (!use.ctime){
         mSel[2] <- FALSE
@@ -190,11 +194,12 @@ list.recom.models <- function(specdata,
         mSel[3] <- FALSE
     }
     if (!use.toy) mSel[4] <- FALSE
+    if (!use.toy.space) mSel[5] <- FALSE
     if(length(unique(specdata$Gear)) == 1 ||
        !(as.integer(use.gear.as.fixed) %in% c(1,2))){
-        mSel[5] <- FALSE
+        mSel[6] <- FALSE
     }
-    if(!use.random.ship) mSel[6] <- FALSE
+    if(!use.random.ship) mSel[7] <- FALSE
 
     ## all
     mps <- list(paste(mm[mSel],collapse=' + '))
@@ -882,7 +887,9 @@ get.gear.effect <- function(fit, mod = 1, CI = 0.95,
     ## CHECK: why exp = TRUE by default for gears? because of link function?
 
     tmp <- strsplit(as.character(fit$fits[[mod]]$pModels[[1]]$formula),"\\+")[[3]]
-    tmpi <- grep('\"re\"',tmp[grep(var, tmp)])
+    indi <- grep(var, tmp)
+    if(length(indi) == 0) stop(paste0("Variable '",var,"' not included in model."))
+    tmpi <- grep('\"re\"',tmp[indi])
     re.flag <- ifelse(length(tmpi)>=1, TRUE, FALSE)
 
     ## zscore <- qnorm(CI + (1 - CI)/2)

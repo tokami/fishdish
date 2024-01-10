@@ -504,10 +504,14 @@ plotfishdish.dist <- function(fit, mod = NULL, year = NULL,
         ## year <- year[year != ""] ## TODO: why "" for muelleri?
     }
 
-    names(fit$fits[[mod]]$gPreds2[[1]])
     ny <- length(year)
-    pred <- fit$fits[[mod]]$gPreds2[[1]][as.character(year)]
-    cv <- fit$fits[[mod]]$gPreds2.CV[[1]][as.character(year)]
+    if(year[1] == "final"){
+        pred <- fit$fits[[mod]]$gPreds2[[1]][max(which(!sapply(fit$fits[[mod]]$gPreds2[[1]],is.null)))]
+        cv <- fit$fits[[mod]]$gPreds2.CV[[1]][max(which(!sapply(fit$fits[[mod]]$gPreds2[[1]],is.null)))]
+    }else{
+        pred <- fit$fits[[mod]]$gPreds2[[1]][as.character(year)]
+        cv <- fit$fits[[mod]]$gPreds2.CV[[1]][as.character(year)]
+    }
     if(inherits(fit$grid, "list")){
         grid <- fit$grid[as.character(year)]
     }else{
@@ -1452,10 +1456,14 @@ plotfishdish.diag <- function(fit, mod = 1){
          main = "Residuals vs. quarter",
          xlab = "Quarter", ylab = "Residuals")
     abline(h=0, lty=1, col = "grey30")
-    plot(factor(fit$data$DayNight), fit$fits[[mod]]$residuals[[1]],
-         main = "Residuals vs. DayNight",
-         xlab = "DayNight", ylab = "Residuals")
-    abline(h=0, lty=1, col = "grey30")
+    if(!all(is.na(fit$data$DayNight))){
+        plot(factor(fit$data$DayNight), fit$fits[[mod]]$residuals[[1]],
+             main = "Residuals vs. DayNight",
+             xlab = "DayNight", ylab = "Residuals")
+        abline(h=0, lty=1, col = "grey30")
+    }else{
+        plot.new()
+    }
     surveyIndex::surveyIdxPlots(fit$fits[[mod]],
                                 fit$data,
                                 select = "resVsShip",
