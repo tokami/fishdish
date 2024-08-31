@@ -100,8 +100,11 @@ est.dist.one <- function(specdata, mods = NULL, n.lon = 20,
             myids <- NULL
         }else{
             grid <- surveyIndex::getGrid(specdata, nLon = n.lon)
+            names(grid) <- c("lons","lats","haulID","ranges1","ranges2")
             predD <- NULL
             myids <- grid[[3]]
+            grid <- data.frame(lon = grid$lons,
+                               lat = grid$lats)
         }
         ## if(!verbose) sink()
     }else{

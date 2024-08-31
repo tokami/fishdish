@@ -122,8 +122,9 @@ plotdist <- function(data, plot.survey.dist = TRUE){
 #'
 #' @export
 plotfishdish.abun <- function(fit, by.area = FALSE, by.eco = FALSE,
-                           ylab = "Abundance index",
+                           ylab = "Abundance index", xlab = "Year",
                            y.scale = 1, fixed.scale = FALSE,
+                           x.range = NULL, y.range = NULL,
                            mean.one = FALSE){
 
     cols <- rep(c(RColorBrewer::brewer.pal(n = 8, "Dark2"),
@@ -197,7 +198,7 @@ plotfishdish.abun <- function(fit, by.area = FALSE, by.eco = FALSE,
                        bg = "white")
                 box(lwd=1.5)
             }
-            mtext("Year", 1, 1, outer = TRUE)
+            mtext(xlab, 1, 1, outer = TRUE)
             mtext(ylab, 2, 1, outer = TRUE)
 
         }else{
@@ -273,7 +274,7 @@ plotfishdish.abun <- function(fit, by.area = FALSE, by.eco = FALSE,
                    bg = "white")
             box(lwd=1.5)
         }
-        mtext("Year", 1, 1, outer = TRUE)
+        mtext(xlab, 1, 1, outer = TRUE)
         mtext(ylab, 2, 1, outer = TRUE)
 
         }
@@ -428,8 +429,17 @@ plotfishdish.abun <- function(fit, by.area = FALSE, by.eco = FALSE,
         ## CHECK: TODO: might be species if fitted with est.dist
         ns <- length(fiti)
         years <- as.numeric(rownames(fiti[[1]]$idx))
-        ylim <- range(lapply(fiti, function(x) c(x$idx, x$up, x$lo) / y.scale), na.rm = TRUE)
-        xlim <- range(years)
+        if(is.null(y.range)){
+        ylim <- range(lapply(fiti, function(x) c(x$idx, x$up, x$lo) / y.scale),
+                      na.rm = TRUE)
+        }else{
+            ylim <- y.range
+        }
+        if(is.null(x.range)){
+            xlim <- range(years)
+        }else{
+            xlim <- x.range
+        }
         plot(years, fiti[[1]]$idx/y.scale, ty='n',
              xlim = xlim, ylim = ylim,
              xlab = "", ylab = "")
@@ -443,7 +453,7 @@ plotfishdish.abun <- function(fit, by.area = FALSE, by.eco = FALSE,
         }
         box(lwd=1.5)
         mtext(ylab, 2, 3)
-        mtext("Year", 1, 3)
+        mtext(xlab, 1, 3)
         if(ns > 1) legend("topright",
                           legend = paste0("model ",1:ns),
                           col = cols[1:ns], lwd = 1, lty = 1,
@@ -586,7 +596,6 @@ plotfishdish.dist <- function(fit, mod = NULL, year = NULL,
         if(is.null(ylim)) ylim <- extendrange(r = range(unlist(lapply(grid, function(x) range(if(!is.null(x$lat)) x$lat else NA))),na.rm = TRUE), f = 0.1)
     }
 
-
     for(i in 1:nyx){
         if(!fixed.scale){
             predi <- pred[[i]][,1]
@@ -630,10 +639,16 @@ plotfishdish.dist <- function(fit, mod = NULL, year = NULL,
                   fill = TRUE, plot = TRUE, add = TRUE,
                   col = grey(0.95), border = grey(0.8))
         }
-        if(plot.obs){
+        if(plot.obs %in% c(1,2)){
             dat <- subset(fit$data, Year == year[i] & N > 0)
             points(dat$lon, dat$lat, pch = 1,
                    col = adjustcolor(1, 1)) ##, cex = dat$N)  ## HERE: cex too high
+        }else if(plot.obs == 3){
+            obs <- fit$data[which(fit$data$N > 0),]
+            ind <- which(as.character(obs$Year) == year[i])
+            points(obs$lon[ind], obs$lat[ind],
+                   col = rgb(t(col2rgb("black"))/255,alpha = 1),
+                   pch = 1, cex = 0.6 + obs$N[ind] / max(obs$N, na.rm = TRUE) * 3)
         }
         if(is.null(title)){
             mtext(year[i], 3, 0.3, font = 2, cex = 0.8)
@@ -929,7 +944,7 @@ plotfishdish.dist.cv <- function(fit, mod = NULL, year = NULL,
     }
 
     if(plot.obs == 2){
-        obs <- fit$data[which(fit$data$bio > 0),]
+        obs <- fit$data[which(fit$data$N > 0),]
     }else{
         obs <- fit$data
     }
@@ -968,9 +983,19 @@ plotfishdish.dist.cv <- function(fit, mod = NULL, year = NULL,
                   fill = TRUE, plot = TRUE, add = TRUE,
                   col = grey(0.95), border = grey(0.8))
         ind <- which(as.character(obs$Year) == year[i])
-        if(plot.obs %in% c(1,2)) points(obs$lon[ind], obs$lat[ind], col = rgb(t(col2rgb("black"))/255,alpha = 1),
-                            cex = 0.3, pch = 16)
-        mtext(year[i], 3, 0.3, font = 2, cex = 0.8)
+        if(plot.obs %in% c(1,2)){
+            points(obs$lon[ind], obs$lat[ind], col = rgb(t(col2rgb("black"))/255,alpha = 1),
+                   cex = 0.3, pch = 16)
+        }else if(plot.obs == 3){
+            obs <- fit$data[which(fit$data$N > 0),]
+            ind <- which(as.character(obs$Year) == year[i])
+            points(obs$lon[ind], obs$lat[ind],
+                   col = rgb(t(col2rgb("black"))/255,alpha = 1),
+                   pch = 1, cex = obs$N[ind] / max(obs$N[ind], na.rm = TRUE) * 2)
+        }
+
+        if(is.null(title)) title <- year[i]
+        mtext(title, 3, 0.3, font = 2, cex = 0.8)
         if (is.null(breaks) && ((legend && fixed.scale && i == ny) || legend && !fixed.scale)){
             maxcuts = aggregate(predi ~ zFac, FUN=max)
             mincuts = aggregate(predi ~ zFac, FUN=min)
@@ -1324,12 +1349,14 @@ plotfishdish.gam.effects <- function(fit, mod = 1, xlim = NULL, ylim = NULL,
 #'
 #' @export
 plotfishdish.gam.effects.gear <- function(fit, mod = 1, xlim = NULL, ylim = NULL,
-                                       CI = 0.95, var = "Gear", exp = TRUE){
+                                          CI = 0.95, var = "Gear", exp = TRUE,
+                                          use.bio = FALSE){
 
     cols <- rep(c(RColorBrewer::brewer.pal(n = 8, "Dark2"),
                   RColorBrewer::brewer.pal(n = 8, "Accent")),50)
 
-    gear.effs <- get.gear.effect(fit, mod = mod, CI = CI, var = var, exp = exp)
+    gear.effs <- get.gear.effect(fit, mod = mod, CI = CI, var = var,
+                                 exp = exp, use.bio = use.bio)
     vals <- gear.effs[,"est"]
     ll <- gear.effs[,"ll"]
     ul <- gear.effs[,"ul"]
@@ -1443,8 +1470,8 @@ plotfishdish.diag <- function(fit, mod = 1){
                                 select = "fitVsRes",
                                 par = NULL,
                                 main = "Residuals vs. Fitted")
-    qqnorm(fit$fits[[mod]]$residuals[[1]])
-    qqline(fit$fits[[mod]]$residuals[[1]])
+    try(qqnorm(fit$fits[[mod]]$residuals[[1]]))
+    try(qqline(fit$fits[[mod]]$residuals[[1]]))
     surveyIndex::surveyIdxPlots(fit$fits[[mod]],
                                 fit$data,
                                 select = "resVsYear",

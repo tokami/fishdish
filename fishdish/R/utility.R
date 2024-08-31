@@ -28,7 +28,7 @@ list.surveys <- function(){
                      "IE-IGFS", "NIGFS", "PT-IBTS", "ROCKALL",
                      "SCOROC", "SP-ARSA", "SP-NORTH", "SP-PORC",
                      "SNS", "SWC-IBTS","SCOWCGFS", "BTS",
-                     "BTS-VIII", "DYFS")
+                     "BTS-VIII", "DYFS", "NO-shrimp")
 
     return(all.surveys)
 }
@@ -133,6 +133,7 @@ list.recom.models <- function(specdata,
                               use.ctime.space = TRUE,
                               use.toy.space = TRUE,
                               use.swept.area = FALSE,
+                              use.depth = TRUE,
                               use.sqrt.depth = FALSE,
                               use.gear.as.fixed = FALSE,
                               use.random.ship = FALSE,
@@ -160,10 +161,14 @@ list.recom.models <- function(specdata,
     timeOfYearLatLon <- paste0("ti(timeOfYear, lon, lat, d=c(1,2), bs=c('cc','ds'), k=c(",
                                dim.timeOfYear.lat.lon[1],",",
                                dim.timeOfYear.lat.lon[2],"), m=list(c(1,0), c(1,0.5)))")
-    if(use.sqrt.depth){
-        depth <- "s(sqrt(Depth), bs='ds', k=5, m=c(1,0))"
+    if(use.depth){
+        if(use.sqrt.depth){
+            depth <- "s(sqrt(Depth), bs='ds', k=5, m=c(1,0))"
+        }else{
+            depth <- "s(Depth, bs='ds', k=5, m=c(1,0))"
+        }
     }else{
-        depth <- "s(Depth, bs='ds', k=5, m=c(1,0))"
+        depth <- ""
     }
     if(use.random.ship){
         ship <- "s(ShipG, bs='re')" ## might be dangerous to include, omitted for now! TEST:
@@ -200,6 +205,7 @@ list.recom.models <- function(specdata,
         mSel[6] <- FALSE
     }
     if(!use.random.ship) mSel[7] <- FALSE
+    if(!use.depth) mSel[8] <- FALSE
 
     ## all
     mps <- list(paste(mm[mSel],collapse=' + '))
@@ -1237,4 +1243,17 @@ apply.coeffs <- function(specdata, coeffs, var = "Gear",
     }
 
     return(specdata)
+}
+
+#' @name get.haul.id
+#'
+#' @title Get haul id
+#'
+#' @param data Data
+#'
+get.haul.id <- function(data){
+    haulID <- paste(data$Survey, data$Year, data$Quarter,
+                    data$Country, data$Ship, data$Gear,
+                    data$StNo, data$HaulNo, sep = ":")
+    return(haulID)
 }

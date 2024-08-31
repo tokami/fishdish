@@ -7,8 +7,7 @@
 #'     frame, all additional columns are added. If NULL (default), data is not
 #'     subsetted for species.
 #' @param datras.variables Variables of DATRAS data set to be used
-#' @param use.ca Use CA data for AphiaID to estimate bio?
-#' @param verbose Print stuff? Default: TRUE
+#' #' @param verbose Print stuff? Default: TRUE
 #'
 #' @return List containing hh and hl data sets.
 #'
@@ -16,8 +15,6 @@
 #' @importFrom plyr join
 prep.data.internal <- function(data, AphiaID = NULL,
                                datras.variables = list.datras.variables.req(),
-                               est.n = TRUE, est.bio = FALSE,
-                               use.ca = TRUE,
                                use.total.catch.w.and.n = TRUE,
                                verbose = TRUE){
 
@@ -74,16 +71,20 @@ prep.data.internal <- function(data, AphiaID = NULL,
     if(!saflag) ind <- ind[-which(ind %in% c("SweptAreaDSKM2",
                                              "SweptAreaWSKM2",
                                              "SweptAreaBWKM2"))]
-    if("GearEx" %in% colnames(hh)) ind <- c(ind, "GearEx")
+    if(!"GearEx" %in% colnames(hh)){
+        hh$GearEx <- hh$Gear
+    }
+    ind <- c(ind, "GearEx")
     hh <- hh[,which(colnames(hh) %in% ind)]
 
 
     ## Create haul IDs (SLOW:)
     ## ------------------
-    hl$HaulID <- paste(hl$Survey, hl$Year, hl$Quarter, hl$Country, hl$Ship, hl$Gear,
-                       hl$StNo, hl$HaulNo, sep = ":")
-    hh$HaulID <- paste(hh$Survey, hh$Year, hh$Quarter, hh$Country, hh$Ship, hh$Gear,
-                       hh$StNo, hh$HaulNo, sep = ":")
+    hl$HaulID <- get.haul.id(hl)
+    hh$HaulID <- get.haul.id(hh)
+## paste(hl$Survey, hl$Year, hl$Quarter, hl$Country, hl$Ship, hl$Gear,
+##                        hl$StNo, hl$HaulNo, sep = ":")
+
     if(!is.null(ca)){
         ca$HaulID <- paste(ca$Survey, ca$Year, ca$Quarter, ca$Country, ca$Ship, ca$Gear,
                            ca$StNo, ca$HaulNo, sep = ":")
@@ -145,7 +146,8 @@ prep.data.internal <- function(data, AphiaID = NULL,
     ## Subset HL (also to avoid double info in hh and hl after merging)
     ## ------------------
     hl <- hl[,c("HaulID","SpecCodeType","SpecCode","SpecVal",
-                "TotalNo","CatCatchWgt","CatIdentifier","SubFactor", "LngtCode",
+                "TotalNo", ## "CatCatchWgt",
+                "CatIdentifier","SubFactor", "LngtCode",
                 "LngtClass","HLNoAtLngt","AphiaID")]
 
     ## Subset CA (also to avoid double info in hh and ca after merging)
@@ -404,7 +406,6 @@ prep.data.internal <- function(data, AphiaID = NULL,
                                  "Meaningful key variables (no NA)",
                                  sep="\t\t\t"))
 
-
     ## Zero data (includes all hauls independent of caught species)
     ## --------------------------------------------------------------
     survey0 <- hh[,c("HaulID", "Survey", "Year", "Month", "Day", "Quarter",
@@ -639,8 +640,6 @@ prep.data <- function(data, AphiaID = NULL,
 
         data.prepped <- prep.data.internal(data = data, AphiaID = AphiaID,
                                            datras.variables = datras.variables,
-                                           est.n = est.n, est.bio = est.bio,
-                                           use.ca = use.ca,
                                            use.total.catch.w.and.n =
                                                use.total.catch.w.and.n,
                                            verbose = verbose)
@@ -716,6 +715,7 @@ prep.data <- function(data, AphiaID = NULL,
                                                      specs.matched$AphiaID[i]]))
                         }
 
+                        ## TODO: this should use the limits of length classes rather than the midLengths or account for the sizebin!
                         ind.juv <- which(midLengths <
                                          bio.pars$Lm[bio.pars$AphiaID ==
                                                      specs.matched$AphiaID[i]])
