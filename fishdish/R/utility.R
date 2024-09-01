@@ -137,11 +137,13 @@ list.recom.models <- function(specdata,
                               use.sqrt.depth = FALSE,
                               use.gear.as.fixed = FALSE,
                               use.random.ship = FALSE,
+                              use.temp.lt.space = FALSE,
                               dim.lat.lon = 256,
                               dim.ctime = "nyears",
                               dim.ctime.lat.lon = c("nyears",10),
                               dim.timeOfYear = 5,
                               dim.timeOfYear.lat.lon = c(5,30),
+                              dim.temp.lt.lat.lon = c(3,50),
                               single.mod = TRUE){
 
     ## Checks
@@ -152,7 +154,13 @@ list.recom.models <- function(specdata,
     if(dim.ctime.lat.lon[1] == "nyears" && !is.null(specdata))
         dim.ctime.lat.lon[1] <- length(unique(specdata$Year))
 
-    latLon <- paste0("s(lon, lat, bs=c('ds'), k=",dim.lat.lon[1],", m=c(1,0.5))")
+    if(use.temp.lt.space){
+        latLon <- paste0("ti(ctime, lon, lat, d=c(1,2), bs=c('ds','ds'), k=c(",
+                         dim.temp.lt.lat.lon[1], ",",
+                         dim.temp.lt.lat.lon[2],"), m=list(c(1,0), c(1,0.5)))")
+    }else{
+        latLon <- paste0("s(lon, lat, bs=c('ds'), k=",dim.lat.lon[1],", m=c(1,0.5))")
+    }
     ctime <- paste0("s(ctime, bs='ds', k=",dim.ctime[1],", m=c(1,0))")
     ctimeLatLon <- paste0("ti(ctime, lon, lat, d=c(1,2), bs=c('ds','ds'), k=c(",
                           dim.ctime.lat.lon[1], ",",
