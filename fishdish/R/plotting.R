@@ -548,8 +548,19 @@ plotfishdish.dist <- function(fit, mod = NULL, year = NULL,
 
     nyx <- ifelse(average, 1, ny)
     if(average){
-        grid <- list(collapse.grid(grid))
+        grid <- tmp <- list(collapse.grid(grid))
         nrowi <- sapply(pred, nrow)
+
+        ## tmpi <- tmp[[1]]
+        ## for(ii in 1:length(fit$grid)){
+        ##     tmpi <- dplyr::left_join(tmpi,
+        ##                             cbind(fit$grid[[ii]][,c("lon","lat")],
+        ##                                        pred = pred[[ii]][,1]),
+        ##                             by = c("lon","lat"))
+        ## }
+
+        ## pred <- list(data.frame(apply(tmpi[grep("pred",colnames(tmpi))], 1, mean, na.rm = TRUE)))
+
         if(!is.na(sd(unlist(nrowi)[!sapply(nrowi,is.null)])) &&
            sd(unlist(nrowi)[!sapply(nrowi,is.null)]) > 0.1){
             stop("Did you use the same prediction grid for the years that you want to combine?")
@@ -576,6 +587,7 @@ plotfishdish.dist <- function(fit, mod = NULL, year = NULL,
                 ind[[i]] <- NA
             }
         }
+        if(all(is.null(prediAll))) return(NULL)
         concT <- surveyIndex:::concTransform(log(prediAll))
         if(is.null(min.val) || is.na(min.val)){
             zFac <- cut(concT, 0:length(cols)/length(cols))
@@ -673,7 +685,8 @@ plotfishdish.dist <- function(fit, mod = NULL, year = NULL,
             ml = signif(mincuts[,2]/mm,3)
             ml[1] = 0
             leg = paste0("[",ml,",",signif(maxcuts[,2]/mm,3),"]")
-            legend("bottomright", legend = leg, pch = 16, col = cols, bg = "white", ncol = 1, cex = 0.6) ## HERE:
+            legend("bottomright", legend = leg, pch = 16, col = cols,
+                   bg = "white", ncol = 1, cex = 0.6) ## HERE:
             }
         }
         box(lwd = 1.5)
@@ -845,6 +858,7 @@ plotfishdish.dist.cv <- function(fit, mod = NULL, year = NULL,
                                  average = FALSE,
                                  mfrow = NULL
                                  ){
+
     xaxt0 <- xaxt
     yaxt0 <- yaxt
 
@@ -890,16 +904,20 @@ plotfishdish.dist.cv <- function(fit, mod = NULL, year = NULL,
         xaxt.ind <- yaxt.ind <- 1
     }
 
-
-    nyx <- ifelse(average, 1, ny)
+    ny <- ifelse(average, 1, ny)
+    nyx <- ny
+    ## nyx <- ifelse(average, 1, ny)
     if(average){
         grid <- list(collapse.grid(grid))
-        if(sd(sapply(pred, nrow)) > 0.1){
+        nrowi <- sapply(pred, nrow)
+        if(!is.na(sd(unlist(nrowi)[!sapply(nrowi,is.null)])) &&
+           sd(unlist(nrowi)[!sapply(nrowi,is.null)]) > 0.1){
             stop("Did you use the same prediction grid for the years that you want to combine?")
         }
         tmp <- do.call(cbind, pred)
         pred <- list(data.frame(apply(tmp, 1, mean, na.rm = TRUE)))
     }
+
 
     if(fixed.scale){
         lastmax <- 0
@@ -918,6 +936,7 @@ plotfishdish.dist.cv <- function(fit, mod = NULL, year = NULL,
                 ind[[i]] <- NA
             }
         }
+        if(all(is.null(predi))) return(NULL)
         concT <- surveyIndex:::concTransform(log(predi))
         if(is.null(min.val) || is.na(min.val)){
             zFac <- cut(concT, 0:length(cols)/length(cols))
@@ -988,25 +1007,47 @@ plotfishdish.dist.cv <- function(fit, mod = NULL, year = NULL,
                    cex = 0.3, pch = 16)
         }else if(plot.obs == 3){
             obs <- fit$data[which(fit$data$N > 0),]
-            ind <- which(as.character(obs$Year) == year[i])
+            if(average){
+                ind <- 1:nrow(obs)
+            }else{
+                ind <- which(as.character(obs$Year) == year[i])
+            }
+            ## if(year[i] == 2004) browser()
+            cexi <- obs$N[ind] / max(obs$N, na.rm = TRUE) * 2
+            rangi <- c(0.5, 3)
+            cexi <- (obs$N[ind] - min(obs$N) + 1) /
+                (max(obs$N) - min(obs$N) + 1) *
+                (rangi[2] - rangi[1]) + rangi[1]
+            ## cexi[is.nan(cexi)] <- rangi[1]
             points(obs$lon[ind], obs$lat[ind],
                    col = rgb(t(col2rgb("black"))/255,alpha = 1),
-                   pch = 1, cex = obs$N[ind] / max(obs$N[ind], na.rm = TRUE) * 2)
+                   pch = 1, cex = cexi)
         }
-
-        if(is.null(title)) title <- year[i]
-        mtext(title, 3, 0.3, font = 2, cex = 0.8)
-        if (is.null(breaks) && ((legend && fixed.scale && i == ny) || legend && !fixed.scale)){
+        if(is.null(title)){
+            if(average){
+                mtext("Average", 3, 0.3, font = 2, cex = 0.8)
+            }else{
+                mtext(year[i], 3, 0.3, font = 2, cex = 0.8)
+            }
+        }else{
+            mtext(title, 3, 0.3, font = 2, cex = 0.8)
+        }
+        ## mtext(title, 3, 0.3, font = 2, cex = 0.8)
+        if(is.null(breaks) && ((legend && fixed.scale && i == ny) ||
+                                legend && !fixed.scale)){
             maxcuts = aggregate(predi ~ zFac, FUN=max)
             mincuts = aggregate(predi ~ zFac, FUN=min)
             mm = mean(predi)
             ml = signif(mincuts[,2]/mm,3)
             ml[1] = 0
             leg = paste0("[",ml,",",signif(maxcuts[,2]/mm,3),"]")
-            legend("bottomright", legend = leg, pch = 16, col = cols, bg = "white")
+            legend("bottomright", legend = leg, pch = 16,
+                   col = cols, bg = "white", cex = 0.6)
         }
-        if (!is.null(breaks) && ((legend && fixed.scale && i == ny) || legend && !fixed.scale)){
-            legend("bottomright", legend = levels(zFac), pch = 16, col = cols, bg = "white")
+        if(!is.null(breaks) &&
+            ((legend && fixed.scale && i == ny) || legend && !fixed.scale)){
+            legend("bottomright", legend = levels(zFac), pch = 16,
+                   col = cols, bg = "white", cex = 0.6)
         }
         box(lwd = 1.5)
     }

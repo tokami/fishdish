@@ -31,7 +31,7 @@ prep.data.internal <- function(data, AphiaID = NULL,
 
     ## Species subsetting for hl (full hh needed for survey0)
     ## ------------------
-    if(specflag){
+    if(as.logical(specflag)){
         if(!inherits(AphiaID, "data.frame")) specs <- data.frame(AphiaID = AphiaID)
         if(!any(colnames(specs) == "AphiaID"))
             stop("At least one of the columns in AphiaID needs to indicate the Aphia ID and be called 'AphiaID'")
@@ -114,7 +114,6 @@ prep.data.internal <- function(data, AphiaID = NULL,
     if(verbose) writeLines(paste(checkmark(nrow(hh) == length(unique(hh$HaulID))),
                                  "All haul IDs unique",
                                  sep="\t\t\t"))
-
 
 
     ## Remove HaulIDs that are NA
@@ -629,7 +628,6 @@ prep.data <- function(data, AphiaID = NULL,
 
     specflag <- ifelse(is.null(AphiaID[1]) || is.na(AphiaID[1]) || AphiaID[1] %in% c("all","All","ALL"),0,1)
 
-
     ## Check validity of data
     ## ------------------
     if((!inherits(data,"fdist.datras") && !inherits(data,"fdist.prepped")) ||
@@ -803,8 +801,8 @@ prep.data <- function(data, AphiaID = NULL,
                     }
                 }
 
-
                 if(est.bio){
+
                     if(use.ca){
                         if(!is.null(ca) && any(ca$AphiaID ==
                                                specs.matched$AphiaID[i])){
@@ -821,7 +819,6 @@ prep.data <- function(data, AphiaID = NULL,
                                                 " does not have any length information. Cannot split into length classes! Run total N/bio or remove species!"))
                                 }else{
                                     tmpi <- hlc[, c("HaulID","AphiaID","Counts")]
-                                    browser()
                                     survey.spec <- aggregate(list(bio = tmpi$CatCatchWgt),
                                                              by = list(haul.id = tmpi$HaulID,
                                                                        AphiaID = tmpi$AphiaID),
@@ -1015,17 +1012,18 @@ prep.data <- function(data, AphiaID = NULL,
 
                                 ## Add entries with missing length information
                                 ind <- which(is.na(hlc$sizeGroup))
-                                if(length(ind) > 0){
-                                    tmpi <- hlc[ind, c("HaulID","AphiaID","CatCatchWgt")]
-                                    tmpi2 <- aggregate(list(bio = tmpi$CatCatchWgt),
-                                                       by = list(haul.id = tmpi$HaulID,
-                                                                 AphiaID = tmpi$AphiaID),
-                                                       FUN = sum, na.rm = TRUE)
-                                    survey.spec$bio[match(tmpi2$haul.id,
-                                                          survey.spec$haul.id)] <-
-                                        tmpi2$bio
+                                ## TODO: CatCatchWgt not in hl/hlc any more? Why?
+                                ## if(length(ind) > 0){
+                                ##     tmpi <- hlc[ind, c("HaulID","AphiaID","CatCatchWgt")]
+                                ##     tmpi2 <- aggregate(list(bio = tmpi$CatCatchWgt),
+                                ##                        by = list(haul.id = tmpi$HaulID,
+                                ##                                  AphiaID = tmpi$AphiaID),
+                                ##                        FUN = sum, na.rm = TRUE)
+                                ##     survey.spec$bio[match(tmpi2$haul.id,
+                                ##                           survey.spec$haul.id)] <-
+                                ##         tmpi2$bio
 
-                                }
+                                ## }
                             }
 
                         }else{
