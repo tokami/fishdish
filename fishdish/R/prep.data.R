@@ -624,6 +624,8 @@ prep.data <- function(data, AphiaID = NULL,
                       split.length = FALSE,
                       use.ca = TRUE,
                       use.total.catch.w.and.n = TRUE,
+                      select = NULL,
+                      overlap = NULL,
                       verbose = TRUE){
 
     specflag <- ifelse(is.null(AphiaID[1]) || is.na(AphiaID[1]) || AphiaID[1] %in% c("all","All","ALL"),0,1)
@@ -636,12 +638,52 @@ prep.data <- function(data, AphiaID = NULL,
 
     if(inherits(data,"fdist.datras")){
 
+        ## Option to subset data
+        if(!is.null(select)){
+            for(j in 1:length(names(select))){
+                data$HH <- data$HH[data$HH[[names(select)[j]]] %in% select[[j]],]
+                data$HL <- data$HL[data$HL[[names(select)[j]]] %in% select[[j]],]
+                data$CA <- data$CA[data$CA[[names(select)[j]]] %in% select[[j]],]
+            }
+        }
+
+        ## Prepare data set
         data.prepped <- prep.data.internal(data = data, AphiaID = AphiaID,
                                            datras.variables = datras.variables,
                                            use.total.catch.w.and.n =
                                                use.total.catch.w.and.n,
                                            verbose = verbose)
-        hh <- data.prepped$hh
+
+        ## Option to choose entries that overlap
+        if(!is.null(overlap)){
+            ## HL
+            survi <- sapply(strsplit(data.prepped$hl$HaulID, ":"), function(x) x[[1]])
+            spliti <- split(data.prepped$hl, survi)
+            for(j in 1:length(overlap)){
+                sel <- unlist(lapply(spliti, function(x) unique(x[[overlap[j]]])))
+                sel <- as.character(sel[duplicated(sel)])
+                for(k in 1:length(spliti)){
+                    spliti[[k]] <- spliti[[k]][spliti[[k]][[overlap[j]]] %in% sel,]
+                }
+            }
+            data.prepped$hl <- do.call(rbind, spliti)
+            rownames(data.prepped$hl) <- NULL
+
+            ## CA
+            survi <- sapply(strsplit(data.prepped$ca$HaulID, ":"), function(x) x[[1]])
+            spliti <- split(data.prepped$ca, survi)
+            for(j in 1:length(overlap)){
+                sel <- unlist(lapply(spliti, function(x) unique(x[[overlap[j]]])))
+                sel <- as.character(sel[duplicated(sel)])
+                for(k in 1:length(spliti)){
+                    spliti[[k]] <- spliti[[k]][spliti[[k]][[overlap[j]]] %in% sel,]
+                }
+            }
+            data.prepped$ca <- do.call(rbind, spliti)
+            rownames(data.prepped$ca) <- NULL
+
+        }
+
         hl <- data.prepped$hl
         ca <- data.prepped$ca
         specs.matched <- data.prepped$specs.matched
