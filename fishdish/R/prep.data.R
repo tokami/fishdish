@@ -687,6 +687,9 @@ prep.data <- function(data, AphiaID = NULL,
         hl <- data.prepped$hl
         ca <- data.prepped$ca
         specs.matched <- data.prepped$specs.matched
+        specs.matched <- specs.matched[match(unique(hl$AphiaID),
+                                             specs.matched$AphiaID), ,
+                                       drop = FALSE]
         survey0 <- data.prepped$survey0
 
 
