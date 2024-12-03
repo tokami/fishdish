@@ -21,7 +21,7 @@
 #'
 #' @export
 download.data <- function(first.year = 1967,
-                          last.year = 2020,
+                          last.year = 2023,
                           surveys = "all",
                           quarters = "all",
                           aphiaID = "all",
@@ -35,7 +35,9 @@ download.data <- function(first.year = 1967,
 
     ## Check surveys
     all.surveys <- list.surveys()
-    if(surveys == "all" || surveys == "All" || surveys == "ALL") surveys <- all.surveys
+    if(any(surveys == "all") || any(surveys == "All") || any(surveys == "ALL")){
+        surveys <- all.surveys
+    }
     surveys.sel <- surveys[which(surveys %in% all.surveys)]
     if(any(!surveys %in% all.surveys))
         if(verbose) writeLines(paste0("Following surveys could not be matched (use list.surveys): ",
@@ -83,9 +85,10 @@ download.data <- function(first.year = 1967,
             surv <- surveys.sel[i]
             if(verbose) writeLines(paste0("Downloading data set '",dat.type,"' of: ", surv))
             dat[[i]] <- try(icesDatras::getDATRAS(record = dat.type,
-                                              survey = surv,
-                                              years = first.year:last.year,
-                                              quarters = quarters.sel[[i]]), silent = TRUE)
+                                                  survey = surv,
+                                                  years = first.year:last.year,
+                                                  quarters = quarters.sel[[i]]),
+                            silent = TRUE)
             ## suppressMessages
 
             if(inherits(dat[[i]], "data.frame")){

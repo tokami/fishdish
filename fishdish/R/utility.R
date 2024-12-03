@@ -30,6 +30,10 @@ list.surveys <- function(){
                      "SNS", "SWC-IBTS","SCOWCGFS", "BTS",
                      "BTS-VIII", "DYFS", "NO-shrimp")
 
+    all.surveys <- icesDatras::getSurveyList()
+    all.surveys <- all.surveys[-which(all.surveys == "Test-DATRAS")]
+    all.surveys <- c(all.surveys, "NOSS")
+
     return(all.surveys)
 }
 
@@ -38,15 +42,20 @@ list.surveys <- function(){
 #' @title Get some info about surveys
 #' @param survey optional vector or single survey
 #' @param statrec logical indicating whether to include statistical rectangles for each survey (Default: FALSE). If FALSE, returned object is a list.
+#' @param gear logical indicating whether to include gears
 #' @param plot logical shoul plot with survey distributions be drawn?
 #' @importFrom maps map
 #' @return Data frame with info
 #' @export
-get.info.surveys <- function(survey=NULL, statrec = FALSE, plot = TRUE){
+get.info.surveys <- function(survey=NULL,
+                             statrec = FALSE,
+                             gear = FALSE,
+                             plot = TRUE){
 
     data("survey.info")
 
-    all.surveys <- sapply(survey.info,function(x) x$survey)
+    ## all.surveys <- sapply(survey.info, function(x) x$survey)
+    all.surveys <- names(survey.info)
     if(!is.null(survey[1])){
         survey.sel <- survey.info[which(all.surveys %in% survey)]
         if(!any(all.surveys %in% survey))
@@ -55,15 +64,31 @@ get.info.surveys <- function(survey=NULL, statrec = FALSE, plot = TRUE){
         survey.sel <- survey.info
     }
     ns <- length(survey.sel)
-    survs <- sapply(survey.sel,function(x) x$survey)
+    ## survs <- sapply(survey.sel, function(x) x$survey)
+    survs <- names(survey.sel)
 
-    if(statrec == FALSE){
-        res <- as.data.frame(t(sapply(survey.sel,
-                                      function(x) unlist(x[c("survey","first.year","last.year","quarters")]))))
-    }else{
-        res <- survey.sel
+
+
+    res <- data.frame(survey = survs,
+                      first.year = sapply(survey.sel,
+                                          function(x) min(x[[c("years")]])),
+                      last.year = sapply(survey.sel,
+                                         function(x) max(x[[c("years")]])),
+                      quarters = sapply(survey.sel,
+                                        function(x) paste(unique(x[[c("quarters")]]),
+                                                          collapse = ",")))
+    if(gear){
+        res$gears <- sapply(survey.sel,
+                            function(x) paste(unique(x[[c("gears")]]),
+                                              collapse = ","))
     }
-
+    ## load("~/Documents/rpackages/fishdish/makeData/old/survey.info_old.rda")
+    ## survey.sel <- survey.info
+    ## res <- as.data.frame(t(sapply(survey.sel,
+    ##                               function(x) unlist(x[c("survey","first.year","last.year","quarters")]))))
+    if(statrec || plot){
+        res$stat.recs <-  survey.sel$stat.recs
+    }
 
     if(plot){
         data("ices.rectangles")
@@ -81,18 +106,36 @@ get.info.surveys <- function(survey=NULL, statrec = FALSE, plot = TRUE){
         for(i in 1:ns){
             plot(lon.range, lat.range,
                  xlim = lon.range, ylim = lat.range,
-                 ty='n',
+                 type = 'n',
                  xlab = "", ylab = "")
-            ind <- which(ices.rectangles$ICESNAME %in% survey.sel[[i]]$StatRec)
-            tmp <- ices.rectangles[ind,]
-            for(j in 1:nrow(tmp)){
-                tmpj <- tmp[j,]
-                polygon(c(tmpj$stat_west, tmpj$stat_east, tmpj$stat_east, tmpj$stat_west),
-                        c(tmpj$stat_south, tmpj$stat_south, tmpj$stat_north, tmpj$stat_north),
-                        border = "goldenrod2", col = "goldenrod3")
-                ## text((tmpj$WEST + tmpj$EAST)/2, (tmpj$SOUTH + tmpj$NORTH)/2,
-                ##      labels = tmpj$ICESNAME)
-            }
+            ind <- which(ices.rectangles$ICESNAME %in% survey.sel[[i]]$stat.recs)
+            tmp <- ices.rectangles[ind, ]
+            tmp <- tmp[!duplicated(tmp$ICESNAME),]
+            polygon_coords <- data.frame(
+                x = as.vector(t(matrix(c(tmp$stat_west, tmp$stat_east,
+                                         tmp$stat_east, tmp$stat_west, rep(NA,nrow(tmp))),
+                                       ncol = 5))),
+                y = as.vector(t(matrix(c(tmp$stat_south, tmp$stat_south,
+                                         tmp$stat_north, tmp$stat_north, rep(NA,nrow(tmp))),
+                                       ncol = 5))))
+            ## polygon_coords <- polygon_coords[rep(seq_len(nrow(tmp)), each = 5), ]
+            polygon(polygon_coords$x, polygon_coords$y,
+                    border = "goldenrod2", col = "goldenrod3")
+
+            ## plot(lon.range, lat.range,
+            ##      xlim = lon.range, ylim = lat.range,
+            ##      ty='n',
+            ##      xlab = "", ylab = "")
+            ## ind <- which(ices.rectangles$ICESNAME %in% survey.sel[[i]]$stat.recs)
+            ## tmp <- ices.rectangles[ind,]
+            ## for(j in 1:nrow(tmp)){
+            ##     tmpj <- tmp[j,]
+            ##     polygon(c(tmpj$stat_west, tmpj$stat_east, tmpj$stat_east, tmpj$stat_west),
+            ##             c(tmpj$stat_south, tmpj$stat_south, tmpj$stat_north, tmpj$stat_north),
+            ##             border = "goldenrod2", col = "goldenrod3")
+            ##     ## text((tmpj$WEST + tmpj$EAST)/2, (tmpj$SOUTH + tmpj$NORTH)/2,
+            ##     ##      labels = tmpj$ICESNAME)
+            ## }
             maps::map("world", xlim = lon.range, ylim = lat.range,
                       fill = TRUE, plot = TRUE, add = TRUE,
                       col = grey(0.8),
@@ -192,7 +235,7 @@ list.recom.models <- function(specdata,
     }
 
     offset.var <- ifelse(use.swept.area, "SweptArea", "HaulDur")
-    offset <- paste0("offset(log(",offset.var,"))")
+    offset <- paste0("offset(log(",offset.var,"+5))")
 
     ##        1        2        3            4
     mm <- c(latLon, ctime, ctimeLatLon, timeOfYear,
@@ -320,7 +363,7 @@ list.recom.models2 <- function(specdata,
 
     ## offset
     offset.var <- "SweptArea"
-    offset <- paste0("offset(log(",offset.var,"))")
+    offset <- paste0("offset(log(",offset.var,"+5))")
 
     ##       1    2    3      4        5          6          7,           8,        9,    10,   11,     12
     mm <- c(tod, doy, year, latLon, doy.year, latLon.tod, latLon.doy, latLon.year, gear, ship, depth, offset)
@@ -474,6 +517,7 @@ pred.statrec <- function(data, tol = 0.00001, only.missing = TRUE,
         }
         datain <- cbind(datain[indi],
                         data[,cols.merge])
+        head(datain)
         colnames(datain)[colnames(datain) == "ICESNAME"] <- "StatRec"
         colnames(datain)[colnames(datain) == "sub_code"] <- "SubStatRec"
         colnames(datain)[colnames(datain) == "sub_area"] <- "SubStatRec_area"

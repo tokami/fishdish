@@ -758,6 +758,8 @@ prep.data <- function(data, AphiaID = NULL,
                                                      specs.matched$AphiaID[i]]))
                         }
 
+                        browser()
+
                         ## TODO: this should use the limits of length classes rather than the midLengths or account for the sizebin!
                         ind.juv <- which(midLengths <
                                          bio.pars$Lm[bio.pars$AphiaID ==
@@ -981,20 +983,30 @@ prep.data <- function(data, AphiaID = NULL,
 
                         indii <- which(bio.pars$AphiaID == specs.matched$AphiaID[i])
 
-                        if(length(indii) == 1){
+                        if(length(indii) > 1){
+                            if(verbose) writeLines("More than 1 entry in bio.pars found! Using the last one!")
                             if(any(colnames(bio.pars) == "a") &&
                                any(colnames(bio.pars) == "b")){
-                                a <- bio.pars$a[indii]
-                                b <- bio.pars$b[indii]
+                                a <- as.numeric(as.character(bio.pars$a[indii[length(indii)]]))
+                                b <- as.numeric(as.character(bio.pars$b[indii[length(indii)]]))
+                            }else{
+                                stop(paste0("No 'a' and 'b' found in bio.pars for AphiaID ",
+                                            specs.matched$AphiaID[i]))
+                            }
+
+                        }else if(length(indii) == 1){
+                            if(any(colnames(bio.pars) == "a") &&
+                               any(colnames(bio.pars) == "b")){
+                                a <- as.numeric(as.character(bio.pars$a[indii]))
+                                b <- as.numeric(as.character(bio.pars$b[indii]))
                             }else{
                                 stop(paste0("No 'a' and 'b' found in bio.pars for AphiaID ",
                                             specs.matched$AphiaID[i]))
                             }
                         }else{
-                            stop(paste0("No (or more than 1) match found in bio.pars for AphiaID ",
+                            stop(paste0("No match found in bio.pars for AphiaID ",
                                         specs.matched$AphiaID[i]))
                         }
-
 
                         ## There might be no length measurements (only CatCatchWgt)
                         if(any(!is.na(hlc$LngtCm))){
