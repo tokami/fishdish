@@ -107,6 +107,7 @@ download.data <- function(first.year = 1967,
                     colnames(dat[[i]])[which(colnames(dat[[i]]) == "ShootLat")] <- "lat"
                 }else if(dat.type %in% c("HL","CA")){
                     colnames(dat[[i]])[which(colnames(dat[[i]]) == "Valid_Aphia")] <- "AphiaID"
+                    ## "." and "0" provided in mm, 1,2,5 provided in cm
                     lngt2cm <- c("." = 0.1, "0" = 0.1, "1" = 1, "2" = 1, "5" = 1)[as.character(dat[[i]]$LngtCode)]
                     dat[[i]]$LngtCm <- lngt2cm * dat[[i]]$LngtClass
                 }
@@ -273,8 +274,10 @@ load.data <- function(file.dir = "files",
 
             }else if(dat.type %in% c("HL","CA")){
                 colnames(dat)[which(colnames(dat) == "Valid_Aphia")] <- "AphiaID"
+                ## "." and "0" provided in mm, 1,2,5 provided in cm
                 lngt2cm <- c("." = 0.1, "0" = 0.1, "1" = 1, "2" = 1, "5" = 1)[as.character(dat$LngtCode)]
                 dat$LngtCm <- lngt2cm * dat$LngtClass
+
             }
 
             ## Subset required variables

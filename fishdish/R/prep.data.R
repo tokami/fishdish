@@ -503,26 +503,25 @@ prep.data.internal <- function(data, AphiaID = NULL,
             writeLines(paste0(length(ind), " entries do not have HLNoAtlngt information are removed!"))
         }
     }else{
+        ## only use one of them per unique haul id?!! TotalNo might be repeated for each haul.id, right?
         hl$HLNoAtLngt[ind] <- hl$TotalNo[ind]
         hl$SubFactor[ind] <- 1
         ## all length NA for these entries, so if length is being used later than they are removed anyways
         ## TODO: keep CatCatchWgt also for est.bio!
     }
 
-    ## Account for LngtCode (mm and cm)
-    ## Remove LngtCode = NA (LngtClass also NA)
-    ind <- which(is.na(hl$LngtCode))
-    if(!use.total.catch.w.and.n){
+    ## Account for LngtClass (only when bio)
+    ind <- which(is.na(hl$LngtClass))
+    if(est.bio){
         if(length(ind) > 0){
             hl <- hl[-ind,]
-            writeLines(paste0(length(ind), " entries do not have LngtCod information are removed!"))
+            writeLines(paste0(length(ind), " entries do not have LngtClass information are removed!"))
         }
     }
 
-
     hl$LngtCm <- NA
     ind <- which(!is.na(hl$LngtCode))
-    ## DATRAS:::getAccuracyCM
+    ## DATRAS:::addExtraVariables
     lngt2cm <- c("." = 0.1, "0" = 0.1, "1" = 1, "2" = 1, "5" = 1)[as.character(hl$LngtCode[ind])] ## 6,7 for NO shrimp survey
     hl$LngtCm[ind] <- lngt2cm * hl$LngtClass[ind]
     range(hl$LngtCm, na.rm = TRUE)
@@ -1283,7 +1282,7 @@ prep.data <- function(data, AphiaID = NULL,
                     if(!is.null(ca) && any(ca$AphiaID == specs$AphiaID[i])){
                         cac <- subset(ca, AphiaID == specs$AphiaID[i])
                         ## DATRAS::addWeightByHaul
-                        cac$LngtCm <- c(. = 0.1, `0` = 0.5, `1` = 1, `2` = 2, `5` = 5)[as.character(cac$LngtCode)] * cac$LngtClass
+                        cac$LngtCm <- c(. = 0.1, `0` = 0.1, `1` = 1, `2` = 1, `5` = 1)[as.character(cac$LngtCode)] * cac$LngtClass
                         mod <- lm(log(IndWgt) ~ log(LngtCm), data = subset(cac, IndWgt > 0))
                         LW <- exp(predict(mod, newdata = data.frame(LngtCm = midLengths)))
                         if(split.juv.adults && any(bio.pars$AphiaID == specs$AphiaID[i])){
