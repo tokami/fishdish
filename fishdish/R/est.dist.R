@@ -73,6 +73,7 @@ est.dist.one <- function(specdata, mods = NULL, n.lon = 20,
 
     ## Define grid if not provided
     ## --------------------------------------
+    if(!inherits(specdata$Year,"factor")) specdata$Year <- factor(specdata$Year)
     years <- sort(unique(as.numeric(levels(droplevels(specdata$Year)))))
     ## years <- sort(unique(specdata$Year))
     ny <- length(years)
@@ -388,6 +389,7 @@ pred.dist.one <- function(fit,
 
     ## Define grid if not provided
     ## --------------------------------------
+    if(!inherits(specdata$Year,"factor")) specdata$Year <- factor(specdata$Year)
     years <- sort(unique(as.numeric(levels(droplevels(specdata$Year)))))
     ## years <- sort(unique(specdata$Year))
     ny <- length(years)
