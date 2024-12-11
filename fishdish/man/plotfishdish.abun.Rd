@@ -9,8 +9,11 @@ plotfishdish.abun(
   by.area = FALSE,
   by.eco = FALSE,
   ylab = "Abundance index",
+  xlab = "Year",
   y.scale = 1,
   fixed.scale = FALSE,
+  x.range = NULL,
+  y.range = NULL,
   mean.one = FALSE
 )
 }

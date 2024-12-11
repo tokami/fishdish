@@ -9,16 +9,21 @@ list.recom.models(
   use.ctime = TRUE,
   use.toy = TRUE,
   use.ctime.space = TRUE,
+  use.toy.space = TRUE,
   use.swept.area = FALSE,
+  use.depth = TRUE,
   use.sqrt.depth = FALSE,
   use.gear.as.fixed = FALSE,
   use.random.ship = FALSE,
+  use.temp.lt.space = FALSE,
   dim.lat.lon = 256,
   dim.ctime = "nyears",
   dim.ctime.lat.lon = c("nyears", 10),
   dim.timeOfYear = 5,
   dim.timeOfYear.lat.lon = c(5, 30),
-  single.mod = TRUE
+  dim.temp.lt.lat.lon = c(3, 50),
+  single.mod = TRUE,
+  offset.plus.5 = TRUE
 )
 }
 \arguments{

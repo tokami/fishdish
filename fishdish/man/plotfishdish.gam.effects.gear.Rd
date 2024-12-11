@@ -11,7 +11,8 @@ plotfishdish.gam.effects.gear(
   ylim = NULL,
   CI = 0.95,
   var = "Gear",
-  exp = TRUE
+  exp = TRUE,
+  use.bio = FALSE
 )
 }
 \arguments{

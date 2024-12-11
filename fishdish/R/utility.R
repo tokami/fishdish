@@ -187,7 +187,8 @@ list.recom.models <- function(specdata,
                               dim.timeOfYear = 5,
                               dim.timeOfYear.lat.lon = c(5,30),
                               dim.temp.lt.lat.lon = c(3,50),
-                              single.mod = TRUE){
+                              single.mod = TRUE,
+                              offset.plus.5 = TRUE){
 
     ## Checks
     if(length(dim.ctime.lat.lon) != 2) stop("The variable dim.ctime.lat.lon has to have length equal to 2.")
@@ -235,7 +236,11 @@ list.recom.models <- function(specdata,
     }
 
     offset.var <- ifelse(use.swept.area, "SweptArea", "HaulDur")
-    offset <- paste0("offset(log(",offset.var,"+5))")
+    if(offset.plus.5){
+        offset <- paste0("offset(log(",offset.var,"+5))")
+    }else{
+        offset <- paste0("offset(log(",offset.var,"))")
+    }
 
     ##        1        2        3            4
     mm <- c(latLon, ctime, ctimeLatLon, timeOfYear,
@@ -1309,4 +1314,90 @@ get.haul.id <- function(data){
                     data$Country, data$Ship, data$Gear,
                     data$StNo, data$HaulNo, sep = ":")
     return(haulID)
+}
+
+
+
+
+#' @name reduce.datras
+#'
+#' @title reduce datras
+#'
+#' @param data Data
+#'
+#' @export
+reduce.datras <- function(data,
+                          surveys = NULL,
+                          areas = NULL,
+                          species = NULL,
+                          aphias = NULL,
+                          use.ca = TRUE){
+
+    if(!use.ca){
+        data[["CA"]] <- NULL
+    }
+
+    if(!is.null(surveys)){
+        for(i in 1:length(data)){
+            data[[i]] <- subset(data[[i]], Survey %in% surveys)
+        }
+    }
+
+    if(!is.null(areas)){
+        tmp <- pred.statrec(data[[1]])
+        data[[1]] <- subset(data[[1]], tmp$Area_27 %in% areas)
+    }
+
+    ids <- get.haul.id(data[[1]])
+    for(i in 2:length(data)){
+        tmp <- get.haul.id(data[[i]])
+        data[[i]] <- subset(data[[i]], tmp %in% ids)
+    }
+
+    for(i in 2:length(data)){
+        data[[i]] <- subset(data[[i]], AphiaID %in% aphias)
+    }
+
+    return(data)
+}
+
+
+#' @name remove.ones
+#'
+#' @title remove ones
+#'
+#' @param data Data
+#'
+#' @export
+remove.ones <- function(data, response = "N", vars = c("Survey","Gear","ShipG"),
+                        min.obs = 1, cut.off = 0){
+
+    for(i in 1:length(vars)){
+        ## tmp <- aggregate(data[,response] ~ data[,vars[i]], FUN = sum)
+        data$dummy <- as.numeric(data[,response] > cut.off)
+        tmp <- aggregate(data$dummy ~ data[,vars[i]], FUN = sum)
+        ind <- which(tmp[,2] <= min.obs)
+        if(length(ind) > 0){
+            data <- data[which(!(data[,vars[i]] %in% tmp[,1][ind])),]
+        }
+    }
+    data <- droplevels(data)
+
+    return(data)
+}
+
+
+add.stripes <- function(n = 100,
+                        x.range = c(0,1),
+                        y.range = c(0,1),
+                        slope = 1,
+                        lwd = 3){
+    abvec <- Vectorize(abline, vectorize.args = c("a","b"))
+    a <- y.range[1] - x.range[1]/(2 * x.range[1] + slope)
+
+    tmp <- abvec(a = seq(a - (x.range[2] - x.range[1]),
+                   a + (y.range[2] - y.range[1]),
+                   length.out = n),
+           b = rep(slope, n),
+           col = "white", lwd = lwd)
 }

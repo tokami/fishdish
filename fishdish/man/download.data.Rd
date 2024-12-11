@@ -6,7 +6,7 @@
 \usage{
 download.data(
   first.year = 1967,
-  last.year = 2020,
+  last.year = 2023,
   surveys = "all",
   quarters = "all",
   aphiaID = "all",

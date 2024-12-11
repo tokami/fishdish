@@ -19,6 +19,9 @@
 prep.species <- function(data, aphiaID = NULL,
                          use.gear.cat = TRUE,
                          remove.fragmented.years = TRUE,
+                         filter.shipg = FALSE,
+                         filter.statrec = FALSE,
+                         min.depth = 10,
                          max.depth = 1000,
                          min.gears = 0, min.surveys = 0, min.hauls = 0, min.ship.gear = 0,
                          verbose = TRUE){
@@ -126,26 +129,37 @@ prep.species <- function(data, aphiaID = NULL,
     ## only keep ices squares where species category is present
     ## TODO: make this an arugment or separate function that can be called to plot and select
     ices.keep <- sort(unique(survey.spp$StatRec))  ## CHECK: that no StatRec with N=0 are in survey.spp
+    area.keep <- sort(unique(survey.spp$Area_27))
+
     ## NEW: make argument or only use this?
     ## TODO: make check that Area_27 is included!!
-    ## ices.keep <- sort(unique(survey.spp$Area_27))
 
 
     ## Apply selections to both data sets
     ## --------------------------------------
     survey.spp <- subset(survey.spp,
-                         StatRec %in% ices.keep &  ## Area_27 %in% ices.keep &
                          Gear %in% gears.keep &
-                         ShipG %in% shipgear.keep &
+                         Area_27 %in% area.keep &
                          Survey %in% surveys.keep &
                          Depth <= max.depth)
     survey0 <- subset(survey0,
-                      StatRec %in% ices.keep &  ## Area_27 %in% ices.keep &
                       Gear %in% gears.keep &
-                      ShipG %in% shipgear.keep &
+                      Area_27 %in% area.keep &
                       Survey %in% surveys.keep &
-                      Depth <= max.depth)
-
+                      Depth <= max.depth &
+                      Depth >= min.depth)
+    if(filter.shipg){
+        survey.spp <- subset(survey.spp,
+                             ShipG %in% shipgear.keep)
+        survey0 <- subset(survey0,
+                          ShipG %in% shipgear.keep)
+    }
+    if(filter.statrec){
+        survey.spp <- subset(survey.spp,
+                             StatRec %in% ices.keep)
+        survey0 <- subset(survey0,
+                          StatRec %in% ices.keep)
+    }
 
     ## Remove years before first occurrence
     ## --------------------------------------
@@ -263,23 +277,34 @@ prep.species <- function(data, aphiaID = NULL,
     ## --------------
     ## only keep ices squares where species is present
     ices.keep <- sort(unique(survey.spp$StatRec))
-    ## NEW: make argument or only use this?
-    ## TODO: make check that Area_27 is included!!
-    ices.keep <- sort(unique(survey.spp$Area_27))
+    area.keep <- sort(unique(survey.spp$Area_27))
+
     ## Apply selections to both data sets
     ## -------------
     survey.spp <- subset(survey.spp,
-                         Area_27 %in% ices.keep &
                          Gear %in% gears.keep &
-                         ShipG %in% shipgear.keep &
+                         Area_27 %in% area.keep &
                          Survey %in% surveys.keep &
                          Depth <= max.depth)
     survey0 <- subset(survey0,
-                      Area_27 %in% ices.keep &
                       Gear %in% gears.keep &
-                      ShipG %in% shipgear.keep &
+                      Area_27 %in% area.keep &
                       Survey %in% surveys.keep &
-                      Depth <= max.depth)
+                      Depth <= max.depth &
+                      Depth >= min.depth)
+    if(filter.shipg){
+        survey.spp <- subset(survey.spp,
+                             ShipG %in% shipgear.keep)
+        survey0 <- subset(survey0,
+                          ShipG %in% shipgear.keep)
+    }
+    if(filter.statrec){
+        survey.spp <- subset(survey.spp,
+                             StatRec %in% ices.keep)
+        survey0 <- subset(survey0,
+                          StatRec %in% ices.keep)
+    }
+
 
     ## print(cbind(aggregate(list(StatRec = survey.spp$StatRec),
     ##                       by = list(year = survey.spp$Year),

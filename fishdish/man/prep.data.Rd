@@ -8,11 +8,9 @@
 prep.data.internal(
   data,
   AphiaID = NULL,
-  datras.variables = list.datras.variables.req(),
-  est.n = TRUE,
   est.bio = FALSE,
-  split.juv.adults = FALSE,
-  use.ca = TRUE,
+  datras.variables = list.datras.variables.req(),
+  use.total.catch.w.and.n = TRUE,
   verbose = TRUE
 )
 
@@ -23,7 +21,11 @@ prep.data(
   est.n = TRUE,
   est.bio = FALSE,
   split.juv.adults = FALSE,
+  split.length = FALSE,
   use.ca = TRUE,
+  use.total.catch.w.and.n = TRUE,
+  select = NULL,
+  overlap = NULL,
   verbose = TRUE
 )
 }
@@ -36,9 +38,9 @@ subsetted for species.}
 
 \item{datras.variables}{Variables of DATRAS data set to be used}
 
-\item{use.ca}{Use CA data for AphiaID to estimate bio?}
-
 \item{verbose}{Print stuff? Default: TRUE}
+
+\item{use.ca}{Use CA data for AphiaID to estimate bio?}
 }
 \value{
 List containing hh and hl data sets.

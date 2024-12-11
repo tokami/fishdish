@@ -14,6 +14,7 @@
 #' @importFrom worrms wm_record
 #' @importFrom plyr join
 prep.data.internal <- function(data, AphiaID = NULL,
+                               est.bio = FALSE,
                                datras.variables = list.datras.variables.req(),
                                use.total.catch.w.and.n = TRUE,
                                verbose = TRUE){
@@ -648,6 +649,7 @@ prep.data <- function(data, AphiaID = NULL,
 
         ## Prepare data set
         data.prepped <- prep.data.internal(data = data, AphiaID = AphiaID,
+                                           est.bio = est.bio,
                                            datras.variables = datras.variables,
                                            use.total.catch.w.and.n =
                                                use.total.catch.w.and.n,
@@ -725,6 +727,8 @@ prep.data <- function(data, AphiaID = NULL,
                         ## TODO: remove NA?
                     }
                 }else{
+
+                    if(any(!is.na(hlc$LngtCm[ind]))){
 
                     ## DATRAS::addSpectrum
                     ## DATRAS:::getAccuracyCM
@@ -831,12 +835,36 @@ prep.data <- function(data, AphiaID = NULL,
                             tmpi2 <- aggregate(list(N = tmpi$Counts),
                                                by = list(haul.id = tmpi$HaulID,
                                                          AphiaID = tmpi$AphiaID),
-                                               FUN = sum)
+                                               FUN = sum, na.rm = TRUE)
                             survey.spec <- rbind(survey.spec, tmpi2)
                             survey.spec <- aggregate(list(N = survey.spec$N),
                                                by = list(haul.id = survey.spec$haul.id,
                                                          AphiaID = survey.spec$AphiaID),
                                                FUN = sum)
+                            ## CHECK: NEEDED?
+                            ## ## remove NA
+                            ## ind <- which(is.na(survey.spec$N))
+                            ## if(length(ind) > 0){
+                            ##     survey.spec <- survey.spec[-ind,]
+                            ## }
+                        }
+                    }
+
+                    }else{
+
+                        ## Add entries with missing length information
+                        ind <- which(is.na(hlc$LngtCm))
+                        if(length(ind) > 0){
+                            tmpi <- hlc[ind, c("HaulID","AphiaID","Counts")]
+                            tmpi2 <- aggregate(list(N = tmpi$Counts),
+                                               by = list(haul.id = tmpi$HaulID,
+                                                         AphiaID = tmpi$AphiaID),
+                                               FUN = sum, na.rm = TRUE)
+                            survey.spec <- tmpi2
+                            survey.spec <- aggregate(list(N = survey.spec$N),
+                                                     by = list(haul.id = survey.spec$haul.id,
+                                                               AphiaID = survey.spec$AphiaID),
+                                                     FUN = sum)
                             ## CHECK: NEEDED?
                             ## ## remove NA
                             ## ind <- which(is.na(survey.spec$N))

@@ -19,6 +19,7 @@ est.dist.one(
   model.bio = FALSE,
   fam = NULL,
   intrapolate.year = TRUE,
+  cut.off = 0.1,
   verbose = TRUE,
   ...
 )

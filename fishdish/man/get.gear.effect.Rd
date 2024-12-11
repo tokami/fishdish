@@ -4,7 +4,14 @@
 \alias{get.gear.effect}
 \title{Subset}
 \usage{
-get.gear.effect(fit, mod = 1, CI = 0.95, var = "Gear", exp = TRUE)
+get.gear.effect(
+  fit,
+  mod = 1,
+  CI = 0.95,
+  var = "Gear",
+  exp = TRUE,
+  use.bio = TRUE
+)
 }
 \arguments{
 \item{fit}{fit}

@@ -490,7 +490,9 @@ plotfishdish.dist <- function(fit, mod = NULL, year = NULL,
                               plot.land = TRUE,
                               plot.obs = FALSE,
                               average = FALSE,
-                              mfrow = NULL
+                              mfrow = NULL,
+                              legend.cex = 0.6,
+                              legend.ncol = 1
                               ){
     xaxt0 <- xaxt
     yaxt0 <- yaxt
@@ -674,7 +676,9 @@ plotfishdish.dist <- function(fit, mod = NULL, year = NULL,
             ml = signif(mincuts[,2]/mm,3)
             ml[1] = 0
             leg = paste0("[",ml,",",signif(maxcuts[,2]/mm,3),"]")
-            legend("bottomright", legend = leg, pch = 16, col = cols, bg = "white", ncol = 1, cex = 0.6) ## HERE:
+            legend("bottomright", legend = leg, pch = 16, col = cols, bg = "white",
+                   cex = legend.cex,
+                   ncol = legend.ncol)
         }else if (legend && !fixed.scale){
             prediAll <- pred[[i]][,1]
             if(!is.null(prediAll)){
@@ -686,7 +690,9 @@ plotfishdish.dist <- function(fit, mod = NULL, year = NULL,
             ml[1] = 0
             leg = paste0("[",ml,",",signif(maxcuts[,2]/mm,3),"]")
             legend("bottomright", legend = leg, pch = 16, col = cols,
-                   bg = "white", ncol = 1, cex = 0.6) ## HERE:
+                   cex = legend.cex,
+                   ncol = legend.ncol,
+                   bg = "white")
             }
         }
         box(lwd = 1.5)
@@ -856,7 +862,9 @@ plotfishdish.dist.cv <- function(fit, mod = NULL, year = NULL,
                                  plot.land = TRUE,
                                  plot.obs = 2,   ## 0 = no hauls, 1 = all hauls, 2 = all pos hauls
                                  average = FALSE,
-                                 mfrow = NULL
+                                 mfrow = NULL,
+                              legend.cex = 0.6,
+                              legend.ncol = 1
                                  ){
 
     xaxt0 <- xaxt
@@ -1042,18 +1050,30 @@ plotfishdish.dist.cv <- function(fit, mod = NULL, year = NULL,
             ml[1] = 0
             leg = paste0("[",ml,",",signif(maxcuts[,2]/mm,3),"]")
             legend("bottomright", legend = leg, pch = 16,
-                   col = cols, bg = "white", cex = 0.6)
+                   col = cols, bg = "white",
+                   cex = legend.cex,
+                   ncol = legend.ncol)
         }
         if(!is.null(breaks) &&
             ((legend && fixed.scale && i == ny) || legend && !fixed.scale)){
             legend("bottomright", legend = levels(zFac), pch = 16,
-                   col = cols, bg = "white", cex = 0.6)
+                   col = cols, bg = "white",
+                   cex = legend.cex,
+                   ncol = legend.ncol)
         }
         box(lwd = 1.5)
     }
 
-    mtext("Longitude", 1, 3, outer = TRUE)
-    mtext("Latitude", 2, 3, outer = TRUE)
+    if(is.null(xlab)){
+        mtext("Latitude", 2, 3, outer = TRUE)
+    }else{
+        mtext(xlab, 2, 3, outer = TRUE)
+    }
+    if(is.null(ylab)){
+        mtext("Longitude", 1, 3, outer = TRUE)
+    }else{
+        mtext(ylab, 1, 3, outer = TRUE)
+    }
 }
 
 
@@ -1915,4 +1935,314 @@ plotfishdish.overlap <- function(x, var = "Gear",
         mtext("Latitude", 2, 1.4, outer = TRUE)
         mtext("Longitude", 1, 1.4, outer = TRUE)
     }
+}
+
+
+
+
+#' @name plotfishdish.dist2
+#'
+#' @title plot fit
+#'
+#' @param fit fit
+#' @param mod Select one of the models. Default: NULL
+#'
+#' @importFrom maps map
+#'
+#' @return Nothing
+#'
+#' @export
+plotfishdish.dist2 <- function(fit, mod = NULL, year = NULL,
+                              grid.all = NULL,
+                              xlim = NULL, ylim = NULL,
+                              legend = TRUE, fixed.scale = TRUE,
+                              title = NULL, xlab = NULL, ylab = NULL,
+                              xaxt = NULL, yaxt = NULL,
+                              fixed.lims = TRUE,
+                              cols = rev(heat.colors(8)),
+                              min.val = NA,
+                              cut.cv = NULL, asp = 2,
+                              cv.stripes = 1,
+                              plot.land = TRUE,
+                              plot.obs = FALSE,
+                              average = FALSE,
+                              mfrow = NULL,
+                              legend.cex = 0.6,
+                              legend.ncol = 1,
+                              stripes.lwd = 2,
+                              stripes.n = 2e2
+                              ){
+    xaxt0 <- xaxt
+    yaxt0 <- yaxt
+
+    ## TODO: not ideal fit$grid might be a list!
+    if(is.null(grid.all)){
+        grid.all <- fit$grid
+    }
+
+    if(is.null(mod)){
+        mod <- 1
+    }
+    if(is.null(year)){
+##        year <- tail(rownames(fit$fits[[1]]$idx),1)
+        year <- max(as.numeric(names(fit$fits[[mod]]$gPreds2[[1]])),na.rm = TRUE)
+        writeLines(paste0("No year selected. Plotting year: ",year))
+    }
+
+    if(year[1] == "all"){
+        year <- names(fit$fits[[mod]]$gPreds2[[1]])
+        ## year <- year[year != ""] ## TODO: why "" for muelleri?
+    }
+
+    ny <- length(year)
+    if(year[1] == "final"){
+        pred <- fit$fits[[mod]]$gPreds2[[1]][max(which(!sapply(fit$fits[[mod]]$gPreds2[[1]],is.null)))]
+        cv <- fit$fits[[mod]]$gPreds2.CV[[1]][max(which(!sapply(fit$fits[[mod]]$gPreds2[[1]],is.null)))]
+    }else{
+        pred <- fit$fits[[mod]]$gPreds2[[1]][as.character(year)]
+        cv <- fit$fits[[mod]]$gPreds2.CV[[1]][as.character(year)]
+    }
+    if(inherits(fit$grid, "list")){
+        grid <- fit$grid[as.character(year)]
+    }else{
+        grid <- lapply(1:ny, function(x) fit$grid)
+    }
+
+    if(ny > 1 && !average && is.null(mfrow)){
+        mfrow <- n2mfrow(ny, asp = asp)
+        par(mfrow = mfrow, mar = c(0,0,2,0), oma = c(5,5,2,1))
+    }else if(!is.null(mfrow)){
+        par(mfrow = mfrow, mar = c(0,0,2,0), oma = c(5,5,2,1))
+    }
+
+    if(!is.null(mfrow)){
+        xaxt.ind <- (prod(mfrow) - mfrow[2] + 1):prod(mfrow)
+        yaxt.ind <- seq(1, prod(mfrow), mfrow[2])
+    }else{
+        xaxt.ind <- yaxt.ind <- 1
+    }
+
+    ##TODO: include error when first year not in pred!
+
+    ## length(pred)
+
+    nyx <- ifelse(average, 1, ny)
+    if(average){
+        grid <- tmp <- list(collapse.grid(grid))
+        nrowi <- sapply(pred, nrow)
+
+        ## tmpi <- tmp[[1]]
+        ## for(ii in 1:length(fit$grid)){
+        ##     tmpi <- dplyr::left_join(tmpi,
+        ##                             cbind(fit$grid[[ii]][,c("lon","lat")],
+        ##                                        pred = pred[[ii]][,1]),
+        ##                             by = c("lon","lat"))
+        ## }
+
+        ## pred <- list(data.frame(apply(tmpi[grep("pred",colnames(tmpi))], 1, mean, na.rm = TRUE)))
+
+        if(!is.na(sd(unlist(nrowi)[!sapply(nrowi,is.null)])) &&
+           sd(unlist(nrowi)[!sapply(nrowi,is.null)]) > 0.1){
+            stop("Did you use the same prediction grid for the years that you want to combine?")
+        }
+        tmp <- do.call(cbind, pred)
+        pred <- list(data.frame(apply(tmp, 1, mean, na.rm = TRUE)))
+        tmp <- do.call(cbind, cv)
+        cv <- list(data.frame(apply(tmp, 1, mean, na.rm = TRUE)))
+    }
+
+
+    if(fixed.scale){
+        lastmax <- 0
+        prediAll <- unlist(lapply(pred, function(x) x[,1]))
+        cviAll <- unlist(lapply(cv, function(x) x[,1]))
+        ind <- vector("list",length(pred))
+        for(i in 1:length(pred)){
+            if(i == 1){
+                starti <- 1
+            }else{
+                starti <- (lastmax + 1)
+            }
+            if(!is.null(pred[[i]])){
+                ind[[i]] <- starti:(starti + nrow(pred[[i]])-1)
+                lastmax <- max(ind[[i]])
+            }else{
+                ind[[i]] <- NA
+            }
+        }
+        if(all(is.null(prediAll))) return(NULL)
+        concT <- surveyIndex:::concTransform(log(prediAll))
+        if(is.null(min.val) || is.na(min.val)){
+            zFac <- cut(concT, 0:length(cols)/length(cols))
+        }else{
+            zFac <- cut(concT, sort(c(min.val,seq(0,1, length.out = length(cols)-1))))
+        }
+        for(i in 1:length(grid)){
+            if(all(!is.na(ind[[i]]))){
+                grid[[i]]$pred <- as.numeric(zFac[ind[[i]]])
+                grid[[i]]$cv <- as.numeric(cviAll[ind[[i]]])
+            }else{
+                grid[[i]]$pred <- NA
+                grid[[i]]$cv <- NA
+            }
+        }
+    }
+
+    if(fixed.lims){
+        if(is.null(xlim)) xlim <- extendrange(r = range(unlist(lapply(grid, function(x) range(if(!is.null(x$lon)) x$lon else NA))),na.rm = TRUE), f = 0.1)
+        if(is.null(ylim)) ylim <- extendrange(r = range(unlist(lapply(grid, function(x) range(if(!is.null(x$lat)) x$lat else NA))),na.rm = TRUE), f = 0.1)
+    }
+
+    for(i in 1:nyx){
+        if(!fixed.scale){
+            predi <- pred[[i]][,1]
+            if(!is.null(predi)){
+                concT <- surveyIndex:::concTransform(log(predi))
+                zFac <- cut(concT, 0:length(cols)/length(cols))
+                grid[[i]]$pred <- as.numeric(zFac)
+            }else{
+                grid[[i]]$pred <- NA
+            }
+        }
+        if(!is.null(cut.cv)){
+            grid[[i]]$pred[which(cv[[i]] > cut.cv)] <- NA
+        }
+        grid[[i]]$pred.low <- grid[[i]]$pred.high <- grid[[i]]$pred
+        if(!is.null(cv.stripes)){
+            grid[[i]]$pred.low[which(grid[[i]]$cv > cv.stripes)] <- NA
+            grid[[i]]$pred.high[which(grid[[i]]$cv <= cv.stripes)] <- NA
+        }
+        if(!is.null(grid[[i]]$lon)){
+            ## tmp <- reshape2::acast(grid[[i]], lon~lat, value.var = "pred")
+            ## Needed because grid[[i]] could have gaps which are then filled with long cells
+            ## TODO: not ideal to have to provide another grid! how to fix?
+            grid.dum <- merge(grid.all[,c("lon","lat")],
+                              grid[[i]][,c("lon","lat","pred",
+                                           "pred.low","pred.high","cv")],
+                              by = c("lon","lat"), all.x = TRUE)
+            tmp <- reshape2::acast(grid.dum, lon~lat, value.var = "pred")
+            if(!is.null(cv.stripes)){
+                tmp.low <- reshape2::acast(grid.dum, lon~lat, value.var = "pred.low")
+                tmp.high <- reshape2::acast(grid.dum, lon~lat, value.var = "pred.high")
+            }
+        }
+        if(is.null(xlim)) xlimi <- extendrange(r = range(as.numeric(rownames(tmp))), f = 0.1) else xlimi <- xlim
+        if(is.null(ylim)) ylimi <- extendrange(r = range(as.numeric(colnames(tmp))), f = 0.1) else ylimi <- ylim
+        if(is.null(xaxt0)) xaxt <- ifelse(i %in% xaxt.ind, "s", "n")
+        if(is.null(yaxt0)) yaxt <- ifelse(i %in% yaxt.ind, "s", "n")
+
+        plot(1,1,
+             xlim = xlimi, ylim = ylimi,
+             xaxt = xaxt, yaxt = yaxt,
+             ty = "n",
+             xlab = "", ylab = "")
+
+        if(!is.null(cv.stripes)){
+            if(!is.null(grid[[i]]$lon)){
+                image(as.numeric(rownames(tmp.high)), as.numeric(colnames(tmp.high)), tmp.high,
+                      xlim = xlimi, ylim = ylimi,
+                      add = TRUE,
+                      xlab = "", ylab = "", col = cols,
+                      breaks = seq(0.5,length(cols)+0.5,1))
+                add.stripes(stripes.n,
+                            x.range = xlimi,
+                            y.range = ylimi,
+                            lwd = stripes.lwd)
+                image(as.numeric(rownames(tmp.low)), as.numeric(colnames(tmp.low)), tmp.low,
+                      xlim = xlimi, ylim = ylimi,
+                      add = TRUE,
+                      xlab = "", ylab = "", col = cols,
+                      breaks = seq(0.5,length(cols)+0.5,1))
+            }
+        }else{
+            if(!is.null(grid[[i]]$lon)){
+                image(as.numeric(rownames(tmp)), as.numeric(colnames(tmp)), tmp,
+                      xlim = xlimi, ylim = ylimi,
+                      add = TRUE,
+                      xlab = "", ylab = "", col = cols,
+                      breaks = seq(0.5,length(cols)+0.5,1))
+            }
+        }
+
+        ## Land
+        if(plot.land){
+        maps::map("world", xlim = xlimi,
+                  ylim = ylimi,
+                  fill = TRUE, plot = TRUE, add = TRUE,
+                  col = grey(0.95), border = grey(0.8))
+        }
+
+
+        ## Observations
+        if(plot.obs %in% c(1,2)){
+            dat <- subset(fit$data, Year == year[i] & N > 0)
+            points(dat$lon, dat$lat, pch = 1,
+                   col = adjustcolor(1, 1)) ##, cex = dat$N)  ## HERE: cex too high
+        }else if(plot.obs == 3){
+            obs <- fit$data[which(fit$data$N > 0),]
+            ind <- which(as.character(obs$Year) == year[i])
+            points(obs$lon[ind], obs$lat[ind],
+                   col = rgb(t(col2rgb("black"))/255,alpha = 1),
+                   pch = 1, cex = 0.6 + obs$N[ind] / max(obs$N, na.rm = TRUE) * 3)
+        }
+
+
+
+
+
+        if(is.null(title)){
+            mtext(year[i], 3, 0.3, font = 2, cex = 0.8)
+        }else{
+            mtext(title, 3, 0.3, font = 2, cex = 0.8)
+        }
+        if ((legend && fixed.scale && i == ny) || (legend && average)){
+            maxcuts = aggregate(prediAll ~ zFac, FUN=max)
+            mincuts = aggregate(prediAll ~ zFac, FUN=min)
+            mm = mean(prediAll)
+            ml = signif(mincuts[,2]/mm,3)
+            ml[1] = 0
+            leg = paste0("[",ml,",",signif(maxcuts[,2]/mm,3),"]")
+            legend("bottomright", legend = leg, pch = 16, col = cols, bg = "white",
+                   cex = legend.cex,
+                   ncol = legend.ncol)
+        }else if (legend && !fixed.scale){
+            prediAll <- pred[[i]][,1]
+            if(!is.null(prediAll)){
+            zFac <- grid[[i]]$pred
+            maxcuts = aggregate(prediAll ~ zFac, FUN=max)
+            mincuts = aggregate(prediAll ~ zFac, FUN=min)
+            mm = mean(prediAll)
+            ml = signif(mincuts[,2]/mm,3)
+            ml[1] = 0
+            leg = paste0("[",ml,",",signif(maxcuts[,2]/mm,3),"]")
+            legend("bottomright", legend = leg, pch = 16, col = cols,
+                   cex = legend.cex,
+                   ncol = legend.ncol,
+                   bg = "white")
+            }
+        }
+
+
+
+        box(lwd = 1.5)
+
+
+
+    }
+
+
+
+
+    if(is.null(xlab)){
+        mtext("Latitude", 2, 3, outer = TRUE)
+    }else{
+        mtext(xlab, 2, 3, outer = TRUE)
+    }
+    if(is.null(ylab)){
+        mtext("Longitude", 1, 3, outer = TRUE)
+    }else{
+        mtext(ylab, 1, 3, outer = TRUE)
+    }
+
+
 }

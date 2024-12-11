@@ -8,13 +8,28 @@ plotfishdish.dist.cv(
   fit,
   mod = NULL,
   year = NULL,
+  grid.all = NULL,
   xlim = NULL,
   ylim = NULL,
   legend = TRUE,
   fixed.scale = TRUE,
+  title = NULL,
+  xlab = NULL,
+  ylab = NULL,
+  xaxt = NULL,
+  yaxt = NULL,
+  fixed.lims = TRUE,
   cols = cm.colors(7)[-1],
   breaks = NULL,
-  plot.obs = 2
+  min.val = NA,
+  cut.cv = NULL,
+  asp = 2,
+  plot.land = TRUE,
+  plot.obs = 2,
+  average = FALSE,
+  mfrow = NULL,
+  legend.cex = 0.6,
+  legend.ncol = 1
 )
 }
 \arguments{

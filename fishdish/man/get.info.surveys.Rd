@@ -4,12 +4,14 @@
 \alias{get.info.surveys}
 \title{Get some info about surveys}
 \usage{
-get.info.surveys(survey = NULL, statrec = FALSE, plot = TRUE)
+get.info.surveys(survey = NULL, statrec = FALSE, gear = FALSE, plot = TRUE)
 }
 \arguments{
 \item{survey}{optional vector or single survey}
 
 \item{statrec}{logical indicating whether to include statistical rectangles for each survey (Default: FALSE). If FALSE, returned object is a list.}
+
+\item{gear}{logical indicating whether to include gears}
 
 \item{plot}{logical shoul plot with survey distributions be drawn?}
 }
