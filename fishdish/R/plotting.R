@@ -2139,19 +2139,25 @@ plotfishdish.dist2 <- function(fit, mod = NULL, year = NULL,
 
         if(!is.null(cv.stripes)){
             if(!is.null(grid[[i]]$lon)){
-                image(as.numeric(rownames(tmp.high)), as.numeric(colnames(tmp.high)), tmp.high,
+                image(as.numeric(rownames(tmp.high)),
+                      as.numeric(colnames(tmp.high)),
+                      tmp.high,
                       xlim = xlimi, ylim = ylimi,
                       add = TRUE,
-                      xlab = "", ylab = "", col = cols,
+                      xlab = "", ylab = "",
+                      col = adjustcolor(cols,0.7),
                       breaks = seq(0.5,length(cols)+0.5,1))
                 add.stripes(stripes.n,
                             x.range = xlimi,
                             y.range = ylimi,
                             lwd = stripes.lwd)
-                image(as.numeric(rownames(tmp.low)), as.numeric(colnames(tmp.low)), tmp.low,
+                image(as.numeric(rownames(tmp.low)),
+                      as.numeric(colnames(tmp.low)),
+                      tmp.low,
                       xlim = xlimi, ylim = ylimi,
                       add = TRUE,
-                      xlab = "", ylab = "", col = cols,
+                      xlab = "", ylab = "",
+                      col = cols,
                       breaks = seq(0.5,length(cols)+0.5,1))
             }
         }else{

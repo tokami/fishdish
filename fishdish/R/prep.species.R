@@ -21,9 +21,10 @@ prep.species <- function(data, aphiaID = NULL,
                          remove.fragmented.years = TRUE,
                          filter.shipg = FALSE,
                          filter.statrec = FALSE,
-                         min.depth = 10,
-                         max.depth = 1000,
-                         min.gears = 0, min.surveys = 0, min.hauls = 0, min.ship.gear = 0,
+                         min.depth = 0,
+                         max.depth = 5000,
+                         min.gears = 0, min.surveys = 0,
+                         min.hauls = 0, min.ship.gear = 0,
                          verbose = TRUE){
     ## Check validity of data
     ## ------------------
@@ -43,7 +44,8 @@ prep.species <- function(data, aphiaID = NULL,
                                                                  colnames(survey))))],
                           1, sum)
     }else{
-        stop("No N!")
+       survey$N <- 1
+        writeLines("No N! Setting N to 1. This might affect the use of the minimum number arguments.")
     }
     if(!any(colnames(survey) == "bio") &&
        any(colnames(survey) == "bio.juv") && any(colnames(survey) == "bio.adult")){
@@ -312,26 +314,32 @@ prep.species <- function(data, aphiaID = NULL,
     ## N = aggregate(list(N = survey.spp$N),
     ##           by = list(year = survey.spp$Year), sum)[,2]))
 
-
     ## Combine surveys with observations and zeros
     ## --------------------------------------
-    if(any(colnames(survey.spp) == "n.juv")) survey0$n.juv <- 0
-    if(any(colnames(survey.spp) == "n.adult")) survey0$n.adult <- 0
-    if(any(colnames(survey.spp) == "bio.juv")) survey0$bio.juv <- 0
-    if(any(colnames(survey.spp) == "bio.adult")) survey0$bio.adult <- 0
+    nami.n <- colnames(survey.spp)[grep("n\\.", colnames(survey.spp))]
+    if(length(nami.n) > 0){
+        mati <- as.data.frame(matrix(0, nrow(survey0), length(nami.n)))
+        colnames(mati) <- nami.n
+        survey0 <- data.frame(survey0, mati)
+    }
+    nami.bio <- colnames(survey.spp)[grep("bio\\.", colnames(survey.spp))]
+    if(length(nami.bio) > 0){
+        mati <- as.data.frame(matrix(0, nrow(survey0), length(nami.bio)))
+        colnames(mati) <- nami.bio
+        survey0 <- data.frame(survey0, mati)
+    }
     ind <- colnames(survey0)[colnames(survey0) %in% colnames(survey.spp)]
     ind2 <- c("haul.id","N","bio")
-    if(any(colnames(survey.spp) == "n.juv")) ind2 <- c(ind2, "n.juv")
-    if(any(colnames(survey.spp) == "n.adult")) ind2 <- c(ind2, "n.adult")
-    if(any(colnames(survey.spp) == "bio.juv")) ind2 <- c(ind2, "bio.juv")
-    if(any(colnames(survey.spp) == "bio.adult")) ind2 <- c(ind2, "bio.adult")
+    ind2 <- c(ind2, colnames(survey.spp)[grep("n\\.", colnames(survey.spp))])
+    ind2 <- c(ind2, colnames(survey.spp)[grep("bio\\.", colnames(survey.spp))])
     ind <- !(colnames(survey.spp) %in% ind[!(ind %in% ind2)])
     survey.spp2 <- plyr::join(survey0, survey.spp[,ind], by="haul.id")
     if(is.null(aphiaID)){
         aphiaID <- unique(survey.spp$AphiaID)
     }
     survey.spp2$AphiaID <- paste0(aphiaID, collapse = ",")
-    survey.spp2$scientificname <- paste0(unique(survey.spp$scientificname), collapse = ",")
+    survey.spp2$scientificname <- paste0(unique(survey.spp$scientificname),
+                                         collapse = ",")
     survey.spp2$genus <- paste0(unique(survey.spp$genus), collapse = ",")
     survey.spp2$family <- paste0(unique(survey.spp$family), collapse = ",")
     survey.spp2$order <- paste0(unique(survey.spp$order), collapse = ",")
@@ -341,34 +349,33 @@ prep.species <- function(data, aphiaID = NULL,
     N <- rowSums(survey.spp2[,ind], na.rm = TRUE)
     survey.spp2[,ind] <- NULL
     survey.spp2$N <- N
-    if(any(colnames(survey.spp) == "n.juv")){
-        ind <- which(colnames(survey.spp2) == "n.juv")
-        N <- rowSums(survey.spp2[,ind], na.rm = TRUE)
-        survey.spp2[,ind] <- NULL
-        survey.spp2$n.juv <- N
-    }
-    if(any(colnames(survey.spp) == "n.adult")){
-        ind <- which(colnames(survey.spp2) == "n.adult")
-        N <- rowSums(survey.spp2[,ind], na.rm = TRUE)
-        survey.spp2[,ind] <- NULL
-        survey.spp2$n.adult <- N
-    }
     ## Combine bio from survey0 and survey
     ind <- which(colnames(survey.spp2) == "bio")
     bio <- rowSums(survey.spp2[,ind], na.rm = TRUE)
     survey.spp2[,ind] <- NULL
     survey.spp2$bio <- bio
-    if(any(colnames(survey.spp) == "bio.juv")){
-        ind <- which(colnames(survey.spp2) == "bio.juv")
-        bio <- rowSums(survey.spp2[,ind], na.rm = TRUE)
-        survey.spp2[,ind] <- NULL
-        survey.spp2$bio.juv <- bio
+    ## others
+    if(length(nami.n) > 0){
+        for(ni in 1:length(nami.n)){
+            ind <- c(grep(paste0("^",nami.n[ni],"$"), colnames(survey.spp2)),
+                     grep(paste0("^",nami.n[ni],".1$"), colnames(survey.spp2)))
+            N <- rowSums(survey.spp2[,ind], na.rm = TRUE)
+            survey.spp2[,ind] <- NULL
+            survey.spp2 <- data.frame(survey.spp2, N)
+            colnames(survey.spp2) <- c(colnames(survey.spp2)[-ncol(survey.spp2)],
+                                       nami.n[ni])
+        }
     }
-    if(any(colnames(survey.spp) == "bio.adult")){
-        ind <- which(colnames(survey.spp2) == "bio.adult")
-        bio <- rowSums(survey.spp2[,ind], na.rm = TRUE)
-        survey.spp2[,ind] <- NULL
-        survey.spp2$bio.adult <- bio
+    if(length(nami.bio) > 0){
+        for(ni in 1:length(nami.bio)){
+            ind <- c(grep(paste0("^",nami.bio[ni],"$"), colnames(survey.spp2)),
+                     grep(paste0("^",nami.bio[ni],".1$"), colnames(survey.spp2)))
+            bio <- rowSums(survey.spp2[,ind], na.rm = TRUE)
+            survey.spp2[,ind] <- NULL
+            survey.spp2 <- data.frame(survey.spp2, bio)
+            colnames(survey.spp2) <- c(colnames(survey.spp2)[-ncol(survey.spp2)],
+                                       nami.bio[ni])
+        }
     }
     ## overwrite
     survey.spp <- survey.spp2

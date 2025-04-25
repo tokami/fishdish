@@ -194,15 +194,14 @@ download.data <- function(first.year = 1967,
 #'
 #' @export
 load.data <- function(file.dir = "files",
-                      files = NULL,
                       first.year = 1967,
                       last.year = 2020,
                       surveys = "all",
                       quarters = "all",
                       aphiaID = "all",
                       datasets = c("HH","HL"),
-                      calc.swept.area = TRUE,
-                      datras.variables = list.datras.variables.req(swept.area.calculated = !calc.swept.area),
+                      calc.swept.area = FALSE,
+                      datras.variables = list.datras.variables.req(swept.area.calculated = calc.swept.area),
                       reduce.file.size = TRUE,
                       verbose = TRUE
                       ){## Check surveys
@@ -244,70 +243,74 @@ load.data <- function(file.dir = "files",
         }
     }
 
-    if(is.null(files)){
-        files2 <- dir(file.dir)
-    }else{
-        files2 <- dir(file.dir)[which(dir(file.dir) %in% files)]
-    }
-    nfiles <- length(files2)
+    files2 <- sapply(datasets, function(x) dir(file.dir)[grep(x, dir(file.dir))])
+    if(!inherits(files2, "list")) files2 <- list(files2)
 
-    ## Haul info from Datras
-    hl <- hh <- ca <- file.names <- NULL
-    for(i in 1:nfiles){
-        dat <- read.table(file.path(file.dir, files2[i]))
-        dat.type <- strsplit(files2[i],"_")[[1]][1]
+    hl <- hh <- ca <- NULL
+    for(ds in 1:length(datasets)){
 
-        if(inherits(dat, "data.frame")){
-            ## CHECK: Remove this option as it would get rid of the zero hauls?
-            ## Better: e.g. only keep surveys were species was present at least once.
-            ## Subset Species if provided
-            if(dat.type == "HL" && !(aphiaID[1] %in% c("all","All","ALL")) &&
-               !is.null(aphiaID[1]) && !is.na(aphiaID[1])){
-                ## if(verbose) writeLines(paste0("Subsetting downloaded data for following Aphia ID(s): ",
-                ##                   paste0(aphiaID, collapse = ", ")))
-                dat <- subset(dat, Valid_Aphia %in% aphiaID)
+        nfiles <- length(files2[[ds]])
+
+        ## Haul info from Datras
+        listi <- vector("list", nfiles)
+        t1 <- Sys.time()
+        for(i in 1:nfiles){
+            dat <- read.table(file.path(file.dir, files2[[ds]][i]))
+            dat.type <- strsplit(files2[[ds]][i],"_")[[1]][1]
+
+            if(inherits(dat, "data.frame")){
+                ## CHECK: Remove this option as it would get rid of the zero hauls?
+                ## Better: e.g. only keep surveys were species was present at least once.
+                ## Subset Species if provided
+                if(dat.type == "HL" && !(aphiaID[1] %in% c("all","All","ALL")) &&
+                   !is.null(aphiaID[1]) && !is.na(aphiaID[1])){
+                    ## if(verbose) writeLines(paste0("Subsetting downloaded data for following Aphia ID(s): ",
+                    ##                   paste0(aphiaID, collapse = ", ")))
+                    dat <- subset(dat, Valid_Aphia %in% aphiaID)
+                }
+                ## Rename some variables
+                if(dat.type == "HH"){
+                    colnames(dat)[which(colnames(dat) == "ShootLong")] <- "lon"
+                    colnames(dat)[which(colnames(dat) == "ShootLat")] <- "lat"
+
+                }else if(dat.type %in% c("HL","CA")){
+                    colnames(dat)[which(colnames(dat) == "Valid_Aphia")] <- "AphiaID"
+                    ## "." and "0" provided in mm, 1,2,5 provided in cm
+                    lngt2cm <- c("." = 0.1, "0" = 0.1, "1" = 1, "2" = 1, "5" = 1)[as.character(dat$LngtCode)]
+                    dat$LngtCm <- lngt2cm * dat$LngtClass
+
+                }
+
+                ## Subset required variables
+                if(reduce.file.size){
+                    ind <- datras.variables[[dat.type]]
+                    ## if(verbose) writeLines(paste0("Subsetting downloaded data for following variables: ",
+                    ##                   paste0(ind, collapse = ", ")))
+                    if(any(!ind %in% colnames(dat))) browser()
+                    dat <- dat[,ind]
+                }
             }
-            ## Rename some variables
-            if(dat.type == "HH"){
-                colnames(dat)[which(colnames(dat) == "ShootLong")] <- "lon"
-                colnames(dat)[which(colnames(dat) == "ShootLat")] <- "lat"
 
-            }else if(dat.type %in% c("HL","CA")){
-                colnames(dat)[which(colnames(dat) == "Valid_Aphia")] <- "AphiaID"
-                ## "." and "0" provided in mm, 1,2,5 provided in cm
-                lngt2cm <- c("." = 0.1, "0" = 0.1, "1" = 1, "2" = 1, "5" = 1)[as.character(dat$LngtCode)]
-                dat$LngtCm <- lngt2cm * dat$LngtClass
-
-            }
-
-            ## Subset required variables
-            if(reduce.file.size){
-                ind <- datras.variables[[dat.type]]
-                ## if(verbose) writeLines(paste0("Subsetting downloaded data for following variables: ",
-                ##                   paste0(ind, collapse = ", ")))
-                dat <- dat[,ind]
-            }
+            listi[[i]] <- dat
         }
 
         ## Combine data from surveys
-        if(dat.type == "HH"){
-            hh <- try(rbind(hh, dat), silent = TRUE)
-            if(inherits(hh, "try-error")){
-                stop(paste0("Cannot merge data sets. Please contact the package maintainer. This might be due to a misfit in DATRAS variables: ",lapply(dat, colnames)))
-            }
-        }else if(dat.type == "HL"){
-            hl <- try(rbind(hl, dat), silent = TRUE)
-            if(inherits(hl, "try-error")){
-                stop(paste0("Cannot merge data sets. Please contact the package maintainer. This might be due to a misfit in DATRAS variables: ",lapply(dat, colnames)))
-            }
-        }else if(dat.type == "CA"){
-            ca <- try(rbind(ca, dat), silent = TRUE)
-            if(inherits(ca, "try-error")){
-                stop(paste0("Cannot merge data sets. Please contact the package maintainer. This might be due to a misfit in DATRAS variables: ",lapply(dat, colnames)))
-            }
+        resi <- try(do.call(rbind, listi), silent = TRUE)
+        if(inherits(resi, "try-error")){
+            stop(paste0("Cannot merge data sets. Please contact the package maintainer. This might be due to a misfit in DATRAS variables: ",lapply(listi, colnames)))
         }
-    }
 
+        if(dat.type == "HH"){
+            hh <- resi
+        }else if(dat.type == "HL"){
+            hl <- resi
+        }else if(dat.type == "CA"){
+            ca <- resi
+        }
+        rm(listi)
+        gc()
+
+    }
 
     if(calc.swept.area){
         hh <- calc.swept.area(list(HH=hh))$HH

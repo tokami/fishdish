@@ -24,13 +24,23 @@ minus9toNA <- function(x){
 #' @return Vector with all survey names
 #' @export
 list.surveys <- function(){
-    all.surveys <- c("NS-IBTS","BITS","EVHOE","FR-CGFS",
-                     "IE-IGFS", "NIGFS", "PT-IBTS", "ROCKALL",
-                     "SCOROC", "SP-ARSA", "SP-NORTH", "SP-PORC",
-                     "SNS", "SWC-IBTS","SCOWCGFS", "BTS",
-                     "BTS-VIII", "DYFS", "NO-shrimp")
+    ## all.surveys <- c("NS-IBTS","BITS","EVHOE","FR-CGFS",
+    ##                  "IE-IGFS", "NIGFS", "PT-IBTS", "ROCKALL",
+    ##                  "SCOROC", "SP-ARSA", "SP-NORTH", "SP-PORC",
+    ##                  "SNS", "SWC-IBTS","SCOWCGFS", "BTS",
+    ##                  "BTS-VIII", "DYFS", "NO-shrimp")
 
-    all.surveys <- icesDatras::getSurveyList()
+    all.surveys <- c("BITS", "BTS", "BTS-GSA17", "BTS-VIII",
+                     "Can-Mar", "DWS", "DYFS", "EVHOE",
+                     "FR-CGFS", "FR-WCGFS", "IE-IAMS",
+                     "IE-IGFS", "IS-IDPS", "NIGFS",
+                     "NL-BSAS", "NS-IBTS", "NS-IDPS",
+                     "NSSS", "PT-IBTS", "ROCKALL",
+                     "SCOROC", "SCOWCGFS",
+                     "SE-SOUND", "SNS", "SP-ARSA",
+                     "SP-NORTH", "SP-PORC", "SWC-IBTS")
+
+    ## all.surveys <- icesDatras::getSurveyList()
     all.surveys <- all.surveys[-which(all.surveys == "Test-DATRAS")]
     all.surveys <- c(all.surveys, "NOSS")
 
@@ -458,7 +468,8 @@ list.datras.variables.req <- function(swept.area.calculated = TRUE){
     all.variables[["HL"]] <- c("Survey","Year","Quarter","Country","Ship",
                                "Gear","StNo", "HaulNo","SpecCodeType",
                                "LngtCode","LngtClass",
-                               "SpecCode","SpecVal","TotalNo","CatIdentifier",
+                               "SpecCode","SpecVal", "Sex",
+                               "TotalNo","CatIdentifier",
                                "SubFactor","HLNoAtLngt","AphiaID",
                                "CatCatchWgt")
     all.variables[["CA"]] <- c("Survey","Year","Quarter","Country","Ship",
@@ -1391,13 +1402,24 @@ add.stripes <- function(n = 100,
                         x.range = c(0,1),
                         y.range = c(0,1),
                         slope = 1,
+                        col = "white",
                         lwd = 3){
-    abvec <- Vectorize(abline, vectorize.args = c("a","b"))
-    a <- y.range[1] - x.range[1]/(2 * x.range[1] + slope)
+  x.min <- x.range[1]
+  x.max <- x.range[2]
+  y.min <- y.range[1]
+  y.max <- y.range[2]
+  a.min <- y.min - slope * x.max
+  a.max <- y.max - slope * x.min
+  intercepts <- seq(a.min, a.max, length.out = n)
+  for(a in intercepts){
+    abline(a = a, b = slope, col = col, lwd = lwd)
+  }
+    ## abvec <- Vectorize(abline, vectorize.args = c("a","b"))
+    ## a <- y.range[1] - x.range[1]/(2 * x.range[1] + slope)
 
-    tmp <- abvec(a = seq(a - (x.range[2] - x.range[1]),
-                   a + (y.range[2] - y.range[1]),
-                   length.out = n),
-           b = rep(slope, n),
-           col = "white", lwd = lwd)
+    ## tmp <- abvec(a = seq(a - (x.range[2] - x.range[1]),
+    ##                a + (y.range[2] - y.range[1]),
+    ##                length.out = n),
+    ##        b = rep(slope, n),
+    ##        col = "white", lwd = lwd)
 }

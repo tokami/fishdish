@@ -17,6 +17,7 @@ prep.data.internal <- function(data, AphiaID = NULL,
                                est.bio = FALSE,
                                datras.variables = list.datras.variables.req(),
                                use.total.catch.w.and.n = TRUE,
+                               use.sex = FALSE,
                                verbose = TRUE){
 
     specflag <- ifelse(is.null(AphiaID[1]) || is.na(AphiaID[1]) || AphiaID[1] %in% c("all","All","ALL"),0,1)
@@ -146,6 +147,7 @@ prep.data.internal <- function(data, AphiaID = NULL,
     ## Subset HL (also to avoid double info in hh and hl after merging)
     ## ------------------
     hl <- hl[,c("HaulID","SpecCodeType","SpecCode","SpecVal",
+                "Sex",
                 "TotalNo", ## "CatCatchWgt",
                 "CatIdentifier","SubFactor", "LngtCode",
                 "LngtClass","HLNoAtLngt","AphiaID")]
@@ -352,6 +354,7 @@ prep.data.internal <- function(data, AphiaID = NULL,
     ## ---------
     ind <- which(!hl$HaulVal %in% c("A","V"))
 
+
     ## SpecVal (1,4,7,10) see: http://vocab.ices.dk/?ref=5
     ## ---------
     ind <- which(!(hl$SpecVal %in% c(1,4,7,10)))
@@ -528,12 +531,32 @@ prep.data.internal <- function(data, AphiaID = NULL,
     range(hl$LngtCm, na.rm = TRUE)
     ## DATRAS::addSpectrum
 
+    ca$LngtCm <- NA
+    ind <- which(!is.na(ca$LngtCode))
+    ## DATRAS:::addExtraVariables
+    lngt2cm <- c("." = 0.1, "0" = 0.1, "1" = 1, "2" = 1, "5" = 1)[as.character(ca$LngtCode[ind])] ## 6,7 for NO shrimp survey
+    ca$LngtCm[ind] <- lngt2cm * ca$LngtClass[ind]
+    range(ca$LngtCm, na.rm = TRUE)
+    ## DATRAS::addSpectrum
+
     ## https://www.ices.dk/data/Documents/DATRAS/DATRAS_FAQs.pdf:
     ## DataType R,S: TotalNo –report the total number of fish of one species, sex, and category in the given haul
     ## DataType C: TotalNo –report the total number of fish of one species and sex in the given haul, raised to 1 hour hauling;
     hl$multiplier <- ifelse(hl$DataType=="C", hl$HaulDur/60, hl$SubFactor)  ## not using SubFactor if DataType == "C"
 
     hl$Counts <- as.numeric(hl$HLNoAtLngt * hl$multiplier)
+
+    if(use.sex){
+        hl$CountsF <- hl$CountsM <- NA
+        indi <- which(hl$Sex == "F")
+        if(length(indi) > 0){
+            hl$CountsF[indi] <- as.numeric(hl$HLNoAtLngt[indi] * hl$multiplier[indi])
+        }
+        indi <- which(hl$Sex == "M")
+        if(length(indi) > 0){
+            hl$CountsM[indi] <- as.numeric(hl$HLNoAtLngt[indi] * hl$multiplier[indi])
+        }
+    }
 
     ## Account for double beams
     if(any(colnames(hl) == "GearEx")){
@@ -626,6 +649,8 @@ prep.data <- function(data, AphiaID = NULL,
                       use.total.catch.w.and.n = TRUE,
                       select = NULL,
                       overlap = NULL,
+                      length.ids = NULL,
+                      use.sex = FALSE,
                       verbose = TRUE){
 
     specflag <- ifelse(is.null(AphiaID[1]) || is.na(AphiaID[1]) || AphiaID[1] %in% c("all","All","ALL"),0,1)
@@ -653,6 +678,7 @@ prep.data <- function(data, AphiaID = NULL,
                                            datras.variables = datras.variables,
                                            use.total.catch.w.and.n =
                                                use.total.catch.w.and.n,
+                                           use.sex = use.sex,
                                            verbose = verbose)
 
         ## Option to choose entries that overlap
@@ -671,17 +697,19 @@ prep.data <- function(data, AphiaID = NULL,
             rownames(data.prepped$hl) <- NULL
 
             ## CA
-            survi <- sapply(strsplit(data.prepped$ca$HaulID, ":"), function(x) x[[1]])
-            spliti <- split(data.prepped$ca, survi)
-            for(j in 1:length(overlap)){
-                sel <- unlist(lapply(spliti, function(x) unique(x[[overlap[j]]])))
-                sel <- as.character(sel[duplicated(sel)])
-                for(k in 1:length(spliti)){
-                    spliti[[k]] <- spliti[[k]][spliti[[k]][[overlap[j]]] %in% sel,]
+            if(!is.null(data.prepped$ca$HaulID)){
+                survi <- sapply(strsplit(data.prepped$ca$HaulID, ":"), function(x) x[[1]])
+                spliti <- split(data.prepped$ca, survi)
+                for(j in 1:length(overlap)){
+                    sel <- unlist(lapply(spliti, function(x) unique(x[[overlap[j]]])))
+                    sel <- as.character(sel[duplicated(sel)])
+                    for(k in 1:length(spliti)){
+                        spliti[[k]] <- spliti[[k]][spliti[[k]][[overlap[j]]] %in% sel,]
+                    }
                 }
+                data.prepped$ca <- do.call(rbind, spliti)
+                rownames(data.prepped$ca) <- NULL
             }
-            data.prepped$ca <- do.call(rbind, spliti)
-            rownames(data.prepped$ca) <- NULL
 
         }
 
@@ -703,6 +731,7 @@ prep.data <- function(data, AphiaID = NULL,
             for(i in 1:nspec){
 
                 hlc <- subset(hl, AphiaID == specs.matched$AphiaID[i])
+
                 unique(hlc$AphiaID)
                 if(nrow(hlc) == 0){
                     stop(paste0("No entries in HL after data prep for aphia ID:",
@@ -730,69 +759,197 @@ prep.data <- function(data, AphiaID = NULL,
 
                     if(any(!is.na(hlc$LngtCm[ind]))){
 
-                    ## DATRAS::addSpectrum
-                    ## DATRAS:::getAccuracyCM
-                    by <- max(c("." = 0.1, "0" = 0.5, "1" = 1, "2" = 2, "5" = 5)[as.character(hlc$LngtCode[ind])],
-                              na.rm = TRUE)
-                    cm.breaks <- seq(min(hlc$LngtCm[ind], na.rm = TRUE),
-                                     max(hlc$LngtCm[ind], na.rm = TRUE) + by,
-                                     by = by)
-                    midLengths <- cm.breaks[-1] - diff(cm.breaks)/2
-                    names(midLengths) <- cm.breaks[-length(cm.breaks)]
-                    ## TODO: make issue/PR for DATRAS (always assumes 1cm bins)
-                    hlc$sizeGroup <- NA
-                    hlc$sizeGroup[ind] <- cut(hlc$LngtCm[ind],
-                                              breaks = cm.breaks,
-                                              right = FALSE)
-                    n.by.length <- round(xtabs(Counts ~ HaulID + sizeGroup,
-                                               data = hlc)) ## round after summing up?
+                        ## DATRAS::addSpectrum
+                        ## DATRAS:::getAccuracyCM
+                        by <- max(c("." = 0.1, "0" = 0.5, "1" = 1, "2" = 2, "5" = 5)[as.character(hlc$LngtCode[ind])],
+                                  na.rm = TRUE)
+                        cm.breaks <- seq(min(hlc$LngtCm[ind], na.rm = TRUE),
+                                         max(hlc$LngtCm[ind], na.rm = TRUE) + by,
+                                         by = by)
 
-                    ## TODO: needed? but how to add missing species info to bio.pars? or how to pass specific Lm?
-                    ## if(split.juv.adults){
-                    ##     data("bio.pars")
-                    ## }
+                        bin.size <- diff(cm.breaks)/2
+                        midLengths <- cm.breaks[-1] - bin.size
+                        names(midLengths) <- cm.breaks[-length(cm.breaks)]
+                        ## TODO: make issue/PR for DATRAS (always assumes 1cm bins)
+                        hlc$sizeGroup <- NA
+                        hlc$sizeGroup[ind] <- as.integer(cut(hlc$LngtCm[ind],
+                                                             breaks = cm.breaks,
+                                                             right = FALSE))
+                        n.by.length0 <- round(xtabs(Counts ~ HaulID + sizeGroup,
+                                                    data = hlc)) ## round after summing u
 
-                    if(split.juv.adults && any(bio.pars$AphiaID ==
-                                               specs.matched$AphiaID[i]) &&
-                       !split.length){
+                        tmp <- expand.grid(HaulID = rownames(n.by.length0),
+                                           sizeGroup = cm.breaks,
+                                           Freq = 0)
+                        tmp0 <- as.data.frame(n.by.length0)
+                        tmp0$sizeGroup <- cm.breaks[as.numeric(as.character(tmp0$sizeGroup))]
+                        tmp2 <- plyr::join(tmp, tmp0,
+                                           by = c("HaulID", "sizeGroup"))
+                        tmp2[is.na(tmp2[,3]),3] <- 0
+                        tmp2[is.na(tmp2[,4]),4] <- 0
+                        tmp3 <- data.frame(tmp2[,1:2], Freq = apply(tmp2[,3:4], 1, sum))
+                        n.by.length <- reshape2::acast(tmp3, HaulID ~ sizeGroup,
+                                                       value.var = "Freq")
+
+                        if(use.sex){
+                            ## Females
+                            n.by.length0 <- round(xtabs(CountsF ~ HaulID + sizeGroup,
+                                                        data = hlc)) ## round after summing u
+
+                            tmp <- expand.grid(HaulID = rownames(n.by.length0),
+                                               sizeGroup = cm.breaks,
+                                               Freq = 0)
+                            tmp0 <- as.data.frame(n.by.length0)
+                            tmp0$sizeGroup <- cm.breaks[as.numeric(as.character(tmp0$sizeGroup))]
+                            tmp2 <- plyr::join(tmp, tmp0,
+                                               by = c("HaulID", "sizeGroup"))
+                            tmp2[is.na(tmp2[,3]),3] <- 0
+                            tmp2[is.na(tmp2[,4]),4] <- 0
+                            tmp3 <- data.frame(tmp2[,1:2], Freq = apply(tmp2[,3:4], 1, sum))
+                            n.by.length.f <- reshape2::acast(tmp3, HaulID ~ sizeGroup,
+                                                             value.var = "Freq")
+
+                            ## Males
+                            n.by.length0 <- round(xtabs(CountsM ~ HaulID + sizeGroup,
+                                                        data = hlc)) ## round after summing u
+
+                            tmp <- expand.grid(HaulID = rownames(n.by.length0),
+                                               sizeGroup = cm.breaks,
+                                               Freq = 0)
+                            tmp0 <- as.data.frame(n.by.length0)
+                            tmp0$sizeGroup <- cm.breaks[as.numeric(as.character(tmp0$sizeGroup))]
+                            tmp2 <- plyr::join(tmp, tmp0,
+                                               by = c("HaulID", "sizeGroup"))
+                            tmp2[is.na(tmp2[,3]),3] <- 0
+                            tmp2[is.na(tmp2[,4]),4] <- 0
+                            tmp3 <- data.frame(tmp2[,1:2], Freq = apply(tmp2[,3:4], 1, sum))
+                            n.by.length.m <- reshape2::acast(tmp3, HaulID ~ sizeGroup,
+                                                             value.var = "Freq")
+                        }
+
+                        ## TODO: needed? but how to add missing species info to bio.pars? or how to pass specific Lm?
+                        ## if(split.juv.adults){
+                        ##     data("bio.pars")
+                        ## }
+
+                        if(split.juv.adults &&
+                           any(bio.pars$AphiaID ==
+                               specs.matched$AphiaID[i]) &&
+                           !split.length){
                         if(verbose){
                             print(paste0("Lm(",i,") = ",
                                          bio.pars$Lm[bio.pars$AphiaID ==
                                                      specs.matched$AphiaID[i]]))
                         }
 
-                        browser()
-
-                        ## TODO: this should use the limits of length classes rather than the midLengths or account for the sizebin!
-                        ind.juv <- which(midLengths <
-                                         bio.pars$Lm[bio.pars$AphiaID ==
-                                                     specs.matched$AphiaID[i]])
-                        ind.adult <- which(midLengths >=
-                                           bio.pars$Lm[bio.pars$AphiaID ==
-                                                       specs.matched$AphiaID[i]])
                         survey.spec <- data.frame(haul.id = rownames(n.by.length),
                                                   AphiaID = specs.matched$AphiaID[i])
 
-                        if(length(ind.juv) > 0){
-                            if(nrow(n.by.length) > 1 && length(ind.juv) > 1){
-                                survey.spec$n.juv = unname(apply(n.by.length[,ind.juv],
-                                                                 1, sum))
+                        if(use.sex){
+                            if(all(c("F","M") %in% names(length.ids))){
+                                lsplit.f <- bio.pars[bio.pars$AphiaID ==
+                                                   specs.matched$AphiaID[i],
+                                                   length.ids[names(length.ids) == "F"]]
+                                lsplit.m <- bio.pars[bio.pars$AphiaID ==
+                                                   specs.matched$AphiaID[i],
+                                                   length.ids[names(length.ids) == "M"]]
                             }else{
-                                survey.spec$n.juv = sum(n.by.length[,ind.juv])
+                                lsplit.m <-
+                                    lsplit.f <-
+                                        bio.pars[bio.pars$AphiaID ==
+                                                 specs.matched$AphiaID[i],
+                                                 length.ids]
                             }
-                        }else{
-                            survey.spec$n.juv <- 0
+
+                            ## loop over female and male
+                            for(fm in 1:2){
+                                if(fm == 1){
+                                    nami <- length.ids[names(length.ids) == "F"]
+                                    lsplit <- lsplit.f
+                                    n.by.lengthi <- n.by.length.f
+                                }else{
+                                    nami <- length.ids[names(length.ids) == "M"]
+                                    lsplit <- lsplit.m
+                                    n.by.lengthi <- n.by.length.m
+                                }
+                                lres <- as.data.frame(matrix(0, nrow(survey.spec),
+                                                             length(lsplit)*2))
+
+                                for(li in 1:length(lsplit)){
+                                    ind.below <- which((midLengths + bin.size) <
+                                                       as.numeric(lsplit[li]))
+                                    if(length(ind.below) > 0){
+                                        if(nrow(n.by.lengthi) > 1 && length(ind.below) > 1){
+                                            lres[,(li-1)*2+1] <- unname(apply(n.by.lengthi[,ind.below],
+                                                                              1, sum))
+                                        }else{
+                                            lres[,(li-1)*2+1] <- sum(n.by.lengthi[,ind.below])
+                                        }
+                                    }
+                                    ind.above <- which((midLengths + bin.size) >=
+                                                       as.numeric(lsplit[li]))
+                                    if(length(ind.above) > 0){
+                                        if(nrow(n.by.lengthi) > 1 && length(ind.above) > 1){
+                                            lres[,(li-1)*2+2] <- unname(apply(n.by.lengthi[,ind.above],
+                                                                              1, sum))
+                                        }else{
+                                            lres[,(li-1)*2+2] <- sum(n.by.lengthi[,ind.above])
+                                        }
+                                    }
+                                }
+                                colnames(lres) <- paste0(rep(c("n.below.","n.above."),
+                                                             length(lsplit)),
+                                                         rep(nami, each = 2))
+                                survey.spec <- data.frame(survey.spec, lres)
+
+                            }
                         }
-                        if(length(ind.adult) > 0){
-                            if(nrow(n.by.length) > 1 && length(ind.adult) > 1){
-                                survey.spec$n.adult = unname(apply(n.by.length[,ind.adult],
-                                                                   1, sum))
+
+                        if("A" %in% names(length.ids) ||
+                           is.null(names(length.ids))){
+                            if("A" %in% names(length.ids)){
+                                nami <- length.ids[names(length.ids) == "A"]
+                                lsplit <- bio.pars[bio.pars$AphiaID ==
+                                                   specs.matched$AphiaID[i],
+                                                   nami]
                             }else{
-                                survey.spec$n.adult = sum(n.by.length[,ind.adult])
+                                nami <- length.ids
+                                lsplit <- bio.pars[bio.pars$AphiaID == specs.matched$AphiaID[i], nami]
                             }
-                        }else{
-                            survey.spec$n.adult <- 0
+
+                            lres <- as.data.frame(matrix(0, nrow(survey.spec),
+                                                         length(lsplit)*2))
+
+                            for(li in 1:length(lsplit)){
+                                ind.below <- which((midLengths + bin.size) <
+                                                   as.numeric(lsplit[li]))
+                                if(length(ind.below) > 0){
+                                    if(nrow(n.by.length) > 1 && length(ind.below) > 1){
+                                        lres[,(li-1)*2+1] <- unname(apply(n.by.length[,ind.below],
+                                                                          1, sum))
+                                    }else{
+                                        lres[,(li-1)*2+1] <- sum(n.by.length[,ind.below])
+                                    }
+                                }
+                                ind.above <- which((midLengths + bin.size) >=
+                                                   as.numeric(lsplit[li]))
+                                if(length(ind.above) > 0){
+                                    if(nrow(n.by.length) > 1 && length(ind.above) > 1){
+                                        lres[,(li-1)*2+2] <- unname(apply(n.by.length[,ind.above],
+                                                                            1, sum))
+                                    }else{
+                                        lres[,(li-1)*2+2] <- sum(n.by.length[,ind.above])
+                                    }
+                                }
+                            }
+                            colnames(lres) <- paste0(rep(c("n.below.","n.above."),
+                                                         length(lsplit)),
+                                                     rep(nami, each = 2))
+                            survey.spec <- data.frame(survey.spec, lres)
                         }
+
+
+
                     }else if(split.length &&
                              any(bio.pars$AphiaID == specs.matched$AphiaID[i])){
 
@@ -1139,18 +1296,17 @@ prep.data <- function(data, AphiaID = NULL,
                 survey <- rbind(survey, survey.spec)
             }
 
+
             ## CHECK: put this in prep.data
             colnames(survey0)[colnames(survey0) == "HaulID"] <- "haul.id"
             ## merge other variables to survey
             survey <- plyr::join(survey, survey0, by="haul.id")
-            if(split.juv.adults && any(colnames(survey) == "n.juv") &&
-               any(colnames(survey) == "n.adult")){
-                survey$n.juv[is.na(survey$n.juv)] <- 0
-                survey$n.adult[is.na(survey$n.adult)] <- 0
-                if(est.bio){
-                    survey$bio.juv[is.na(survey$bio.juv)] <- 0
-                    survey$bio.adult[is.na(survey$bio.adult)] <- 0
-                }
+            if(split.juv.adults &&
+               length(grep("below", colnames(survey))) > 0){
+                indi <- grep("below", colnames(survey))
+                survey[,indi][is.na(survey[,indi])] <- 0
+                indi <- grep("above", colnames(survey))
+                survey[,indi][is.na(survey[,indi])] <- 0
             }else if(split.length && any(colnames(survey) == "n1")){
                 for(j in 1:length(unique(inds))){
                     survey[is.na(survey[,grep(paste0("n",j),colnames(survey))]),
@@ -1357,7 +1513,9 @@ prep.data <- function(data, AphiaID = NULL,
             }
 
             ## merge other variables to survey
-            survey <- plyr::join(survey, survey0[,!(colnames(survey0) %in% c("N","bio"))], by="haul.id")
+            survey <- plyr::join(survey,
+                                 survey0[,!(colnames(survey0) %in% c("N","bio"))],
+                                 by="haul.id")
             if(split.juv.adults && any(colnames(survey) == "n.juv") &&
                any(colnames(survey) == "n.adult")){
                 survey$n.juv[is.na(survey$n.juv)] <- 0
