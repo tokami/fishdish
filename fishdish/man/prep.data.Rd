@@ -11,6 +11,7 @@ prep.data.internal(
   est.bio = FALSE,
   datras.variables = list.datras.variables.req(),
   use.total.catch.w.and.n = TRUE,
+  use.sex = FALSE,
   verbose = TRUE
 )
 
@@ -26,6 +27,8 @@ prep.data(
   use.total.catch.w.and.n = TRUE,
   select = NULL,
   overlap = NULL,
+  length.ids = NULL,
+  use.sex = FALSE,
   verbose = TRUE
 )
 }

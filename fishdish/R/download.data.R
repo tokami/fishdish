@@ -26,7 +26,7 @@ download.data <- function(first.year = 1967,
                           quarters = "all",
                           aphiaID = "all",
                           datasets = c("HH","HL"),
-                          calc.swept.area = TRUE,
+                          calc.swept.area = FALSE,
                           datras.variables = list.datras.variables.req(swept.area.calculated = FALSE),
                           reduce.file.size = TRUE,
                           verbose = TRUE,
@@ -84,11 +84,11 @@ download.data <- function(first.year = 1967,
         for(i in 1:ns){
             surv <- surveys.sel[i]
             if(verbose) writeLines(paste0("Downloading data set '",dat.type,"' of: ", surv))
-            dat[[i]] <- try(icesDatras::getDATRAS(record = dat.type,
-                                                  survey = surv,
-                                                  years = first.year:last.year,
-                                                  quarters = quarters.sel[[i]]),
-                            silent = TRUE)
+            dat[[i]] <- try(getDATRAS.fd(record = dat.type, survey = surv,
+                                         years = first.year:last.year,
+                                         quarters = quarters.sel[[i]]),
+                            silent = FALSE)
+            ## icesDatras::getDATRAS doesn't work
             ## suppressMessages
 
             if(inherits(dat[[i]], "data.frame")){
@@ -245,6 +245,13 @@ load.data <- function(file.dir = "files",
 
     files2 <- sapply(datasets, function(x) dir(file.dir)[grep(x, dir(file.dir))])
     if(!inherits(files2, "list")) files2 <- list(files2)
+
+    ## Take most recent data sets in files if multiple exist
+    for(ds in datasets){
+        files2tmp <- sort(files2[[ds]], decreasing = TRUE)
+        fili <- sapply(files2tmp, function(x) paste(strsplit(x, "_")[[1]][1:4],collapse="_"))
+        files2[[ds]] <- files2tmp[!duplicated(fili)]
+    }
 
     hl <- hh <- ca <- NULL
     for(ds in 1:length(datasets)){

@@ -41,7 +41,9 @@ list.surveys <- function(){
                      "SP-NORTH", "SP-PORC", "SWC-IBTS")
 
     ## all.surveys <- icesDatras::getSurveyList()
-    all.surveys <- all.surveys[-which(all.surveys == "Test-DATRAS")]
+    if(length(which(all.surveys == "Test-DATRAS")) > 0){
+        all.surveys <- all.surveys[-which(all.surveys == "Test-DATRAS")]
+    }
     all.surveys <- c(all.surveys, "NOSS")
 
     return(all.surveys)

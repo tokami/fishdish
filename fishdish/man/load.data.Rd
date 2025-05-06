@@ -6,24 +6,20 @@
 \usage{
 load.data(
   file.dir = "files",
-  files = NULL,
   first.year = 1967,
   last.year = 2020,
   surveys = "all",
   quarters = "all",
   aphiaID = "all",
   datasets = c("HH", "HL"),
-  calc.swept.area = TRUE,
-  datras.variables = list.datras.variables.req(swept.area.calculated = !calc.swept.area),
+  calc.swept.area = FALSE,
+  datras.variables = list.datras.variables.req(swept.area.calculated = calc.swept.area),
   reduce.file.size = TRUE,
   verbose = TRUE
 )
 }
 \arguments{
 \item{file.dir}{Directory with saved files, default: 'files'}
-
-\item{files}{Optional list with names of files to load. If NULL all files in
-folder 'file.dir' will be loaded}
 
 \item{first.year}{First year (default: 1967)}
 
@@ -46,6 +42,9 @@ reduce.file.size = TRUE).}
 \item{reduce.file.size}{Reduce file size}
 
 \item{verbose}{Print information? Default: TRUE}
+
+\item{files}{Optional list with names of files to load. If NULL all files in
+folder 'file.dir' will be loaded}
 }
 \value{
 List containing hh and hl data sets.

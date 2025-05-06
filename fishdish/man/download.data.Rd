@@ -11,7 +11,7 @@ download.data(
   quarters = "all",
   aphiaID = "all",
   datasets = c("HH", "HL"),
-  calc.swept.area = TRUE,
+  calc.swept.area = FALSE,
   datras.variables = list.datras.variables.req(swept.area.calculated = FALSE),
   reduce.file.size = TRUE,
   verbose = TRUE,
