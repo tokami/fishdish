@@ -29,7 +29,7 @@ prep.data.internal <- function(data, AphiaID = NULL,
 
     ## Flags
     ## ------------------
-    saflag <- ifelse(any("SweptAreaDSKM2" == colnames(hh)),1,0)
+    saflag <- ifelse(length(grep("SweptArea",colnames(hh))) > 0, TRUE, FALSE)
 
     ## Species subsetting for hl (full hh needed for survey0)
     ## ------------------
@@ -69,10 +69,13 @@ prep.data.internal <- function(data, AphiaID = NULL,
 
     ## Subset data sets to reduce memory usage and prevent R collapse
     ## ------------------
-    ind <- datras.variables[["HH"]]
-    if(!saflag) ind <- ind[-which(ind %in% c("SweptAreaDSKM2",
-                                             "SweptAreaWSKM2",
-                                             "SweptAreaBWKM2"))]
+  ind <- datras.variables[["HH"]]
+  ind <- c(ind, "SweptArea")
+      if(!saflag) ind <- ind[-which(ind %in% c("SweptArea"))]
+
+    ## if(!saflag) ind <- ind[-which(ind %in% c("SweptAreaDSKM2",
+    ##                                          "SweptAreaWSKM2",
+    ##                                          "SweptAreaBWKM2"))]
     if(!"GearEx" %in% colnames(hh)){
         hh$GearEx <- hh$Gear
     }
@@ -285,25 +288,24 @@ prep.data.internal <- function(data, AphiaID = NULL,
     if(any(colnames(hh) == "Depth_gam")) hh$Depth <- hh$Depth_gam
     hh$Depth_gam <- NULL
 
+  print(head(hh))
 
     ## Combine swept area
     ## -------------
-    if(saflag){
-        hh$SweptArea <- hh$SweptAreaBWKM2
-        ## WKABSENS: use wing spread index! Don't use both!
-        hh$SweptArea[is.na(hh$SweptArea)] <- hh$SweptAreaWSKM2[is.na(hh$SweptArea)]
-        ## hh$SweptArea[is.na(hh$SweptArea)] <- hh$SweptAreaDSKM2[is.na(hh$SweptArea)]
-        if(verbose) writeLines(paste(checkmark(all(!is.na(hh$SweptArea))),
-                                     "All swept area entries meaningful (no NA)",
-                                     sep="\t\t\t"))
-    }else{
-        hh$SweptArea <- NA
-    }
-    hh$SweptAreaWSKM2 <- NULL
-    hh$SweptAreaBWKM2 <- NULL
-    hh$SweptAreaDSKM2 <- NULL
-
-
+    ## if(saflag){
+    ##     hh$SweptArea <- hh$SweptAreaBWKM2
+    ##     ## WKABSENS: use wing spread index! Don't use both!
+    ##     hh$SweptArea[is.na(hh$SweptArea)] <- hh$SweptAreaWSKM2[is.na(hh$SweptArea)]
+    ##     ## hh$SweptArea[is.na(hh$SweptArea)] <- hh$SweptAreaDSKM2[is.na(hh$SweptArea)]
+    ##     if(verbose) writeLines(paste(checkmark(all(!is.na(hh$SweptArea))),
+    ##                                  "All swept area entries meaningful (no NA)",
+    ##                                  sep="\t\t\t"))
+    ## }else{
+    ##     hh$SweptArea <- NA
+    ## }
+    ## hh$SweptAreaWSKM2 <- NULL
+    ## hh$SweptAreaBWKM2 <- NULL
+    ## hh$SweptAreaDSKM2 <- NULL
 
     ## Remove invalid data and clean data set
     ## -----------------------
@@ -381,8 +383,7 @@ prep.data.internal <- function(data, AphiaID = NULL,
     hh <- subset(hh, HaulVal %in% c("A","V") &
                      StdSpecRecCode == 1 &
                      !is.na(lat) & !is.na(lon))
-    ## if(saflag) hh <- subset(hh, !is.na(SweptArea))
-
+  ## if(saflag) hh <- subset(hh, !is.na(SweptArea))
 
     ## Surveys
     ## -------------

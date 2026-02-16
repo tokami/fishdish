@@ -492,7 +492,8 @@ plotfishdish.dist <- function(fit, mod = NULL, year = NULL,
                               average = FALSE,
                               mfrow = NULL,
                               legend.cex = 0.6,
-                              legend.ncol = 1
+                              legend.ncol = 1,
+                              use.x.y = FALSE
                               ){
     xaxt0 <- xaxt
     yaxt0 <- yaxt
@@ -502,11 +503,16 @@ plotfishdish.dist <- function(fit, mod = NULL, year = NULL,
         grid.all <- fit$grid
     }
 
+    if (use.x.y) {
+        grid.all$lon <- grid.all$x
+        grid.all$lat <- grid.all$y
+    }
+
     if(is.null(mod)){
         mod <- 1
     }
     if(is.null(year)){
-##        year <- tail(rownames(fit$fits[[1]]$idx),1)
+        ##        year <- tail(rownames(fit$fits[[1]]$idx),1)
         year <- max(as.numeric(names(fit$fits[[mod]]$gPreds2[[1]])),na.rm = TRUE)
         writeLines(paste0("No year selected. Plotting year: ",year))
     }
@@ -528,6 +534,13 @@ plotfishdish.dist <- function(fit, mod = NULL, year = NULL,
         grid <- fit$grid[as.character(year)]
     }else{
         grid <- lapply(1:ny, function(x) fit$grid)
+    }
+
+    if (use.x.y) {
+        for(ii in 1:length(grid)) {
+            grid[[ii]]$lon <- grid[[ii]]$x
+            grid[[ii]]$lat <- grid[[ii]]$y
+        }
     }
 
     if(ny > 1 && !average && is.null(mfrow)){
@@ -570,7 +583,6 @@ plotfishdish.dist <- function(fit, mod = NULL, year = NULL,
         tmp <- do.call(cbind, pred)
         pred <- list(data.frame(apply(tmp, 1, mean, na.rm = TRUE)))
     }
-
 
     if(fixed.scale){
         lastmax <- 0
@@ -642,16 +654,33 @@ plotfishdish.dist <- function(fit, mod = NULL, year = NULL,
              ty = "n",
              xlab = "", ylab = "")
         if(!is.null(grid[[i]]$lon)){
-        image(as.numeric(rownames(tmp)), as.numeric(colnames(tmp)), tmp,
-              add = TRUE,
-              xlab = "", ylab = "", col = cols,
-              breaks = seq(0.5,length(cols)+0.5,1))
+            image(as.numeric(rownames(tmp)), as.numeric(colnames(tmp)),
+                  tmp,
+                  xlim = xlimi,
+                  ylim = ylimi,
+                  add = TRUE,
+                  xlab = "", ylab = "", col = cols,
+                  breaks = seq(0.5,length(cols)+0.5,1))
         }
         if(plot.land){
-        maps::map("world", xlim = xlimi,
-                  ylim = ylimi,
-                  fill = TRUE, plot = TRUE, add = TRUE,
-                  col = grey(0.95), border = grey(0.8))
+            if(use.x.y) {
+                world <- rnaturalearth::ne_countries(scale = "medium",
+                                                     returnclass = "sf")
+                world_ae <- sf::st_transform(world, sf::st_crs(3035))
+
+                plot(sf::st_geometry(world_ae),
+                     col = gray(0.95), border = gray(0.8),
+                     xlim = xlimi,
+                     ylim = ylimi,
+                     add = TRUE,
+                     axes = FALSE)
+            } else {
+                maps::map("world",
+                          xlim = xlimi,
+                          ylim = ylimi,
+                          fill = TRUE, plot = TRUE, add = TRUE,
+                          col = grey(0.95), border = grey(0.8))
+            }
         }
         if(plot.obs %in% c(1,2)){
             dat <- subset(fit$data, Year == year[i] & N > 0)
@@ -682,28 +711,36 @@ plotfishdish.dist <- function(fit, mod = NULL, year = NULL,
         }else if (legend && !fixed.scale){
             prediAll <- pred[[i]][,1]
             if(!is.null(prediAll)){
-            zFac <- grid[[i]]$pred
-            maxcuts = aggregate(prediAll ~ zFac, FUN=max)
-            mincuts = aggregate(prediAll ~ zFac, FUN=min)
-            mm = mean(prediAll)
-            ml = signif(mincuts[,2]/mm,3)
-            ml[1] = 0
-            leg = paste0("[",ml,",",signif(maxcuts[,2]/mm,3),"]")
-            legend("bottomright", legend = leg, pch = 16, col = cols,
-                   cex = legend.cex,
-                   ncol = legend.ncol,
-                   bg = "white")
+                zFac <- grid[[i]]$pred
+                maxcuts = aggregate(prediAll ~ zFac, FUN=max)
+                mincuts = aggregate(prediAll ~ zFac, FUN=min)
+                mm = mean(prediAll)
+                ml = signif(mincuts[,2]/mm,3)
+                ml[1] = 0
+                leg = paste0("[",ml,",",signif(maxcuts[,2]/mm,3),"]")
+                legend("bottomright", legend = leg, pch = 16, col = cols,
+                       cex = legend.cex,
+                       ncol = legend.ncol,
+                       bg = "white")
             }
         }
         box(lwd = 1.5)
     }
     if(is.null(xlab)){
-        mtext("Latitude", 2, 3, outer = TRUE)
+        if (use.x.y) {
+            mtext("Northing [m]", 2, 3, outer = TRUE)
+        } else {
+            mtext("Latitude", 2, 3, outer = TRUE)
+        }
     }else{
         mtext(xlab, 2, 3, outer = TRUE)
     }
     if(is.null(ylab)){
-        mtext("Longitude", 1, 3, outer = TRUE)
+        if (use.x.y) {
+            mtext("Easting [m]", 1, 3, outer = TRUE)
+        } else {
+            mtext("Longitude", 1, 3, outer = TRUE)
+        }
     }else{
         mtext(ylab, 1, 3, outer = TRUE)
     }
@@ -713,128 +750,128 @@ plotfishdish.dist <- function(fit, mod = NULL, year = NULL,
     if(FALSE){
         cex <- 1
 
-    nmods <- length(fit$fit)
-    if(is.null(mod)){
-        if(nmods == 1){
-            mod <- 1
+        nmods <- length(fit$fit)
+        if(is.null(mod)){
+            if(nmods == 1){
+                mod <- 1
+            }else{
+                mod <- 1:nmods
+            }
+        }
+        nmods <- length(fit$fit[mod])
+        pred.by.haul <- fit$pred.by.haul
+
+        if(pred.by.haul){
+            predD <- NULL
+            myids <- fit$grid[[3]]
         }else{
-            mod <- 1:nmods
+            predD <- fit$grid
+            myids <- NULL
         }
-    }
-    nmods <- length(fit$fit[mod])
-    pred.by.haul <- fit$pred.by.haul
-
-    if(pred.by.haul){
-        predD <- NULL
-        myids <- fit$grid[[3]]
-    }else{
-        predD <- fit$grid
-        myids <- NULL
-    }
 
 
-    if(nmods >= 19){
-        mfrow = c(4,ceiling(nmods/4))
-    }else if(nmods >= 9){
-        mfrow = c(3,ceiling(nmods/3))
-    }else if(nmods < 9 & nmods >= 4){
-        mfrow = c(2,ceiling(nmods/2))
-    }else if(nmods < 4){
-        mfrow = c(1,nmods)
-    }
-    if(nmods > 1){
-        lt <- layout(matrix(c(1:(mfrow[1]*mfrow[2]),rep(mfrow[1]*mfrow[2]+1,3)),
-                            mfrow[1]+1,mfrow[2],byrow = TRUE), heights = c(rep(1,mfrow[1]),0.2))
-        par(mar = c(1,1,2,1), oma = c(4,3,2,1))
-    }
-
-
-
-    for(i in mod){
-
-        x <- fit$fit[[i]]
-        dat <- fit$data
-        cols=1
-        alt.idx=NULL
-        myids = myids
-        predD = predD
-        par=NULL
-        legend=TRUE
-        map.cex = cex
-        main = paste0("Model ",i)
-        colors=rev(heat.colors(8))
-        select="map"
-        plotByAge=FALSE
-        xlims = range(dat$lon, na.rm = TRUE)
-        ylims = range(dat$lat, na.rm = TRUE)
-        mapvals = NULL
-        year = NULL
-        a = 1
-        if (is.null(predD)) {
-            tmp = subset(dat, haul.id %in% myids)
-        } else {
-            tmp = predD
+        if(nmods >= 19){
+            mfrow = c(4,ceiling(nmods/4))
+        }else if(nmods >= 9){
+            mfrow = c(3,ceiling(nmods/3))
+        }else if(nmods < 9 & nmods >= 4){
+            mfrow = c(2,ceiling(nmods/2))
+        }else if(nmods < 4){
+            mfrow = c(1,nmods)
         }
-        if(!any(names(tmp) == "lat")){
-            tmp <- predD[[1]]
-            warning("Seems that yearly variable grid is used. Using only the grid for the first year!")
-        }
-        if (is.null(year)) {
-            concT = surveyIndex:::concTransform(log(x$gPreds[[a]]))
-            mapvals = x$gPreds[[a]]
-        } else {
-            y = which(as.numeric(as.character(names(x$gPreds2[[a]]))) ==
-                      year)
-            if (length(y) == 0)
-                stop(paste("Year", year, "age group", a, "not found."))
-            concT = surveyIndex:::concTransform(log(x$gPreds2[[a]][[y]]))
-            mapvals = x$gPreds2[[a]][[y]]
-        }
-        if (length(colors) > 1){
-            zFac = cut(concT, 0:length(colors)/length(colors))
-        }else zFac = 1
-        if (length(map.cex) > 1){
-            sFac = cut(log(x$gPreds[[a]]), length(map.cex))
-        }else sFac = 1
-        myCols = colors
-        plot(tmp$lon, y = tmp$lat, col = 1, pch = 1, cex = map.cex[sFac],
-             xlim = xlims, ylim = ylims, xlab = "Longitude",
-             ylab = "Latitude", main = main)
-        points(tmp$lon, y = tmp$lat, col = myCols[zFac],
-               pch = 16, cex = map.cex[sFac])
-        ## ## REMOVE:
-        ## sp:::plot.SpatialPolygons(sandeel_areas, xlim = xlims, ylim = ylims,add=TRUE,
-        ##                           border = rgb(t(col2rgb("grey10"))/255,alpha=0.4))
-        maps::map("world", xlim = xlims, ylim = ylims,
-                  fill = TRUE, plot = TRUE, add = TRUE, col = grey(0.5))
-        ## ## REMOVE:
-        ## sp:::plot.SpatialPolygons(tobisbanker_wgs84, xlim = xlims, ylim = ylims, add=TRUE,
-        ##                           col=rgb(t(col2rgb("darkgoldenrod4"))/255,alpha=0.4),
-        ##                           border=rgb(t(col2rgb("darkgoldenrod4"))/255,alpha=0.4))
-        box(lwd=1.5)
-        if (legend){
-            maxcuts = aggregate(mapvals ~ zFac, FUN=max)
-            mincuts = aggregate(mapvals ~ zFac, FUN=min)
-            mm = mean(mapvals)
-            ml = signif(mincuts[,2]/mm,3)
-            ml[1] = 0
-            leg = paste0("[",ml,",",signif(maxcuts[,2]/mm,3),"]")
-            legend("bottomright", legend = leg, pch = 16, col = colors, bg = "white")
+        if(nmods > 1){
+            lt <- layout(matrix(c(1:(mfrow[1]*mfrow[2]),rep(mfrow[1]*mfrow[2]+1,3)),
+                                mfrow[1]+1,mfrow[2],byrow = TRUE), heights = c(rep(1,mfrow[1]),0.2))
+            par(mar = c(1,1,2,1), oma = c(4,3,2,1))
         }
 
 
 
-    }
+        for(i in mod){
 
-    ## surveyIndex::surveyIdxPlots(fit$fit[[i]], fit$data,
-    ##                             cols=1, alt.idx=NULL,
-    ##                             myids = myids, predD = predD,
-    ##                             par=NULL,legend=FALSE,
-    ##                             map.cex = 1.5, main = paste0("Model ",i),
-    ##                             colors=rev(heat.colors(8)),
+            x <- fit$fit[[i]]
+            dat <- fit$data
+            cols=1
+            alt.idx=NULL
+            myids = myids
+            predD = predD
+            par=NULL
+            legend=TRUE
+            map.cex = cex
+            main = paste0("Model ",i)
+            colors=rev(heat.colors(8))
+            select="map"
+            plotByAge=FALSE
+            xlims = range(dat$lon, na.rm = TRUE)
+            ylims = range(dat$lat, na.rm = TRUE)
+            mapvals = NULL
+            year = NULL
+            a = 1
+            if (is.null(predD)) {
+                tmp = subset(dat, haul.id %in% myids)
+            } else {
+                tmp = predD
+            }
+            if(!any(names(tmp) == "lat")){
+                tmp <- predD[[1]]
+                warning("Seems that yearly variable grid is used. Using only the grid for the first year!")
+            }
+            if (is.null(year)) {
+                concT = surveyIndex:::concTransform(log(x$gPreds[[a]]))
+                mapvals = x$gPreds[[a]]
+            } else {
+                y = which(as.numeric(as.character(names(x$gPreds2[[a]]))) ==
+                          year)
+                if (length(y) == 0)
+                    stop(paste("Year", year, "age group", a, "not found."))
+                concT = surveyIndex:::concTransform(log(x$gPreds2[[a]][[y]]))
+                mapvals = x$gPreds2[[a]][[y]]
+            }
+            if (length(colors) > 1){
+                zFac = cut(concT, 0:length(colors)/length(colors))
+            }else zFac = 1
+            if (length(map.cex) > 1){
+                sFac = cut(log(x$gPreds[[a]]), length(map.cex))
+            }else sFac = 1
+            myCols = colors
+            plot(tmp$lon, y = tmp$lat, col = 1, pch = 1, cex = map.cex[sFac],
+                 xlim = xlims, ylim = ylims, xlab = "Longitude",
+                 ylab = "Latitude", main = main)
+            points(tmp$lon, y = tmp$lat, col = myCols[zFac],
+                   pch = 16, cex = map.cex[sFac])
+            ## ## REMOVE:
+            ## sp:::plot.SpatialPolygons(sandeel_areas, xlim = xlims, ylim = ylims,add=TRUE,
+            ##                           border = rgb(t(col2rgb("grey10"))/255,alpha=0.4))
+            maps::map("world", xlim = xlims, ylim = ylims,
+                      fill = TRUE, plot = TRUE, add = TRUE, col = grey(0.5))
+            ## ## REMOVE:
+            ## sp:::plot.SpatialPolygons(tobisbanker_wgs84, xlim = xlims, ylim = ylims, add=TRUE,
+            ##                           col=rgb(t(col2rgb("darkgoldenrod4"))/255,alpha=0.4),
+            ##                           border=rgb(t(col2rgb("darkgoldenrod4"))/255,alpha=0.4))
+            box(lwd=1.5)
+            if (legend){
+                maxcuts = aggregate(mapvals ~ zFac, FUN=max)
+                mincuts = aggregate(mapvals ~ zFac, FUN=min)
+                mm = mean(mapvals)
+                ml = signif(mincuts[,2]/mm,3)
+                ml[1] = 0
+                leg = paste0("[",ml,",",signif(maxcuts[,2]/mm,3),"]")
+                legend("bottomright", legend = leg, pch = 16, col = colors, bg = "white")
+            }
+
+
+
+        }
+
+        ## surveyIndex::surveyIdxPlots(fit$fit[[i]], fit$data,
+        ##                             cols=1, alt.idx=NULL,
+        ##                             myids = myids, predD = predD,
+        ##                             par=NULL,legend=FALSE,
+        ##                             map.cex = 1.5, main = paste0("Model ",i),
+        ##                             colors=rev(heat.colors(8)),
         ##                             select="map",plotByAge=FALSE)
 
-        }
+    }
 }
 
 #' @name plotfishdish.dist.cv
@@ -864,8 +901,9 @@ plotfishdish.dist.cv <- function(fit, mod = NULL, year = NULL,
                                  average = FALSE,
                                  mfrow = NULL,
                               legend.cex = 0.6,
-                              legend.ncol = 1
-                                 ){
+                              legend.ncol = 1,
+                              use.x.y = FALSE
+                              ){
 
     xaxt0 <- xaxt
     yaxt0 <- yaxt
@@ -873,6 +911,11 @@ plotfishdish.dist.cv <- function(fit, mod = NULL, year = NULL,
     ## TODO: not ideal fit$grid might be a list!
     if(is.null(grid.all)){
         grid.all <- fit$grid
+    }
+
+    if (use.x.y) {
+        grid.all$lon <- grid.all$x
+        grid.all$lat <- grid.all$y
     }
 
     if(is.null(year)){
@@ -895,6 +938,13 @@ plotfishdish.dist.cv <- function(fit, mod = NULL, year = NULL,
         grid <- fit$grid[as.character(year)]
     }else{
         grid <- lapply(1:ny, function(x) fit$grid)
+    }
+
+    if (use.x.y) {
+        for(ii in 1:length(grid)) {
+            grid[[ii]]$lon <- grid[[ii]]$x
+            grid[[ii]]$lat <- grid[[ii]]$y
+        }
     }
 
     if(ny > 1 && !average && is.null(mfrow)){
@@ -975,6 +1025,21 @@ plotfishdish.dist.cv <- function(fit, mod = NULL, year = NULL,
     }else{
         obs <- fit$data
     }
+
+    idx <- which(obs$Year %in% year)
+    if(length(idx) > 0) {
+        obs <- obs[idx,]
+    }
+
+
+    if(use.x.y) {
+        pts <- sf::st_as_sf(obs, coords = c("lon", "lat"), crs = 4326)
+        pts_3035 <- sf::st_transform(pts, sf::st_crs(3035))
+        coords <- sf::st_coordinates(pts_3035)
+        obs$lon <- coords[,"X"]
+        obs$lat <- coords[,"Y"]
+    }
+
     for(i in 1:nyx){
         if(!fixed.scale){
             predi <- pred[[i]][,1]
@@ -1005,10 +1070,24 @@ plotfishdish.dist.cv <- function(fit, mod = NULL, year = NULL,
         image(as.numeric(rownames(tmp)), as.numeric(colnames(tmp)), tmp,
               add = TRUE,
               xlab = "", ylab = "", col = cols, breaks = seq(0.5,length(cols)+0.5,1))
-        maps::map("world", xlim = xlimi,
-                  ylim = ylimi,
-                  fill = TRUE, plot = TRUE, add = TRUE,
-                  col = grey(0.95), border = grey(0.8))
+        if(use.x.y) {
+            world <- rnaturalearth::ne_countries(scale = "medium",
+                                                 returnclass = "sf")
+            world_ae <- sf::st_transform(world, sf::st_crs(3035))
+
+            plot(sf::st_geometry(world_ae),
+                 col = gray(0.95), border = gray(0.8),
+                 xlim = xlimi,
+                 ylim = ylimi,
+                 add = TRUE,
+                 axes = FALSE)
+        } else {
+            maps::map("world",
+                      xlim = xlimi,
+                      ylim = ylimi,
+                      fill = TRUE, plot = TRUE, add = TRUE,
+                      col = grey(0.95), border = grey(0.8))
+        }
         ind <- which(as.character(obs$Year) == year[i])
         if(plot.obs %in% c(1,2)){
             points(obs$lon[ind], obs$lat[ind], col = rgb(t(col2rgb("black"))/255,alpha = 1),
@@ -1020,6 +1099,13 @@ plotfishdish.dist.cv <- function(fit, mod = NULL, year = NULL,
             }else{
                 ind <- which(as.character(obs$Year) == year[i])
             }
+            if(use.x.y) {
+                pts <- sf::st_as_sf(obs, coords = c("lon", "lat"), crs = 4326)
+                pts_3035 <- sf::st_transform(pts, sf::st_crs(3035))
+                coords <- sf::st_coordinates(pts_3035)
+                obs$lon <- coords[,"X"]
+                obs$lat <- coords[,"Y"]
+            }
             ## if(year[i] == 2004) browser()
             cexi <- obs$N[ind] / max(obs$N, na.rm = TRUE) * 2
             rangi <- c(0.5, 3)
@@ -1028,7 +1114,7 @@ plotfishdish.dist.cv <- function(fit, mod = NULL, year = NULL,
                 (rangi[2] - rangi[1]) + rangi[1]
             ## cexi[is.nan(cexi)] <- rangi[1]
             points(obs$lon[ind], obs$lat[ind],
-                   col = rgb(t(col2rgb("black"))/255,alpha = 1),
+                   col = rgb(t(col2rgb("gray40"))/255,alpha = 1),
                    pch = 1, cex = cexi)
         }
         if(is.null(title)){
@@ -1042,7 +1128,7 @@ plotfishdish.dist.cv <- function(fit, mod = NULL, year = NULL,
         }
         ## mtext(title, 3, 0.3, font = 2, cex = 0.8)
         if(is.null(breaks) && ((legend && fixed.scale && i == ny) ||
-                                legend && !fixed.scale)){
+                               legend && !fixed.scale)){
             maxcuts = aggregate(predi ~ zFac, FUN=max)
             mincuts = aggregate(predi ~ zFac, FUN=min)
             mm = mean(predi)
@@ -1055,7 +1141,7 @@ plotfishdish.dist.cv <- function(fit, mod = NULL, year = NULL,
                    ncol = legend.ncol)
         }
         if(!is.null(breaks) &&
-            ((legend && fixed.scale && i == ny) || legend && !fixed.scale)){
+           ((legend && fixed.scale && i == ny) || legend && !fixed.scale)){
             legend("bottomright", legend = levels(zFac), pch = 16,
                    col = cols, bg = "white",
                    cex = legend.cex,
@@ -1064,16 +1150,24 @@ plotfishdish.dist.cv <- function(fit, mod = NULL, year = NULL,
         box(lwd = 1.5)
     }
 
-    if(is.null(xlab)){
-        mtext("Latitude", 2, 3, outer = TRUE)
-    }else{
-        mtext(xlab, 2, 3, outer = TRUE)
-    }
-    if(is.null(ylab)){
-        mtext("Longitude", 1, 3, outer = TRUE)
-    }else{
-        mtext(ylab, 1, 3, outer = TRUE)
-    }
+        if(is.null(xlab)){
+            if (use.x.y) {
+                mtext("Northing [m]", 2, 3, outer = TRUE)
+            } else {
+                mtext("Latitude", 2, 3, outer = TRUE)
+            }
+        }else{
+            mtext(xlab, 2, 3, outer = TRUE)
+        }
+        if(is.null(ylab)){
+            if (use.x.y) {
+                mtext("Easting [m]", 1, 3, outer = TRUE)
+            } else {
+                mtext("Longitude", 1, 3, outer = TRUE)
+            }
+        }else{
+            mtext(ylab, 1, 3, outer = TRUE)
+        }
 }
 
 
